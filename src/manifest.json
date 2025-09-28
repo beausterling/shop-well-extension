@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Shop Well",
+  "version": "0.1.0",
+  "description": "Wellness-friendly shopping assistant for chronic conditions",
+  "permissions": ["storage", "scripting", "activeTab"],
+  "host_permissions": [
+    "*://www.amazon.com/*",
+    "*://www.walmart.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [{
+    "matches": ["*://www.amazon.com/*", "*://www.walmart.com/*"],
+    "js": ["content/content.js"],
+    "css": ["content/ui/panel.css"],
+    "run_at": "document_idle",
+    "type": "module"
+  }],
+  "options_page": "options/index.html",
+  "icons": {
+    "128": "assets/icon128.png"
+  },
+  "commands": {
+    "toggle-panel": {
+      "suggested_key": {"default": "Alt+W"},
+      "description": "Toggle Shop Well panel"
+    }
+  }
+}

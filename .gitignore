@@ -1,0 +1,32 @@
+# Build output
+dist/
+
+# Node modules (if we add them later)
+node_modules/
+
+# macOS
+.DS_Store
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp
+
+# Logs
+*.log
+
+# Chrome extension development
+*.pem
+*.crx
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
