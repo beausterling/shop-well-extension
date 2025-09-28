@@ -10,18 +10,32 @@ chrome.commands.onCommand.addListener((command) => {
 });
 
 // Handle extension installation
-chrome.runtime.onInstalled.addListener((details) => {
+chrome.runtime.onInstalled.addListener(async (details) => {
   if (details.reason === 'install') {
     // Set default settings
-    chrome.storage.local.set({
+    await chrome.storage.local.set({
       condition: 'POTS',
-      autoshow: true
+      autoshow: true,
+      allergies: [],
+      customAllergies: [],
+      customCondition: '',
+      welcomeCompleted: false
     });
 
-    // Open options page on first install
+    // Open welcome page on first install
     chrome.tabs.create({
-      url: chrome.runtime.getURL('options/index.html')
+      url: chrome.runtime.getURL('welcome/index.html')
     });
+  } else if (details.reason === 'update') {
+    // Check if user has completed welcome flow
+    const { welcomeCompleted } = await chrome.storage.local.get(['welcomeCompleted']);
+
+    if (!welcomeCompleted) {
+      // Show welcome page for users who installed before welcome flow
+      chrome.tabs.create({
+        url: chrome.runtime.getURL('welcome/index.html')
+      });
+    }
   }
 });
 

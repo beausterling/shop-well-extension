@@ -24,7 +24,10 @@
   },
   "commands": {
     "toggle-panel": {
-      "suggested_key": {"default": "Alt+W"},
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
       "description": "Toggle Shop Well panel"
     }
   }

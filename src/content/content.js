@@ -5,6 +5,7 @@ import { WalmartParser } from './parsers/walmart.js';
 import { checkAIAvailability, logAICapabilities, canUseAIAnalysis } from './ai/detector.js';
 import { summarizeProduct, createFallbackFacts } from './ai/summarize.js';
 import { generateVerdict, createFallbackVerdict } from './ai/prompt.js';
+import { ShopWellPanel } from './ui/panel.js';
 
 // Main application class
 class ShopWellApp {
@@ -73,9 +74,21 @@ class ShopWellApp {
   }
 
   async initializePanel() {
-    // Placeholder for panel initialization
-    // Will be implemented in Phase 3
-    console.log('Shop Well: Panel initialization placeholder');
+    console.log('Shop Well: Initializing UI panel...');
+
+    try {
+      this.panel = new ShopWellPanel();
+      this.panel.create();
+
+      // Listen for retry events from the panel
+      window.addEventListener('shop-well-retry', () => {
+        this.analyzeAndShow();
+      });
+
+      console.log('Shop Well: Panel initialized successfully');
+    } catch (error) {
+      console.error('Shop Well: Panel initialization failed:', error);
+    }
   }
 
   async analyzeAndShow() {
@@ -84,12 +97,20 @@ class ShopWellApp {
     this.isAnalyzing = true;
     console.log('Shop Well: Starting product analysis...');
 
+    // Show loading state in panel
+    if (this.panel) {
+      this.panel.showLoading();
+    }
+
     try {
       // Parse product data
       const productData = this.parser.parse();
 
       if (!productData) {
         console.warn('Shop Well: Failed to parse product data');
+        if (this.panel) {
+          this.panel.showError('Unable to analyze this product page. Make sure you\'re on a supported product page.');
+        }
         return;
       }
 
@@ -142,6 +163,23 @@ class ShopWellApp {
       // Step 3: Display results
       this.displayAnalysisResults(productData, facts, verdict, actualCondition);
 
+      // Step 4: Show results in panel
+      if (this.panel) {
+        // Check if AI is available to show setup or analysis
+        if (!canUseAIAnalysis(this.aiCapabilities)) {
+          this.panel.showSetup();
+        } else {
+          // Prepare analysis data for panel
+          const analysisData = {
+            ...verdict,
+            condition: actualCondition,
+            allergen_warnings: facts.allergen_warnings || [],
+            confidence: facts.confidence || 'medium'
+          };
+          this.panel.showAnalysis(analysisData);
+        }
+      }
+
       // Legacy allergen check (will be replaced by AI analysis)
       if (productData.ingredients && allAllergies.length > 0) {
         this.checkBasicAllergens(productData.ingredients, allAllergies);
@@ -149,6 +187,9 @@ class ShopWellApp {
 
     } catch (error) {
       console.error('Shop Well analysis failed:', error);
+      if (this.panel) {
+        this.panel.showError('Analysis failed. Please try again or check your Chrome AI settings.');
+      }
     } finally {
       this.isAnalyzing = false;
     }
@@ -240,12 +281,19 @@ class ShopWellApp {
   async togglePanel() {
     console.log('Shop Well: Toggle panel requested');
 
+    // Initialize panel if it doesn't exist
     if (!this.panel) {
-      await this.analyzeAndShow();
+      await this.initializePanel();
     }
 
-    // Toggle logic will be implemented in Phase 3
-    console.log('Shop Well: Panel toggle placeholder');
+    // If panel is visible, hide it
+    if (this.panel && this.panel.isVisible) {
+      this.panel.hide();
+      return;
+    }
+
+    // If panel is not visible, analyze and show
+    await this.analyzeAndShow();
   }
 
   setupEventListeners() {

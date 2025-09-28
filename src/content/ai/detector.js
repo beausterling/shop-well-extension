@@ -16,7 +16,7 @@ export async function checkAIAvailability() {
   try {
     // Check if window.ai exists
     if (!window.ai) {
-      result.error = 'Chrome Built-in AI not available. Requires Chrome 128+ with AI flags enabled.';
+      result.error = 'Chrome Built-in AI not available. Please enable the Chrome AI flags and restart Chrome completely (Cmd+Q on Mac). Chrome may need a few minutes to download AI models after restart.';
       return result;
     }
 
@@ -48,11 +48,11 @@ export async function checkAIAvailability() {
 
     // Overall assessment
     if (!result.summarizer && !result.prompt) {
-      result.error = 'Chrome AI APIs are not ready. Please check Chrome flags and try again.';
+      result.error = 'Chrome AI APIs are not ready. Please ensure all three flags are enabled and restart Chrome completely. Wait 2-3 minutes after restart for models to download.';
     } else if (!result.summarizer) {
-      result.error = 'Summarizer API not available. Product analysis will be limited.';
+      result.error = 'Summarizer API not available. Enable the summarization-api-for-gemini-nano flag and restart Chrome.';
     } else if (!result.prompt) {
-      result.error = 'Prompt API not available. Wellness recommendations will be limited.';
+      result.error = 'Prompt API not available. Enable the prompt-api-for-gemini-nano flag and restart Chrome.';
     }
 
   } catch (error) {
@@ -107,9 +107,9 @@ export function getSetupInstructions() {
     steps: [
       'Open Chrome and go to chrome://flags',
       'Search for and enable these flags:',
-      '  • #optimization-guide-on-device-model',
-      '  • #prompt-api-for-gemini-nano',
-      '  • #summarization-api-for-gemini-nano',
+      '  • optimization-guide-on-device-model',
+      '  • prompt-api-for-gemini-nano',
+      '  • summarization-api-for-gemini-nano',
       'Restart Chrome',
       'Refresh this page and Shop Well will detect the AI features'
     ],

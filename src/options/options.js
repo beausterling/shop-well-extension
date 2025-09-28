@@ -1,5 +1,178 @@
 // Shop Well Options Page JavaScript
 
+// AI Detection and Setup Helper
+async function checkAIAvailability() {
+  const result = {
+    available: false,
+    summarizer: false,
+    prompt: false,
+    error: null,
+    details: {}
+  };
+
+  try {
+    // Check if window.ai exists
+    if (!window.ai) {
+      result.error = 'Chrome Built-in AI not available. Requires Chrome 128+ with AI flags enabled.';
+      return result;
+    }
+
+    result.available = true;
+
+    // Check Summarizer API with timeout
+    if (window.ai.summarizer) {
+      try {
+        const summarizerCapabilities = await Promise.race([
+          window.ai.summarizer.capabilities(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]);
+        result.summarizer = summarizerCapabilities.available === 'readily';
+        result.details.summarizer = summarizerCapabilities;
+      } catch (error) {
+        console.warn('Shop Well Options: Summarizer capabilities check failed:', error);
+        result.details.summarizerError = error.message;
+        if (error.message === 'Timeout') {
+          result.details.summarizerError = 'Chrome AI is still downloading models. Please wait a few minutes and try again.';
+        }
+      }
+    }
+
+    // Check Prompt API (Language Model) with timeout
+    if (window.ai.languageModel) {
+      try {
+        const promptCapabilities = await Promise.race([
+          window.ai.languageModel.capabilities(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]);
+        result.prompt = promptCapabilities.available === 'readily';
+        result.details.prompt = promptCapabilities;
+      } catch (error) {
+        console.warn('Shop Well Options: Prompt API capabilities check failed:', error);
+        result.details.promptError = error.message;
+        if (error.message === 'Timeout') {
+          result.details.promptError = 'Chrome AI is still downloading models. Please wait a few minutes and try again.';
+        }
+      }
+    }
+
+    // Overall assessment
+    if (!result.summarizer && !result.prompt) {
+      result.error = 'Chrome AI APIs are not ready. Please check Chrome flags and try again.';
+    } else if (!result.summarizer) {
+      result.error = 'Summarizer API not available. Product analysis will be limited.';
+    } else if (!result.prompt) {
+      result.error = 'Prompt API not available. Wellness recommendations will be limited.';
+    }
+
+  } catch (error) {
+    result.error = `AI detection failed: ${error.message}`;
+    console.error('Shop Well Options: AI detection error:', error);
+  }
+
+  return result;
+}
+
+async function updateAIStatus() {
+  console.log('Shop Well Options: updateAIStatus() called');
+  console.log('Shop Well Options: Checking AI status...');
+
+  // Show loading state
+  hideAllAIStatus();
+  const loadingElement = document.getElementById('ai-status-loading');
+  if (loadingElement) {
+    loadingElement.classList.remove('hidden');
+    console.log('Shop Well Options: Showing loading state');
+  } else {
+    console.error('Shop Well Options: Could not find ai-status-loading element');
+  }
+
+  try {
+    const aiStatus = await checkAIAvailability();
+    console.log('Shop Well Options: AI Status Result:', aiStatus);
+
+    // Hide loading
+    document.getElementById('ai-status-loading').classList.add('hidden');
+
+    if (!aiStatus.available) {
+      // Chrome AI not available at all
+      document.getElementById('ai-status-unavailable').classList.remove('hidden');
+      document.getElementById('ai-error-message').textContent = aiStatus.error;
+    } else if (aiStatus.summarizer && aiStatus.prompt) {
+      // All AI features available
+      document.getElementById('ai-status-available').classList.remove('hidden');
+      updateFeatureBadges(aiStatus);
+    } else {
+      // Partial AI availability - show setup
+      document.getElementById('ai-status-setup').classList.remove('hidden');
+    }
+  } catch (error) {
+    console.error('Shop Well Options: AI status check failed:', error);
+    document.getElementById('ai-status-loading').classList.add('hidden');
+    document.getElementById('ai-status-unavailable').classList.remove('hidden');
+    document.getElementById('ai-error-message').textContent = 'Failed to check AI status. Please try again.';
+  }
+}
+
+function updateFeatureBadges(aiStatus) {
+  const summarizerBadge = document.getElementById('summarizer-status');
+  const promptBadge = document.getElementById('prompt-status');
+
+  if (aiStatus.summarizer) {
+    summarizerBadge.textContent = 'Summarizer: Ready ✓';
+    summarizerBadge.className = 'feature-badge ready';
+  } else {
+    summarizerBadge.textContent = 'Summarizer: Not Ready';
+    summarizerBadge.className = 'feature-badge not-ready';
+  }
+
+  if (aiStatus.prompt) {
+    promptBadge.textContent = 'Prompt API: Ready ✓';
+    promptBadge.className = 'feature-badge ready';
+  } else {
+    promptBadge.textContent = 'Prompt API: Not Ready';
+    promptBadge.className = 'feature-badge not-ready';
+  }
+}
+
+function hideAllAIStatus() {
+  const statusElements = [
+    'ai-status-loading',
+    'ai-status-available',
+    'ai-status-setup',
+    'ai-status-unavailable'
+  ];
+
+  statusElements.forEach(id => {
+    document.getElementById(id).classList.add('hidden');
+  });
+}
+
+function setupCopyButtons() {
+  document.querySelectorAll('.copy-button').forEach(button => {
+    button.addEventListener('click', async (e) => {
+      const textToCopy = e.target.dataset.text;
+
+      try {
+        await navigator.clipboard.writeText(textToCopy);
+
+        // Visual feedback
+        const originalText = e.target.textContent;
+        e.target.textContent = '✓ Copied!';
+        e.target.classList.add('copied');
+
+        setTimeout(() => {
+          e.target.textContent = originalText;
+          e.target.classList.remove('copied');
+        }, 2000);
+
+      } catch (error) {
+        console.error('Failed to copy text:', error);
+        showStatus('Failed to copy text', 'error');
+      }
+    });
+  });
+}
+
 async function loadSettings() {
   try {
     const settings = await chrome.storage.local.get([
@@ -186,8 +359,36 @@ function displayCustomAllergies(customAllergies) {
 document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
 
+  // Initialize AI status check
+  updateAIStatus();
+
+  // Setup copy buttons for Chrome flags
+  setupCopyButtons();
+
   document.getElementById('save').addEventListener('click', saveSettings);
   document.getElementById('clear').addEventListener('click', clearData);
+
+  // AI status recheck buttons with error handling
+  const recheckBtn = document.getElementById('recheck-ai');
+  const recheckErrorBtn = document.getElementById('recheck-ai-error');
+
+  if (recheckBtn) {
+    recheckBtn.addEventListener('click', () => {
+      console.log('Shop Well Options: Recheck AI button clicked');
+      updateAIStatus();
+    });
+  } else {
+    console.warn('Shop Well Options: recheck-ai button not found');
+  }
+
+  if (recheckErrorBtn) {
+    recheckErrorBtn.addEventListener('click', () => {
+      console.log('Shop Well Options: Recheck AI error button clicked');
+      updateAIStatus();
+    });
+  } else {
+    console.warn('Shop Well Options: recheck-ai-error button not found');
+  }
 
   // Condition dropdown change handler
   document.getElementById('condition').addEventListener('change', (e) => {
