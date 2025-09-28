@@ -127,6 +127,68 @@
       margin: 0 0 10px 0;
       font-size: 16px;
     }
+
+    .custom-input-group {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .custom-input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .add-button {
+      padding: 8px 12px;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .add-button:hover {
+      background: #218838;
+    }
+
+    .custom-allergen-list {
+      margin-top: 15px;
+    }
+
+    .custom-allergen-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      margin-bottom: 5px;
+    }
+
+    .remove-button {
+      background: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .remove-button:hover {
+      background: #c82333;
+    }
+
+    .hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -139,12 +201,19 @@
     </div>
 
     <div class="form-group">
-      <label for="condition">Select your condition:</label>
+      <label for="condition">Select your health condition:</label>
       <select id="condition">
         <option value="POTS">POTS (Postural Orthostatic Tachycardia Syndrome)</option>
         <option value="ME/CFS">ME/CFS (Myalgic Encephalomyelitis/Chronic Fatigue Syndrome)</option>
         <option value="Celiac Disease">Celiac Disease</option>
+        <option value="custom">Other (specify below)</option>
       </select>
+
+      <div id="custom-condition-group" class="custom-input-group hidden">
+        <input type="text" id="custom-condition" class="custom-input"
+               placeholder="Enter your condition (e.g., IBS, Fibromyalgia, Diabetes)"
+               maxlength="100">
+      </div>
     </div>
 
     <div class="form-group">
@@ -189,6 +258,18 @@
           <input type="checkbox" id="allergy-sesame" value="sesame">
           <label for="allergy-sesame">Sesame</label>
         </div>
+      </div>
+
+      <div class="form-group">
+        <label>Add Custom Allergens:</label>
+        <div class="custom-input-group">
+          <input type="text" id="custom-allergen-input" class="custom-input"
+                 placeholder="Enter allergen (e.g., coconut, sulfites, corn)"
+                 maxlength="50">
+          <button type="button" id="add-allergen" class="add-button">Add</button>
+        </div>
+
+        <div id="custom-allergen-list" class="custom-allergen-list"></div>
       </div>
     </div>
 

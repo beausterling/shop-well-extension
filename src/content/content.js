@@ -2,6 +2,9 @@
 
 import { AmazonParser } from './parsers/amazon.js';
 import { WalmartParser } from './parsers/walmart.js';
+import { checkAIAvailability, logAICapabilities, canUseAIAnalysis } from './ai/detector.js';
+import { summarizeProduct, createFallbackFacts } from './ai/summarize.js';
+import { generateVerdict, createFallbackVerdict } from './ai/prompt.js';
 
 // Main application class
 class ShopWellApp {
@@ -10,17 +13,26 @@ class ShopWellApp {
     this.parser = null;
     this.settings = {};
     this.isAnalyzing = false;
+    this.aiCapabilities = null;
   }
 
   async init() {
     console.log('Shop Well initializing...');
 
     try {
-      // Load user settings including allergies
-      this.settings = await chrome.storage.local.get(['condition', 'autoshow', 'allergies']);
+      // Load user settings including custom conditions and allergies
+      this.settings = await chrome.storage.local.get([
+        'condition', 'customCondition', 'autoshow', 'allergies', 'customAllergies'
+      ]);
       this.settings.condition = this.settings.condition || 'POTS';
+      this.settings.customCondition = this.settings.customCondition || '';
       this.settings.autoshow = this.settings.autoshow !== false;
       this.settings.allergies = this.settings.allergies || [];
+      this.settings.customAllergies = this.settings.customAllergies || [];
+
+      // Check AI capabilities
+      this.aiCapabilities = await checkAIAvailability();
+      logAICapabilities(this.aiCapabilities);
 
       // Detect current site and check if it's a product page
       if (!this.detectSiteAndParser()) {
@@ -82,28 +94,57 @@ class ShopWellApp {
       }
 
       console.log('Shop Well: Product data parsed successfully');
-      console.log('Shop Well: Settings:', {
-        condition: this.settings.condition,
-        allergies: this.settings.allergies,
-        allergyCount: this.settings.allergies.length
+
+      // Get all allergies (preset + custom)
+      const allAllergies = [...this.settings.allergies, ...this.settings.customAllergies];
+
+      // Get actual condition name
+      const actualCondition = this.settings.condition === 'custom'
+        ? this.settings.customCondition
+        : this.settings.condition;
+
+      console.log('Shop Well: Analysis settings:', {
+        condition: actualCondition,
+        isCustom: this.settings.condition === 'custom',
+        allergies: allAllergies,
+        aiAvailable: canUseAIAnalysis(this.aiCapabilities)
       });
 
-      // Log what we extracted for debugging
-      console.log('Shop Well: Extracted data summary:', {
-        title: !!productData.title,
-        bulletCount: productData.bullets?.length || 0,
-        hasDescription: !!productData.description,
-        hasIngredients: !!productData.ingredients,
-        hasPrice: !!productData.price,
-        reviewCount: productData.reviews?.length || 0
-      });
+      // Step 1: Extract structured facts
+      let facts;
+      if (canUseAIAnalysis(this.aiCapabilities) && this.aiCapabilities.summarizer) {
+        console.log('Shop Well: Using AI for fact extraction...');
+        facts = await summarizeProduct(productData);
+      }
 
-      // Phase 2 placeholder: AI analysis will happen here
-      console.log('Shop Well: AI analysis will be implemented in Phase 2');
+      if (!facts) {
+        console.log('Shop Well: Using fallback fact extraction...');
+        facts = createFallbackFacts(productData);
+      }
 
-      // For now, check for obvious allergens in ingredients
-      if (productData.ingredients && this.settings.allergies.length > 0) {
-        this.checkBasicAllergens(productData.ingredients);
+      // Step 2: Generate wellness verdict
+      let verdict;
+      if (canUseAIAnalysis(this.aiCapabilities) && this.aiCapabilities.prompt) {
+        console.log('Shop Well: Using AI for verdict generation...');
+        verdict = await generateVerdict(
+          facts,
+          this.settings.condition,
+          allAllergies,
+          this.settings.customCondition
+        );
+      }
+
+      if (!verdict) {
+        console.log('Shop Well: Using fallback verdict generation...');
+        verdict = createFallbackVerdict(facts, allAllergies);
+      }
+
+      // Step 3: Display results
+      this.displayAnalysisResults(productData, facts, verdict, actualCondition);
+
+      // Legacy allergen check (will be replaced by AI analysis)
+      if (productData.ingredients && allAllergies.length > 0) {
+        this.checkBasicAllergens(productData.ingredients, allAllergies);
       }
 
     } catch (error) {
@@ -114,14 +155,59 @@ class ShopWellApp {
   }
 
   /**
-   * Basic allergen checking (will be enhanced with AI in Phase 2)
-   * @param {string} ingredients
+   * Display comprehensive analysis results
    */
-  checkBasicAllergens(ingredients) {
+  displayAnalysisResults(productData, facts, verdict, condition) {
+    console.log('='.repeat(50));
+    console.log('🛍️ SHOP WELL ANALYSIS RESULTS');
+    console.log('='.repeat(50));
+
+    console.log('📋 Product:', productData.title);
+    console.log('🏥 Condition:', condition);
+    console.log('🔬 AI Enhanced:', canUseAIAnalysis(this.aiCapabilities));
+
+    console.log('\n📊 EXTRACTED FACTS:');
+    Object.entries(facts).forEach(([key, value]) => {
+      if (key !== 'summary_text' && value !== false && value !== null && value !== '') {
+        console.log(`  • ${key}: ${Array.isArray(value) ? value.join(', ') : value}`);
+      }
+    });
+
+    console.log('\n🎯 WELLNESS VERDICT:');
+    const verdictEmoji = {
+      'helpful': '✅',
+      'mixed': '⚠️',
+      'not_ideal': '❌'
+    };
+
+    console.log(`  ${verdictEmoji[verdict.verdict]} ${verdict.verdict.toUpperCase()}`);
+
+    console.log('\n💡 KEY INSIGHTS:');
+    verdict.bullets.forEach((bullet, index) => {
+      console.log(`  ${index + 1}. ${bullet}`);
+    });
+
+    console.log('\n⚠️ IMPORTANT CAVEAT:');
+    console.log(`  ${verdict.caveat}`);
+
+    if (verdict.allergen_alert) {
+      console.log('\n🚨 ALLERGEN ALERT: This product may contain allergens you specified!');
+    }
+
+    console.log('\n💬 DISCLAIMER: This is informational guidance only, not medical advice.');
+    console.log('='.repeat(50));
+  }
+
+  /**
+   * Basic allergen checking (legacy - enhanced AI analysis above)
+   * @param {string} ingredients
+   * @param {Array} allergies
+   */
+  checkBasicAllergens(ingredients, allergies) {
     const foundAllergens = [];
     const ingredientsLower = ingredients.toLowerCase();
 
-    for (const allergen of this.settings.allergies) {
+    for (const allergen of allergies) {
       const allergenPatterns = {
         'peanuts': ['peanut', 'groundnut'],
         'tree-nuts': ['almond', 'walnut', 'pecan', 'cashew', 'hazelnut', 'pistachio', 'macadamia'],
@@ -134,7 +220,7 @@ class ShopWellApp {
         'sesame': ['sesame', 'tahini']
       };
 
-      const patterns = allergenPatterns[allergen] || [allergen];
+      const patterns = allergenPatterns[allergen] || [allergen.toLowerCase()];
       for (const pattern of patterns) {
         if (ingredientsLower.includes(pattern)) {
           foundAllergens.push(allergen);
@@ -144,10 +230,10 @@ class ShopWellApp {
     }
 
     if (foundAllergens.length > 0) {
-      console.warn('Shop Well: ALLERGEN ALERT! Found:', foundAllergens);
-      console.warn('Shop Well: Please verify ingredients manually');
-    } else if (this.settings.allergies.length > 0) {
-      console.log('Shop Well: No obvious allergens detected (basic check)');
+      console.warn('Shop Well: LEGACY ALLERGEN CHECK - Found:', foundAllergens);
+      console.warn('Shop Well: Note: Enhanced AI analysis above provides more accurate results');
+    } else if (allergies.length > 0) {
+      console.log('Shop Well: Legacy check - No obvious allergens detected');
     }
   }
 
