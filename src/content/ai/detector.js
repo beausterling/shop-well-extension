@@ -14,45 +14,65 @@ export async function checkAIAvailability() {
   };
 
   try {
-    // Check if window.ai exists
-    if (!window.ai) {
-      result.error = 'Chrome Built-in AI not available. Please enable the Chrome AI flags and restart Chrome completely (Cmd+Q on Mac). Chrome may need a few minutes to download AI models after restart.';
-      return result;
-    }
-
-    result.available = true;
-
-    // Check Summarizer API
-    if (window.ai.summarizer) {
+    // Check for Prompt API (Language Model) - Official Chrome API
+    if (typeof LanguageModel !== 'undefined') {
       try {
-        const summarizerCapabilities = await window.ai.summarizer.capabilities();
-        result.summarizer = summarizerCapabilities.available === 'readily';
-        result.details.summarizer = summarizerCapabilities;
+        const promptCapabilities = await LanguageModel.availability();
+        result.prompt = promptCapabilities === 'readily';
+        result.details.prompt = { available: promptCapabilities };
+        result.available = true;
+        console.log('Shop Well: LanguageModel found, availability:', promptCapabilities);
       } catch (error) {
-        console.warn('Shop Well: Summarizer capabilities check failed:', error);
-        result.details.summarizerError = error.message;
-      }
-    }
-
-    // Check Prompt API (Language Model)
-    if (window.ai.languageModel) {
-      try {
-        const promptCapabilities = await window.ai.languageModel.capabilities();
-        result.prompt = promptCapabilities.available === 'readily';
-        result.details.prompt = promptCapabilities;
-      } catch (error) {
-        console.warn('Shop Well: Prompt API capabilities check failed:', error);
+        console.warn('Shop Well: LanguageModel availability check failed:', error);
         result.details.promptError = error.message;
       }
     }
 
+    // Check for Summarizer API - Multiple possible locations
+    let summarizerFound = false;
+
+    // Check self.ai.summarizer (newer API)
+    if (self.ai && self.ai.summarizer) {
+      try {
+        const summarizerCapabilities = await self.ai.summarizer.capabilities();
+        result.summarizer = summarizerCapabilities.available === 'readily';
+        result.details.summarizer = summarizerCapabilities;
+        result.available = true;
+        summarizerFound = true;
+        console.log('Shop Well: self.ai.summarizer found, capabilities:', summarizerCapabilities);
+      } catch (error) {
+        console.warn('Shop Well: self.ai.summarizer capabilities check failed:', error);
+        result.details.summarizerError = error.message;
+      }
+    }
+
+    // Fallback: Check window.ai.summarizer (older API)
+    if (!summarizerFound && window.ai && window.ai.summarizer) {
+      try {
+        const summarizerCapabilities = await window.ai.summarizer.capabilities();
+        result.summarizer = summarizerCapabilities.available === 'readily';
+        result.details.summarizer = summarizerCapabilities;
+        result.available = true;
+        console.log('Shop Well: window.ai.summarizer found, capabilities:', summarizerCapabilities);
+      } catch (error) {
+        console.warn('Shop Well: window.ai.summarizer capabilities check failed:', error);
+        result.details.summarizerError = error.message;
+      }
+    }
+
+    // If no APIs are available at all
+    if (!result.available) {
+      result.error = 'Chrome Built-in AI not available. Please enable the Chrome AI flags and restart Chrome completely (Cmd+Q on Mac). Check chrome://on-device-internals for model download status.';
+      return result;
+    }
+
     // Overall assessment
     if (!result.summarizer && !result.prompt) {
-      result.error = 'Chrome AI APIs are not ready. Please ensure all three flags are enabled and restart Chrome completely. Wait 2-3 minutes after restart for models to download.';
+      result.error = 'Chrome AI APIs are not ready. Please ensure all three flags are enabled and restart Chrome completely. Wait 2-3 minutes for models to download. Check chrome://on-device-internals for status.';
     } else if (!result.summarizer) {
-      result.error = 'Summarizer API not available. Enable the summarization-api-for-gemini-nano flag and restart Chrome.';
+      result.error = 'Summarizer API not available. Enable the summarization-api-for-gemini-nano flag and restart Chrome. Models may still be downloading.';
     } else if (!result.prompt) {
-      result.error = 'Prompt API not available. Enable the prompt-api-for-gemini-nano flag and restart Chrome.';
+      result.error = 'Prompt API not available. Enable the prompt-api-for-gemini-nano flag and restart Chrome. Models may still be downloading.';
     }
 
   } catch (error) {
@@ -115,8 +135,10 @@ export function getSetupInstructions() {
     ],
     requirements: [
       'Chrome version 128 or higher',
-      'Sufficient device memory (4GB+ recommended)',
-      'Stable internet connection for initial AI model download'
+      '22 GB of free storage space for AI model download',
+      'GPU with more than 4 GB VRAM',
+      'Unmetered internet connection for model download',
+      'Allow 2-3 minutes after restart for model download'
     ]
   };
 }

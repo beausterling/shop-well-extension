@@ -690,6 +690,52 @@
                 </div>
               </div>
             </div>
+
+            <div class="setup-step">
+              <div class="step-number">5</div>
+              <div class="step-content">
+                <p><strong>Check model download status (if AI still not available):</strong></p>
+
+                <div class="flag-enable-help">
+                  <p><strong>Method 1: Enable Chrome Debug Pages</strong></p>
+                  <ol>
+                    <li>Go to: <code>chrome://chrome-urls/</code></li>
+                    <li>Click "Enable debug pages" button</li>
+                    <li>Then visit: <code>chrome://on-device-internals</code></li>
+                    <li>Check "Model Status" tab for download progress</li>
+                  </ol>
+                </div>
+
+                <div class="flag-enable-help">
+                  <p><strong>Method 2: Quick Console Check</strong></p>
+                  <ol>
+                    <li>Press F12 to open Chrome DevTools</li>
+                    <li>Click "Console" tab</li>
+                    <li>Type: <code>await LanguageModel.availability()</code></li>
+                    <li>Press Enter - should return "readily" when ready</li>
+                  </ol>
+                </div>
+
+                <div class="flag-enable-help">
+                  <p><strong>Method 3: Check Components</strong></p>
+                  <ol>
+                    <li>Visit: <code>chrome://components/</code></li>
+                    <li>Find "Optimization Guide On Device Model"</li>
+                    <li>Check for "Version" and "Updated" status</li>
+                  </ol>
+                </div>
+
+                <div class="restart-note">
+                  <p><strong>Requirements for Chrome AI:</strong></p>
+                  <ul>
+                    <li>22 GB of free storage space for AI model</li>
+                    <li>GPU with more than 4 GB VRAM</li>
+                    <li>Unmetered internet connection for download</li>
+                    <li>Allow 2-3 minutes for model download after restart</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -714,7 +760,7 @@
           </ul>
         </div>
 
-        <a href="options/index.html" class="btn btn-primary">
+        <a href="../options/index.html" class="btn btn-primary">
           ⚙️ Open Settings Page
         </a>
       </div>
@@ -749,7 +795,7 @@
             <div class="feature-icon">⚙️</div>
             <h4>Adjust Settings</h4>
             <p>Update your conditions or allergies anytime</p>
-            <a href="options/index.html" class="demo-link">
+            <a href="../options/index.html" class="demo-link">
               Open Settings →
             </a>
           </div>

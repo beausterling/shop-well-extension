@@ -14,40 +14,19 @@ async function checkAIAvailability() {
   };
 
   try {
-    if (!window.ai) {
-      result.error = 'Chrome Built-in AI not available. Requires Chrome 128+ with AI flags enabled.';
-      return result;
-    }
-
-    result.available = true;
-
-    if (window.ai.summarizer) {
-      try {
-        const summarizerCapabilities = await Promise.race([
-          window.ai.summarizer.capabilities(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-        ]);
-        result.summarizer = summarizerCapabilities.available === 'readily';
-        result.details.summarizer = summarizerCapabilities;
-      } catch (error) {
-        console.warn('Welcome: Summarizer capabilities check failed:', error);
-        result.details.summarizerError = error.message;
-        if (error.message === 'Timeout') {
-          result.details.summarizerError = 'Chrome AI is still downloading models. Please wait a few minutes and try again.';
-        }
-      }
-    }
-
-    if (window.ai.languageModel) {
+    // Check for Prompt API (Language Model) - Official Chrome API
+    if (typeof LanguageModel !== 'undefined') {
       try {
         const promptCapabilities = await Promise.race([
-          window.ai.languageModel.capabilities(),
+          LanguageModel.availability(),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
         ]);
-        result.prompt = promptCapabilities.available === 'readily';
-        result.details.prompt = promptCapabilities;
+        result.prompt = promptCapabilities === 'readily';
+        result.details.prompt = { available: promptCapabilities };
+        result.available = true;
+        console.log('Welcome: LanguageModel found, availability:', promptCapabilities);
       } catch (error) {
-        console.warn('Welcome: Prompt API capabilities check failed:', error);
+        console.warn('Welcome: LanguageModel availability check failed:', error);
         result.details.promptError = error.message;
         if (error.message === 'Timeout') {
           result.details.promptError = 'Chrome AI is still downloading models. Please wait a few minutes and try again.';
@@ -55,8 +34,58 @@ async function checkAIAvailability() {
       }
     }
 
+    // Check for Summarizer API - Multiple possible locations
+    let summarizerFound = false;
+
+    // Check self.ai.summarizer (newer API)
+    if (self.ai && self.ai.summarizer) {
+      try {
+        const summarizerCapabilities = await Promise.race([
+          self.ai.summarizer.capabilities(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]);
+        result.summarizer = summarizerCapabilities.available === 'readily';
+        result.details.summarizer = summarizerCapabilities;
+        result.available = true;
+        summarizerFound = true;
+        console.log('Welcome: self.ai.summarizer found, capabilities:', summarizerCapabilities);
+      } catch (error) {
+        console.warn('Welcome: self.ai.summarizer capabilities check failed:', error);
+        result.details.summarizerError = error.message;
+        if (error.message === 'Timeout') {
+          result.details.summarizerError = 'Chrome AI is still downloading models. Please wait a few minutes and try again.';
+        }
+      }
+    }
+
+    // Fallback: Check window.ai.summarizer (older API)
+    if (!summarizerFound && window.ai && window.ai.summarizer) {
+      try {
+        const summarizerCapabilities = await Promise.race([
+          window.ai.summarizer.capabilities(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]);
+        result.summarizer = summarizerCapabilities.available === 'readily';
+        result.details.summarizer = summarizerCapabilities;
+        result.available = true;
+        console.log('Welcome: window.ai.summarizer found, capabilities:', summarizerCapabilities);
+      } catch (error) {
+        console.warn('Welcome: window.ai.summarizer capabilities check failed:', error);
+        result.details.summarizerError = error.message;
+        if (error.message === 'Timeout') {
+          result.details.summarizerError = 'Chrome AI is still downloading models. Please wait a few minutes and try again.';
+        }
+      }
+    }
+
+    // If no APIs are available at all
+    if (!result.available) {
+      result.error = 'Chrome Built-in AI not available. Requires Chrome 128+ with AI flags enabled. Check chrome://on-device-internals for model download status.';
+      return result;
+    }
+
     if (!result.summarizer && !result.prompt) {
-      result.error = 'Chrome AI APIs are not ready. Please check Chrome flags and try again.';
+      result.error = 'Chrome AI APIs are not ready. Please check Chrome flags and try again. Models may still be downloading.';
     }
 
   } catch (error) {
@@ -263,6 +292,7 @@ async function copyFlagsUrl() {
     }
   }
 }
+
 
 function finishSetup() {
   // Mark setup as completed in storage

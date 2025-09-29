@@ -177,7 +177,7 @@
 - [x] **Data Extraction**: Console logging verification
 - [x] **Allergen Detection**: Basic pattern matching
 - [x] **Settings Persistence**: Option page functionality
-- [x] **Keyboard Shortcuts**: Alt+W trigger response
+- [x] **Keyboard Shortcuts**: Cmd+Shift+S trigger response
 
 ### 🧪 Phase 2+ Testing (PLANNED)
 - [ ] **Chrome AI Availability**: Feature detection on Chrome 128+
@@ -302,7 +302,7 @@
    - Handle loading states and error scenarios
 
 3. **Enhance User Experience**:
-   - Smooth show/hide animations on Alt+W
+   - Smooth show/hide animations on Cmd+Shift+S
    - Accessible design with proper ARIA labels
    - Mobile-responsive layout for different screen sizes
 
