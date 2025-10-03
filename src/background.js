@@ -4,7 +4,44 @@
 chrome.commands.onCommand.addListener((command) => {
   if (command === 'toggle-panel') {
     chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-      chrome.tabs.sendMessage(tabs[0].id, {command: 'toggle-panel'});
+      // Ensure we have an active tab
+      if (!tabs || tabs.length === 0) {
+        console.warn('Shop Well: No active tab found');
+        return;
+      }
+
+      const activeTab = tabs[0];
+
+      // Check if tab is valid and on a supported site
+      if (!activeTab.url || (!activeTab.url.includes('amazon.com') && !activeTab.url.includes('walmart.com'))) {
+        console.log('Shop Well: Not on a supported site');
+        return;
+      }
+
+      // Send message with error handling
+      chrome.tabs.sendMessage(activeTab.id, {command: 'toggle-panel'}, (response) => {
+        // Check for errors
+        if (chrome.runtime.lastError) {
+          console.error('Shop Well: Message failed:', chrome.runtime.lastError.message);
+
+          // Content script might not be loaded yet, try injecting it
+          console.log('Shop Well: Attempting to reinject content script...');
+          chrome.scripting.executeScript({
+            target: { tabId: activeTab.id },
+            files: ['content/content.js']
+          }).then(() => {
+            console.log('Shop Well: Content script reinjected, retrying...');
+            // Retry message after a brief delay
+            setTimeout(() => {
+              chrome.tabs.sendMessage(activeTab.id, {command: 'toggle-panel'});
+            }, 100);
+          }).catch(err => {
+            console.error('Shop Well: Failed to inject content script:', err);
+          });
+        } else {
+          console.log('Shop Well: Message sent successfully', response);
+        }
+      });
     });
   }
 });

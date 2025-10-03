@@ -300,8 +300,18 @@ class ShopWellApp {
     // Listen for messages from background script
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.command === 'toggle-panel') {
-        this.togglePanel();
-        sendResponse({ success: true });
+        // Handle async togglePanel() call
+        this.togglePanel()
+          .then(() => {
+            sendResponse({ success: true });
+          })
+          .catch((error) => {
+            console.error('Shop Well: Toggle panel failed:', error);
+            sendResponse({ success: false, error: error.message });
+          });
+
+        // Return true to indicate we will call sendResponse asynchronously
+        return true;
       }
     });
 
