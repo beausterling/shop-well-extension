@@ -14,14 +14,14 @@ async function checkAIAvailability() {
     // Check for Prompt API (Language Model) - Official Chrome API
     if (typeof LanguageModel !== 'undefined') {
       try {
-        const promptCapabilities = await Promise.race([
-          LanguageModel.availability(),
+        const availability = await Promise.race([
+          LanguageModel.availability({ language: 'en' }),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
         ]);
-        result.prompt = promptCapabilities === 'readily';
-        result.details.prompt = { available: promptCapabilities };
+        result.prompt = availability === 'readily';
+        result.details.prompt = { available: availability };
         result.available = true;
-        console.log('Shop Well Options: LanguageModel found, availability:', promptCapabilities);
+        console.log('Shop Well Options: LanguageModel found, availability:', availability);
       } catch (error) {
         console.warn('Shop Well Options: LanguageModel availability check failed:', error);
         result.details.promptError = error.message;
@@ -31,43 +31,19 @@ async function checkAIAvailability() {
       }
     }
 
-    // Check for Summarizer API - Multiple possible locations
-    let summarizerFound = false;
-
-    // Check self.ai.summarizer (newer API)
-    if (self.ai && self.ai.summarizer) {
+    // Check for Summarizer API - Official Chrome API
+    if (typeof Summarizer !== 'undefined') {
       try {
-        const summarizerCapabilities = await Promise.race([
-          self.ai.summarizer.capabilities(),
+        const availability = await Promise.race([
+          Summarizer.availability({ language: 'en' }),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
         ]);
-        result.summarizer = summarizerCapabilities.available === 'readily';
-        result.details.summarizer = summarizerCapabilities;
+        result.summarizer = availability === 'readily';
+        result.details.summarizer = { available: availability };
         result.available = true;
-        summarizerFound = true;
-        console.log('Shop Well Options: self.ai.summarizer found, capabilities:', summarizerCapabilities);
+        console.log('Shop Well Options: Summarizer found, availability:', availability);
       } catch (error) {
-        console.warn('Shop Well Options: self.ai.summarizer capabilities check failed:', error);
-        result.details.summarizerError = error.message;
-        if (error.message === 'Timeout') {
-          result.details.summarizerError = 'Chrome AI is still downloading models. Please wait a few minutes and try again.';
-        }
-      }
-    }
-
-    // Fallback: Check window.ai.summarizer (older API)
-    if (!summarizerFound && window.ai && window.ai.summarizer) {
-      try {
-        const summarizerCapabilities = await Promise.race([
-          window.ai.summarizer.capabilities(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-        ]);
-        result.summarizer = summarizerCapabilities.available === 'readily';
-        result.details.summarizer = summarizerCapabilities;
-        result.available = true;
-        console.log('Shop Well Options: window.ai.summarizer found, capabilities:', summarizerCapabilities);
-      } catch (error) {
-        console.warn('Shop Well Options: window.ai.summarizer capabilities check failed:', error);
+        console.warn('Shop Well Options: Summarizer availability check failed:', error);
         result.details.summarizerError = error.message;
         if (error.message === 'Timeout') {
           result.details.summarizerError = 'Chrome AI is still downloading models. Please wait a few minutes and try again.';
@@ -202,8 +178,12 @@ function setupCopyButtons() {
 async function loadSettings() {
   try {
     const settings = await chrome.storage.local.get([
-      'condition', 'customCondition', 'autoshow', 'allergies', 'customAllergies'
+      'condition', 'customCondition', 'autoshow', 'allergies', 'customAllergies', 'languagePreference'
     ]);
+
+    // Load language preference
+    const languagePreference = settings.languagePreference || 'auto';
+    document.getElementById('language-preference').value = languagePreference;
 
     // Load condition settings
     const condition = settings.condition || 'POTS';
@@ -239,6 +219,7 @@ async function saveSettings() {
   try {
     const condition = document.getElementById('condition').value;
     const autoshow = document.getElementById('autoshow').checked;
+    const languagePreference = document.getElementById('language-preference').value;
 
     // Get custom condition if applicable
     const customCondition = condition === 'custom'
@@ -264,7 +245,8 @@ async function saveSettings() {
       customCondition,
       autoshow,
       allergies,
-      customAllergies
+      customAllergies,
+      languagePreference
     });
 
     const totalAllergens = allergies.length + customAllergies.length;
@@ -428,6 +410,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Custom condition input handler
   document.getElementById('custom-condition').addEventListener('input', saveSettings);
+
+  // Auto-save when language preference changes
+  document.getElementById('language-preference').addEventListener('change', saveSettings);
 
   // Auto-save when autoshow changes
   document.getElementById('autoshow').addEventListener('change', saveSettings);
