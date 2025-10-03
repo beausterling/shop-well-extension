@@ -283,38 +283,36 @@
 
 ## 🚀 Current Status & Next Steps
 
-### ✅ **Recently Completed (Phase 2)**
+### ✅ **Recently Completed (Phases 0-3)**
 - Chrome Built-in AI fully integrated with Summarizer + Prompt APIs
 - Custom condition and allergen management system
-- Comprehensive console-based analysis output
-- Robust error handling and fallback systems
-- Enhanced options page with intuitive custom inputs
+- Floating overlay panel with dynamic AI verdict display
+- Welcome wizard with 4-step Chrome AI setup guide
+- Enhanced options page with AI status indicators
+- Keyboard shortcuts (Cmd+Shift+S / Ctrl+Shift+S)
 
-### 🎯 **Immediate Next Priority (Phase 3)**
-1. **Update UI Panel Component** (`src/content/ui/panel.js`):
-   - Replace placeholder with dynamic AI verdict display
-   - Show emoji badges, bullets, and caveats from AI analysis
-   - Add allergen alert styling and warnings
+### 🐛 **Current Task: Chrome AI API Debugging**
+**Status**: Fixing Chrome Built-in AI API compatibility errors
 
-2. **Integrate Panel with Content Script**:
-   - Pass AI verdict data to panel.update() method
-   - Connect auto-show logic to AI analysis results
-   - Handle loading states and error scenarios
+**Fixed**:
+- ✅ `.capabilities()` → `.availability()` method migration (5 errors resolved)
 
-3. **Enhance User Experience**:
-   - Smooth show/hide animations on Cmd+Shift+S
-   - Accessible design with proper ARIA labels
-   - Mobile-responsive layout for different screen sizes
+**In Progress** (3 errors remaining):
+- ⚠️ Language parameter errors (2 errors) - added `{ language: 'en' }` to all API calls, testing needed
+- ⚠️ 1 additional error to investigate
 
-### 📋 **Ready for Demo**
-- Extension fully functional with Chrome AI (when available)
-- Works with graceful fallbacks on older Chrome versions
-- Supports any custom health condition and unlimited allergies
-- Comprehensive analysis displayed in browser console
-- Ready for UI panel to make analysis visible to end users
+**Changes Made**:
+- Updated `detector.js`, `welcome.js`, `options.js`: Added language parameter to `.availability()` calls
+- Updated `prompt.js`: Added `language: 'en'` to `LanguageModel.create()`
+- Updated `summarize.js`: Added `{ language: 'en' }` to `Summarizer.create()`
+
+**Next**: Reload extension and verify error resolution, may need to try `outputLanguage` instead of `language` parameter
+
+### 🎯 **Immediate Next Priority (Phase 4)**
+Once API errors resolved: Implement multi-condition intelligence logic
 
 ---
 
-**Last Updated**: Phase 2 Complete - Chrome AI Integration Implemented
+**Last Updated**: Debugging Chrome AI API compatibility - language parameters added
 **Repository**: https://github.com/beausterling/shop-well-extension
 **License**: MIT

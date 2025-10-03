@@ -17,45 +17,27 @@ export async function checkAIAvailability() {
     // Check for Prompt API (Language Model) - Official Chrome API
     if (typeof LanguageModel !== 'undefined') {
       try {
-        const promptCapabilities = await LanguageModel.availability();
-        result.prompt = promptCapabilities === 'readily';
-        result.details.prompt = { available: promptCapabilities };
+        const availability = await LanguageModel.availability({ language: 'en' });
+        result.prompt = availability === 'readily';
+        result.details.prompt = { available: availability };
         result.available = true;
-        console.log('Shop Well: LanguageModel found, availability:', promptCapabilities);
+        console.log('Shop Well: LanguageModel found, availability:', availability);
       } catch (error) {
         console.warn('Shop Well: LanguageModel availability check failed:', error);
         result.details.promptError = error.message;
       }
     }
 
-    // Check for Summarizer API - Multiple possible locations
-    let summarizerFound = false;
-
-    // Check self.ai.summarizer (newer API)
-    if (self.ai && self.ai.summarizer) {
+    // Check for Summarizer API - Official Chrome API
+    if (typeof Summarizer !== 'undefined') {
       try {
-        const summarizerCapabilities = await self.ai.summarizer.capabilities();
-        result.summarizer = summarizerCapabilities.available === 'readily';
-        result.details.summarizer = summarizerCapabilities;
+        const availability = await Summarizer.availability({ language: 'en' });
+        result.summarizer = availability === 'readily';
+        result.details.summarizer = { available: availability };
         result.available = true;
-        summarizerFound = true;
-        console.log('Shop Well: self.ai.summarizer found, capabilities:', summarizerCapabilities);
+        console.log('Shop Well: Summarizer found, availability:', availability);
       } catch (error) {
-        console.warn('Shop Well: self.ai.summarizer capabilities check failed:', error);
-        result.details.summarizerError = error.message;
-      }
-    }
-
-    // Fallback: Check window.ai.summarizer (older API)
-    if (!summarizerFound && window.ai && window.ai.summarizer) {
-      try {
-        const summarizerCapabilities = await window.ai.summarizer.capabilities();
-        result.summarizer = summarizerCapabilities.available === 'readily';
-        result.details.summarizer = summarizerCapabilities;
-        result.available = true;
-        console.log('Shop Well: window.ai.summarizer found, capabilities:', summarizerCapabilities);
-      } catch (error) {
-        console.warn('Shop Well: window.ai.summarizer capabilities check failed:', error);
+        console.warn('Shop Well: Summarizer availability check failed:', error);
         result.details.summarizerError = error.message;
       }
     }
