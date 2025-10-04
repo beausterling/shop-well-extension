@@ -22,11 +22,11 @@ export class ShopWellPanel {
     this.panel.innerHTML = `
       <div class="shop-well-header">
         <div class="shop-well-logo">
-          <span class="shop-well-icon">=�</span>
+          <span class="shop-well-icon">🌿</span>
           <span class="shop-well-title">Shop Well</span>
         </div>
-        <button class="shop-well-close" title="Close panel (Ctrl+Shift+S / Cmd+Shift+S)">
-          <span class="close-icon">�</span>
+        <button class="shop-well-close" title="Close panel (Ctrl+Shift+S / Cmd+Shift+S)" aria-label="Close Shop Well panel">
+          <span class="close-icon" aria-hidden="true">×</span>
         </button>
       </div>
 
@@ -37,7 +37,7 @@ export class ShopWellPanel {
         </div>
 
         <div class="shop-well-setup hidden">
-          <div class="setup-icon">�</div>
+          <div class="setup-icon">⚙️</div>
           <h3>Chrome AI Setup Required</h3>
           <p>Enable Chrome's Built-in AI for enhanced analysis:</p>
           <ol>
@@ -64,12 +64,12 @@ export class ShopWellPanel {
 
           <div class="analysis-content">
             <div class="key-insights">
-              <h4>Key Insights:</h4>
+              <h4>Key Insights</h4>
               <ul class="insights-list"></ul>
             </div>
 
             <div class="allergen-alerts hidden">
-              <h4>� Allergen Alert:</h4>
+              <h4>Allergen Alert</h4>
               <div class="alert-content"></div>
             </div>
 
@@ -87,17 +87,17 @@ export class ShopWellPanel {
           </div>
         </div>
 
-        <div class="shop-well-error hidden">
-          <div class="error-icon">L</div>
-          <h3>Analysis Failed</h3>
+        <div class="shop-well-error hidden" role="alert" aria-labelledby="error-title">
+          <div class="error-icon" aria-hidden="true">⚠️</div>
+          <h3 id="error-title">Analysis Failed</h3>
           <p class="error-message"></p>
-          <button class="retry-button">Try Again</button>
+          <button class="retry-button" aria-label="Retry analysis">Try Again</button>
         </div>
       </div>
 
-      <div class="shop-well-footer">
+      <div class="shop-well-footer" role="contentinfo">
         <div class="disclaimer">
-          <small>=� Informational only - not medical advice. Always verify ingredients yourself.</small>
+          <small>ℹ️ Informational only - not medical advice. Always verify ingredients yourself.</small>
         </div>
       </div>
     `;
@@ -195,12 +195,11 @@ export class ShopWellPanel {
     verdictBadge.className = `verdict-badge verdict-${verdict}`;
 
     const verdictText = {
-      'helpful': ' Helpful',
-      'mixed': '� Mixed Results',
-      'not_ideal': 'L Not Ideal',
-      'unknown': 'S Analysis Incomplete'
+      'helpful': '✅ Helpful',
+      'mixed': '⚠️ Mixed Results',
+      'not_ideal': '❌ Not Ideal',
+      'unknown': '❓ Analysis Incomplete'
     };
-    verdictBadge.textContent = verdictText[verdict] || verdictText.unknown;
 
     // Update condition info
     const conditionInfo = analysisSection.querySelector('.condition-info');
@@ -290,6 +289,12 @@ export class ShopWellPanel {
     setTimeout(() => {
       this.panel.classList.add('animate-in');
     }, 10);
+
+    // Auto-focus close button for accessibility
+    setTimeout(() => {
+      const closeBtn = this.panel.querySelector('.shop-well-close');
+      if (closeBtn) closeBtn.focus();
+    }, 350); // After animation completes
 
     console.log('Shop Well: Panel shown');
   }

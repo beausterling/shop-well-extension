@@ -14,7 +14,7 @@
   "content_scripts": [{
     "matches": ["*://www.amazon.com/*", "*://www.walmart.com/*"],
     "js": ["content/content.js"],
-    "css": ["content/ui/panel.css"],
+    "css": ["content/ui/design-tokens.css", "content/ui/panel.css"],
     "run_at": "document_idle",
     "type": "module",
     "world": "ISOLATED"
