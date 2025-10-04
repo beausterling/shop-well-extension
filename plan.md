@@ -25,202 +25,120 @@
 ## 🚀 Development Phases
 
 ### ✅ Phase 0: Environment & Scaffolding (COMPLETED)
-- [x] **Project Structure**: Organized folder hierarchy
-- [x] **Chrome MV3 Manifest**: Proper permissions and configuration
-- [x] **Background Service Worker**: Keyboard shortcut handling
-- [x] **Content Script Foundation**: Main app initialization
-- [x] **Options Page**: User settings interface
-- [x] **Build System**: Automated extension packaging (`scripts/build.mjs`)
-- [x] **Documentation**: README.md and CLAUDE.md
-- [x] **Version Control**: GitHub repository with proper .gitignore
+- [x] Project structure, Chrome MV3 manifest, build system
+- [x] Background service worker, content script foundation
+- [x] Options page, documentation, version control
 
 ### ✅ Phase 1: Parsers & Data Model (COMPLETED)
-- [x] **DOM Utilities**: Resilient element extraction (`utils/dom.js`)
-- [x] **Amazon Parser**: Product data extraction with fallback selectors
-- [x] **Walmart Parser**: Site-specific parsing implementation
-- [x] **Allergen Support**: 9 major allergens monitoring system
-- [x] **Data Normalization**: Consistent product data structure
-- [x] **Options Enhancement**: Allergen selection UI
-- [x] **Basic Safety Features**: Pattern-based allergen detection
-- [x] **Console Debugging**: Comprehensive logging system
-- [x] **ES Module Support**: Modern JavaScript architecture
-
-**Data Extraction Points**:
-- [x] Product title, bullets, description
-- [x] Ingredients (critical for allergen detection)
-- [x] Price information
-- [x] Sample reviews (5 max for sentiment)
-- [x] Site-specific metadata
+- [x] DOM utilities with resilient element extraction
+- [x] Amazon & Walmart parsers with fallback selectors
+- [x] 9 major allergens monitoring system
+- [x] Data normalization & console debugging
+- [x] ES module support
 
 ### ✅ Phase 2: Chrome Built-in AI Integration (COMPLETED)
-- [x] **Chrome AI Feature Detection**: Comprehensive capability checking (`ai/detector.js`)
-- [x] **Summarizer API Implementation**: Structured fact extraction with fallbacks
-- [x] **Prompt API Implementation**: Wellness verdict generation
-- [x] **AI Input Optimization**: Text truncation and formatting for API limits
-- [x] **JSON Output Validation**: Robust parsing with error handling
+- [x] **Chrome AI Feature Detection**: Comprehensive capability checking
+- [x] **Summarizer API**: Structured fact extraction with fallbacks
+- [x] **Prompt API**: Wellness verdict generation
+- [x] **Dynamic Language Detection**: Auto-detect + user preference override (5 languages)
 - [x] **Error Handling**: Graceful degradation when AI unavailable
 - [x] **Condition-Specific Prompts**: POTS, ME/CFS, Celiac + custom conditions
 - [x] **Enhanced Allergen Detection**: AI-powered ingredient analysis
 - [x] **Custom User Inputs**: Flexible condition and allergen management
-- [x] **Console Output System**: Comprehensive analysis display for debugging
+- [x] **Messaging Error Fixes**: Resolved "Could not establish connection" error
 
-**Implemented AI Pipeline**:
+**AI Pipeline**:
 ```javascript
 // Parse Product → AI Summarizer → AI Prompt → Display Results
-
-// Summarizer extracts structured facts:
-{
-  high_sodium: boolean,
-  compression_garment: boolean,
-  gluten_free: boolean,
-  allergen_warnings: string[],
-  dietary_claims: string[],
-  lightweight: boolean,
-  ease_of_use: boolean
-}
-
-// Prompt generates wellness verdict:
-{
-  verdict: "helpful" | "mixed" | "not_ideal",
-  bullets: ["insight 1", "insight 2", "insight 3"],
-  caveat: "important warning",
-  allergen_alert: boolean
-}
+Summarizer extracts facts → Prompt generates verdict → Panel displays results
 ```
 
-**Key Features Implemented**:
-- **Custom Conditions**: Users can enter any health condition (IBS, Fibromyalgia, etc.)
-- **Custom Allergies**: Unlimited custom allergen addition (coconut, sulfites, corn)
-- **AI Fallbacks**: Works on Chrome versions without AI support
-- **Safety Priority**: Auto "not_ideal" verdict for user allergens
-- **Medical Compliance**: "May help" language, no medical claims
+**Key Features**:
+- Custom conditions & unlimited custom allergens
+- AI fallbacks for Chrome versions without AI support
+- Auto "not_ideal" verdict for user allergens
+- Medical compliance: "May help" language, no medical claims
+- **Language Support**: English, Spanish, Japanese, French, German
 
-### ✅ Phase 3: Overlay UI & UX (COMPLETED)
-- [x] **Panel Component**: Functional `ui/panel.js` with complete AI verdict integration
-- [x] **Verdict Display**: Beautiful AI results with emoji badges (✅⚠️❌)
-- [x] **Dynamic Content**: Full display of AI bullets, caveats, and condition info
-- [x] **Allergen Alerts**: Visual warnings for detected allergens with styling
-- [x] **Accessibility Features**: ARIA labels, keyboard navigation, screen reader support
-- [x] **Responsive Design**: Mobile-friendly design with various zoom level support
-- [x] **Show/Hide Animations**: Smooth slide transitions with Ctrl+Shift+S toggle
-- [x] **Auto-show Integration**: Connected to existing autoshow user setting
-- [x] **Error State UI**: Complete error handling when AI unavailable or parsing fails
-- [x] **Welcome Wizard**: Professional 4-step onboarding with Chrome AI setup
-- [x] **Enhanced Options**: AI status indicators and one-click setup assistance
-- [x] **Cross-Platform Support**: Mac (Cmd+Shift+S) and Windows (Ctrl+Shift+S) shortcuts
+### ✅ Phase 3: UI/UX & Brand Design (COMPLETED)
+- [x] **Panel Component**: Functional AI verdict integration
+- [x] **Brand Design System**: Nature-inspired wellness palette
+  - 🌿 Fresh Leaf Green (#6BAF7A) - health, nature
+  - 💙 Sky Blue (#65AEDD) - trust, calm
+  - 🍂 Warm Terracotta (#D38B6D) - warmth
+  - 🍯 Golden Honey (#F2C94C) - attention
+  - ☁️ Neutrals: Soft Beige, Warm White, Charcoal, Taupe
+- [x] **Design Tokens**: Comprehensive CSS custom properties system
+- [x] **Component Styling**: Brand-aligned buttons, badges, alerts
+- [x] **Accessibility Features**: ARIA labels, keyboard navigation
+- [x] **Responsive Design**: Mobile-friendly with various zoom levels
+- [x] **Show/Hide Animations**: Smooth slide transitions
+- [x] **Welcome Wizard**: Professional 4-step onboarding
+- [x] **Enhanced Options**: AI status indicators, language preference
+- [x] **UI/UX Agent Review**: Received B+ (8.5/10) rating
 
-**UI Specifications**:
-- Max width: 320px
-- Position: Fixed right side
-- z-index: 999999 (above site content)
-- Color scheme: Accessible contrast ratios
-- Typography: System fonts for consistency
+**UI/UX Review Feedback** (from ui-ux-design-reviewer agent):
+- ✅ **Strengths**: Exceptional design tokens, strong brand identity, professional polish
+- ⚠️ **Critical Fixes Needed**:
+  1. WCAG contrast improvements (darker taupe for text readability)
+  2. Focus management for keyboard-only users
+  3. Allergen-specific alert colors (more urgent visual treatment)
+  4. Emoji rendering fixes (🌿 leaf icon, ⚙️ setup icon)
+  5. Enhanced verdict badge styling (larger, with animation)
+- 📊 **Grade**: B+ (8.5/10) → Can reach A/A+ with critical fixes
 
-### 🧠 Phase 4: Multi-Condition Intelligence (CURRENT PRIORITY)
+### 🎨 Phase 3.5: UI Polish & A11y Fixes (CURRENT PRIORITY - 12k tokens remaining)
+
+**Critical Fixes to Implement** (from UI/UX agent review):
+- [ ] **WCAG Contrast Fixes** (Priority 1 - Accessibility Law Compliance)
+  - Update --sw-taupe from #9A8C82 to #776B63 (4.5:1 contrast)
+  - Update success text color to #3D7A4C (4.6:1 contrast)
+  - Add allergen-specific alert colors (--sw-alert-red: #C84A3A)
+
+- [ ] **Focus Management** (Priority 1 - Keyboard Accessibility)
+  - Auto-focus close button when panel opens
+  - Ensure all interactive elements have visible focus rings
+  - Test tab navigation flow
+
+- [ ] **Enhanced Components** (Priority 2 - Visual Excellence)
+  - Larger, animated verdict badges (16px font, box shadow)
+  - Leaf emoji bullets with staggered appear animation
+  - Improved loading spinner (dual-color: blue + green)
+  - Allergen alerts with subtle pulse animation
+
+- [ ] **Emoji Rendering** (Priority 2 - Brand Consistency)
+  - Replace placeholder icons with proper emojis (🌿🧪⚠️✅❌)
+  - Add emoji font-family fallbacks
+  - Test rendering across browsers
+
+**Files to Update**:
+1. `src/content/ui/design-tokens.css` - Add allergen colors, fix contrast
+2. `src/content/ui/panel.css` - Enhanced components, animations
+3. `src/content/ui/panel.js` - Focus management, emoji fixes
+
+**Estimated Time**: 30-45 minutes
+**Impact**: B+ → A/A+ rating, full accessibility compliance
+
+### 🧠 Phase 4: Multi-Condition Intelligence (NEXT PRIORITY)
 - [ ] **POTS Condition Logic**: Compression wear, sodium, volume support
-- [ ] **ME/CFS Condition Logic**: Energy conservation, ergonomics, gentle materials
+- [ ] **ME/CFS Condition Logic**: Energy conservation, ergonomics
 - [ ] **Celiac Disease Logic**: Gluten-free certification, cross-contamination
-- [ ] **Medical Compliance**: "May help" language, no medical claims
+- [ ] **Medical Compliance**: "May help" language enforcement
 - [ ] **Copy Validation**: 60-word limit enforcement
 - [ ] **Safety Warnings**: Clear allergen alerts
 - [ ] **Condition Switching**: Dynamic analysis updates
-- [ ] **Edge Case Handling**: Insufficient data scenarios
-
-**Condition-Specific Criteria**:
-
-**POTS (Postural Orthostatic Tachycardia Syndrome)**:
-- ✅ Helpful: 20-30 mmHg graduated compression, 500mg+ sodium
-- ⚠️ Mixed: Moderate sodium with high sugar, sizing concerns
-- ❌ Not Ideal: No compression specs, excessive sugar
-
-**ME/CFS (Myalgic Encephalomyelitis/Chronic Fatigue Syndrome)**:
-- ✅ Helpful: Low-effort products, energy-conserving design
-- ⚠️ Mixed: Moderate weight items, unclear ergonomics
-- ❌ Not Ideal: Heavy/bulky items requiring significant exertion
-
-**Celiac Disease**:
-- ✅ Helpful: Certified gluten-free, clear labeling
-- ⚠️ Mixed: Unclear ingredients, potential cross-contamination
-- ❌ Not Ideal: Contains gluten, shared facilities
 
 ### 🔧 Phase 5: Stability & Performance (PENDING)
-- [ ] **Error Boundaries**: Graceful failure handling
-- [ ] **Selector Resilience**: Adapt to website DOM changes
-- [ ] **Performance Profiling**: Load time optimization
-- [ ] **Memory Management**: Prevent extension memory leaks
-- [ ] **Rate Limiting**: AI API request throttling
-- [ ] **Cache Implementation**: Avoid redundant AI calls
-- [ ] **Fallback Mechanisms**: Basic analysis when AI fails
-- [ ] **Edge Case Testing**: Unusual product page layouts
-- [ ] **Browser Compatibility**: Chrome version requirements
-- [ ] **Extension Lifecycle**: Proper startup/shutdown
+- [ ] Error boundaries, selector resilience
+- [ ] Performance profiling, memory management
+- [ ] Rate limiting, cache implementation
+- [ ] Fallback mechanisms, edge case testing
 
 ### 📦 Phase 6: Production & Distribution (PENDING)
-- [ ] **Demo Video Creation**: 3-minute showcase for challenge
-- [ ] **User Documentation**: Installation and usage guides
-- [ ] **Developer Documentation**: Architecture and contribution guide
-- [ ] **Production Build**: Optimized and minified code
-- [ ] **Chrome Web Store**: Submission preparation
-- [ ] **Privacy Policy**: Compliance documentation
-- [ ] **Terms of Service**: Legal framework
-- [ ] **Support Documentation**: FAQ and troubleshooting
-- [ ] **Analytics Planning**: Privacy-compliant usage insights
-- [ ] **Feedback Collection**: User experience improvement
-
----
-
-## 🔬 Testing Strategy
-
-### ✅ Phase 1 Testing (COMPLETED)
-- [x] **Extension Loading**: Chrome installation without errors
-- [x] **Site Detection**: Amazon/Walmart PDP recognition
-- [x] **Data Extraction**: Console logging verification
-- [x] **Allergen Detection**: Basic pattern matching
-- [x] **Settings Persistence**: Option page functionality
-- [x] **Keyboard Shortcuts**: Cmd+Shift+S trigger response
-
-### 🧪 Phase 2+ Testing (PLANNED)
-- [ ] **Chrome AI Availability**: Feature detection on Chrome 128+
-- [ ] **AI Response Quality**: Fact extraction accuracy
-- [ ] **Verdict Consistency**: Reliable condition analysis
-- [ ] **Performance Benchmarks**: Analysis speed targets
-- [ ] **UI Responsiveness**: Panel load times <800ms
-- [ ] **Accessibility Compliance**: Screen reader compatibility
-- [ ] **Cross-Product Testing**: Various product types
-- [ ] **Error Recovery**: Graceful handling of edge cases
-
-**Test Product Categories**:
-- [ ] Compression socks (POTS condition)
-- [ ] Electrolyte supplements (POTS condition)
-- [ ] Ergonomic accessories (ME/CFS condition)
-- [ ] Gluten-free foods (Celiac condition)
-- [ ] Products with major allergens
-- [ ] Products with missing data
-
----
-
-## 🏆 Success Metrics
-
-### Technical Milestones
-- [x] **MVP Functionality**: Basic parsing and allergen detection
-- [ ] **AI Integration**: Chrome Built-in AI working end-to-end
-- [ ] **User Experience**: Intuitive panel interface
-- [ ] **Performance**: <800ms analysis time
-- [ ] **Accessibility**: WCAG 2.1 AA compliance
-- [ ] **Reliability**: 95%+ successful product analysis
-
-### Challenge Deliverables
-- [x] **Open Source Repository**: GitHub with MIT license
-- [ ] **Demonstration Video**: <3 minutes showing key features
-- [ ] **Working Application**: Installable Chrome extension
-- [ ] **Documentation**: Clear installation and usage instructions
-- [ ] **API Usage Description**: Summarizer + Prompt API implementation
-
-### User Impact Goals
-- [ ] **Safety**: Accurate allergen detection and warnings
-- [ ] **Utility**: Helpful wellness insights for chronic conditions
-- [ ] **Privacy**: Zero external data transmission
-- [ ] **Adoption**: Positive user feedback and engagement
+- [ ] Demo video creation (3 minutes)
+- [ ] User documentation, developer documentation
+- [ ] Production build, Chrome Web Store submission
+- [ ] Privacy policy, terms of service
 
 ---
 
@@ -228,91 +146,98 @@
 
 ### Current Stack
 - **Extension Framework**: Chrome MV3 with ES modules
-- **Storage**: chrome.storage.local (user preferences)
-- **UI**: Vanilla HTML/CSS/JavaScript
-- **Build**: Custom Node.js script
+- **Storage**: chrome.storage.local (user preferences + language)
+- **UI**: Vanilla HTML/CSS/JavaScript with design tokens
+- **Build**: Custom Node.js script (`scripts/build.mjs`)
 - **AI**: Chrome Built-in AI (Summarizer + Prompt APIs)
+- **Design System**: Nature-inspired wellness brand palette
+- **Internationalization**: 5 languages (EN, ES, JA, FR, DE)
 
-### Key Dependencies
-- **Chrome 128+**: Required for Built-in AI features
-- **Permissions**: storage, scripting, activeTab
-- **Host Access**: Amazon.com and Walmart.com only
+### Git Branching Strategy
+- **main**: Stable production code (Phase 1-2 base)
+- **functional-mvp**: Latest working code with all features
+- **ui/panel-redesign**: Current UI/UX improvements branch ⭐
 
-### Security & Privacy
-- [x] **Local Processing**: No external API calls
-- [x] **Minimal Permissions**: Only required Chrome APIs
-- [x] **Data Isolation**: User data never leaves device
-- [ ] **Content Security**: Secure AI input sanitization
+**Recent Commits**:
+- `ba4692f` feat: Add dynamic language detection with user preference override
+- `51ee9db` fix: Resolve Chrome extension messaging error with async handler
+- `2109333` docs: Update documentation for Phase 2 completion
 
 ---
 
-## 📈 Development Timeline
+## 🚀 Current Status & Next Steps
+
+### ✅ **Recently Completed**
+- ✅ Phase 2: Chrome Built-in AI integration (Summarizer + Prompt APIs)
+- ✅ Phase 2.5: Dynamic language detection system (auto + manual override)
+- ✅ Phase 2.6: Chrome extension messaging error fixes
+- ✅ Phase 3: Brand design system implementation (design tokens + panel styling)
+- ✅ Phase 3: UI/UX agent review completed (B+ rating)
+- ✅ Git workflow: Clean commits, organized branching
+
+### 🎨 **Current Task: UI Polish & Accessibility Fixes**
+**Branch**: `ui/panel-redesign`
+**Status**: Ready to implement critical fixes from UI/UX agent review
+**Context Remaining**: ~12k tokens
+
+**Immediate Actions**:
+1. Implement WCAG contrast fixes (design-tokens.css)
+2. Add focus management (panel.js)
+3. Enhance verdict badges and components (panel.css)
+4. Fix emoji rendering issues (panel.js)
+5. Test all changes and rebuild
+6. Commit improvements to ui/panel-redesign branch
+
+**Agent Handoff Notes**:
+- UI/UX review feedback is in previous conversation context
+- All critical fixes are documented with exact code changes
+- Design tokens system is ready for updates
+- Brand colors must stay consistent with wellness theme
+- WCAG AA compliance is mandatory for medical extension
+
+### 🎯 **Next Priority After UI Polish**
+**Phase 4**: Multi-condition intelligence logic
+- Implement condition-specific analysis rules
+- Enhance AI prompts with medical guidance
+- Validate copy for medical compliance
+
+---
+
+## 📈 Progress Tracking
 
 **Phase 0**: ✅ Complete (4 hours)
-**Phase 1**: ✅ Complete (6 hours) - Parsers & Data Model
-**Phase 2**: ✅ Complete (8 hours) - Chrome AI Integration
-**Phase 3**: ✅ Complete (12 hours) - UI Panel & UX Implementation
-**Phase 4**: 📅 Planned (8 hours) - Multi-Condition Logic
-**Phase 5**: 📅 Planned (4 hours) - Stability & Performance
-**Phase 6**: 📅 Planned (6 hours) - Production & Distribution
+**Phase 1**: ✅ Complete (6 hours)
+**Phase 2**: ✅ Complete (10 hours) - Including language detection & messaging fixes
+**Phase 3**: ✅ Complete (14 hours) - Including brand design system & UI/UX review
+**Phase 3.5**: 🔄 In Progress (1 hour) - UI polish & accessibility fixes
+**Phase 4**: 📅 Planned (8 hours)
+**Phase 5**: 📅 Planned (4 hours)
+**Phase 6**: 📅 Planned (6 hours)
 
-**Progress**: 30/42 hours complete (71%) - UI/UX and Chrome AI integration implemented
+**Progress**: 35/47 hours complete (74%)
 
 ---
 
-## 🎯 Chrome Built-in AI Challenge Submission
+## 🏆 Challenge Submission Readiness
 
 ### Required Components
-- [x] **Working Extension**: AI-powered wellness analysis functional (Phase 2 complete)
+- [x] **Working Extension**: AI-powered wellness analysis functional
 - [ ] **Video Demo**: Shows real-world usage on Amazon/Walmart
 - [x] **GitHub Repository**: Open source with comprehensive documentation
 - [x] **Problem Statement**: Wellness-friendly shopping for chronic conditions
-- [x] **API Documentation**: Summarizer + Prompt APIs implemented and documented
-- [x] **Installation Guide**: Step-by-step setup instructions in README
+- [x] **API Documentation**: Summarizer + Prompt APIs implemented
+- [x] **Installation Guide**: Step-by-step setup instructions
 
 ### Unique Value Proposition
 - **On-device AI**: Privacy-preserving health-related analysis
 - **Chronic Condition Focus**: Underserved user community
 - **Real-world Application**: Practical shopping assistance
 - **Comprehensive Safety**: Allergen detection + medical compliance
-- **Scalable Architecture**: Extensible to more conditions/sites
+- **Beautiful Design**: Nature-inspired, accessible UI
 
 ---
 
----
-
-## 🚀 Current Status & Next Steps
-
-### ✅ **Recently Completed (Phases 0-3)**
-- Chrome Built-in AI fully integrated with Summarizer + Prompt APIs
-- Custom condition and allergen management system
-- Floating overlay panel with dynamic AI verdict display
-- Welcome wizard with 4-step Chrome AI setup guide
-- Enhanced options page with AI status indicators
-- Keyboard shortcuts (Cmd+Shift+S / Ctrl+Shift+S)
-
-### 🐛 **Current Task: Chrome AI API Debugging**
-**Status**: Fixing Chrome Built-in AI API compatibility errors
-
-**Fixed**:
-- ✅ `.capabilities()` → `.availability()` method migration (5 errors resolved)
-
-**In Progress** (3 errors remaining):
-- ⚠️ Language parameter errors (2 errors) - added `{ language: 'en' }` to all API calls, testing needed
-- ⚠️ 1 additional error to investigate
-
-**Changes Made**:
-- Updated `detector.js`, `welcome.js`, `options.js`: Added language parameter to `.availability()` calls
-- Updated `prompt.js`: Added `language: 'en'` to `LanguageModel.create()`
-- Updated `summarize.js`: Added `{ language: 'en' }` to `Summarizer.create()`
-
-**Next**: Reload extension and verify error resolution, may need to try `outputLanguage` instead of `language` parameter
-
-### 🎯 **Immediate Next Priority (Phase 4)**
-Once API errors resolved: Implement multi-condition intelligence logic
-
----
-
-**Last Updated**: Debugging Chrome AI API compatibility - language parameters added
+**Last Updated**: UI/UX polish phase - implementing critical accessibility fixes
 **Repository**: https://github.com/beausterling/shop-well-extension
 **License**: MIT
+**Current Branch**: ui/panel-redesign
