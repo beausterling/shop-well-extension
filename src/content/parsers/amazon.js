@@ -15,6 +15,19 @@ export class AmazonParser {
   }
 
   /**
+   * Check if current page is an Amazon Search/Listing Page
+   * @returns {boolean}
+   */
+  static isSearchPage() {
+    const pathname = window.location.pathname;
+    const search = window.location.search;
+    return pathname.includes('/s/') ||
+           pathname.includes('/s?') ||
+           search.includes('?k=') ||
+           pathname.match(/\/[^/]+\/s\?k=/);  // Pattern like /milk/s?k=milk
+  }
+
+  /**
    * Extract product data from Amazon PDP
    * @returns {Object|null} Parsed product data or null if extraction fails
    */
@@ -174,5 +187,64 @@ export class AmazonParser {
       reviews: this.extractReviews().length,
       url: window.location.href
     };
+  }
+
+  /**
+   * Extract product cards from Amazon search/listing page
+   * @returns {Array} Array of product objects with basic info
+   */
+  static extractSearchProducts() {
+    const products = [];
+
+    try {
+      // Amazon search results use data-component-type="s-search-result" attribute
+      const productCards = document.querySelectorAll('[data-component-type="s-search-result"]');
+      console.log(`Shop Well: Found ${productCards.length} Amazon product cards`);
+
+      productCards.forEach((card, index) => {
+        try {
+          const asin = card.getAttribute('data-asin');
+          const link = card.querySelector('h2 a.a-link-normal');
+          const title = link?.querySelector('span')?.textContent?.trim();
+
+          // Price extraction (Amazon has complex price structures)
+          const priceWhole = card.querySelector('.a-price .a-price-whole')?.textContent;
+          const priceFraction = card.querySelector('.a-price .a-price-fraction')?.textContent;
+          const priceSymbol = card.querySelector('.a-price .a-price-symbol')?.textContent || '$';
+          let price = null;
+          if (priceWhole) {
+            price = `${priceSymbol}${priceWhole}${priceFraction || ''}`.trim();
+          }
+
+          // Image
+          const image = card.querySelector('img.s-image')?.src;
+
+          // Rating
+          const ratingEl = card.querySelector('[aria-label*="out of"]');
+          const rating = ratingEl?.getAttribute('aria-label')?.match(/[\d.]+/)?.[0];
+
+          if (asin && title) {
+            products.push({
+              id: asin,
+              title: title,
+              price: price,
+              image: image,
+              url: link?.href || `https://www.amazon.com/dp/${asin}`,
+              rating: rating,
+              position: index,
+              source: 'amazon_search'
+            });
+          }
+        } catch (err) {
+          console.warn('Shop Well: Failed to extract product card:', err);
+        }
+      });
+
+      console.log(`Shop Well: Successfully extracted ${products.length} Amazon products`);
+    } catch (error) {
+      console.error('Shop Well: Amazon search extraction failed:', error);
+    }
+
+    return products;
   }
 }

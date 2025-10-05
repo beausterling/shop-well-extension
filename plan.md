@@ -137,7 +137,197 @@ Summarizer extracts facts → Prompt generates verdict → Panel displays result
 **Time Spent**: 90 minutes
 **Branch**: `ui/panel-redesign`
 
-### 🧠 Phase 4: Multi-Condition Intelligence (NEXT PRIORITY)
+### ⚠️ Phase 3.6: Architecture Refactor - Side Panel Migration (IN PROGRESS)
+
+**CRITICAL DISCOVERY**: Chrome Built-in AI APIs are NOT accessible from content scripts!
+
+**Problem Identified**:
+- Content scripts run in isolated worlds and cannot access `window.ai.languageModel` or `window.ai.summarizer`
+- AI APIs only work in extension contexts: side panels, popups, options pages, background scripts
+- Previous architecture tried to run AI in content script → always failed
+
+**Architecture Refactor Completed**:
+- [x] **Side Panel Implementation**: Created full side panel UI with AI logic
+  - `src/sidepanel/index.html` - Welcome, setup, analysis, and error states
+  - `src/sidepanel/sidepanel.js` - All AI detection and processing (500+ lines inline)
+  - `src/sidepanel/sidepanel.css` - Nature-inspired design system
+  - `src/sidepanel/design-tokens.css` - Brand colors and tokens
+- [x] **Content Script Simplification**: Reduced to data extraction only (90 lines)
+  - Removed all AI logic, UI injection, panel management
+  - Only parses product data and sends to background via messages
+- [x] **Background Worker Rewrite**: Message routing and side panel management
+  - Opens side panel on keyboard shortcut
+  - Routes product data: content → background → side panel
+  - Handles extension icon clicks
+- [x] **Manifest Updates**:
+  - Added `"sidePanel"` permission
+  - Added `"action"` field (required for extension icon)
+  - Removed invalid `"type": "module"` from content_scripts
+  - Updated keyboard shortcut to Option+Shift+W (Mac) / Alt+Shift+W (Windows/Linux)
+- [x] **Build System Enhancement**:
+  - Added esbuild bundler for ES module → IIFE conversion
+  - Content script now properly bundled (14.7kb)
+  - `package.json` created with esbuild dependency
+
+**New Message Flow**:
+```
+User presses ⌥⇧W (Mac) or Alt+Shift+W (Windows/Linux) → Background opens side panel → Background requests data from content script
+→ Content script extracts product data → Returns to background → Background forwards to side panel
+→ Side panel runs AI analysis (Summarizer + Prompt) → Displays results in UI
+```
+
+**Files Created** (5):
+- `src/sidepanel/index.html` - Side panel HTML with all states
+- `src/sidepanel/sidepanel.js` - AI logic and UI management
+- `src/sidepanel/sidepanel.css` - Component styling
+- `src/sidepanel/design-tokens.css` - Design system tokens
+- `package.json` - Project dependencies
+
+**Files Modified** (5):
+- `src/manifest.json` - Side panel config, action field, permissions
+- `src/background.js` - Complete rewrite for side panel architecture
+- `src/content/content.js` - Simplified to extraction only
+- `scripts/build.mjs` - Added esbuild bundling step
+- `CLAUDE.md` - Updated architecture documentation
+
+**Status**: Architecture refactor complete, extension builds successfully
+
+### 🚨 **CRITICAL ISSUES - BLOCKING TESTING**
+
+**Issue #1: Keyboard Shortcut Conflict (✅ RESOLVED)**
+- ~~Previous: `Command+Shift+W` (⌘⇧W) on Mac~~
+- ~~**Problem**: This closes ALL Chrome windows on Mac (OS-level shortcut)~~
+- **FIXED**: Changed to `Option+Shift+W` (Mac) / `Alt+Shift+W` (Windows/Linux)
+- **Status**: ✅ Updated across all 8 files (manifest, background, build script, docs)
+- **Benefits**: Cross-platform consistency, no OS conflicts, extension-friendly pattern
+
+**Issue #2: LanguageModel API Output Language Error (✅ RESOLVED)**
+- **Previous Error**: "No output language was specified in a LanguageModel API request"
+- **Problem**: Chrome AI API requires explicit language specification for safety attestation
+- **FIXED**: Added `expectedOutputs: [{ type: "text", languages: [language.code] }]` parameter
+- **Status**: ✅ Updated in sidepanel.js:319-325
+- **Benefit**: Proper Chrome AI API compliance, no more language warnings
+
+**Issue #3: Runtime Errors Blocking All Functionality (❌ ACTIVE BLOCKER)**
+- **Problem**: Extension built successfully but not working in browser
+- **Symptoms**:
+  - Unknown if side panel opens
+  - Unknown if badges appear on listing pages
+  - Unknown if message passing works
+  - Unknown specific error messages (need console output)
+- **Impact**: Cannot test any feature - PDP analysis, listing badges, AI integration
+- **Next Steps Required**:
+  1. ⚠️ Reload extension in chrome://extensions/
+  2. ⚠️ Visit search page (amazon.com/milk/s?k=milk)
+  3. ⚠️ Open DevTools console
+  4. ⚠️ Identify specific error messages
+  5. ⚠️ Debug based on error type (permissions, messaging, API, etc.)
+
+**Testing Blockers**:
+- ❌ Unknown runtime errors preventing all functionality
+- ❌ Cannot verify if listing page detection works
+- ❌ Cannot verify if badge injection works
+- ❌ Cannot test message flow (content → background → side panel)
+- ❌ Cannot test AI analysis on listing products
+- ❌ Cannot verify if PDP analysis still works
+
+**Time Spent**: 3 hours
+**Branch**: `ui/panel-redesign`
+
+### ⚠️ Phase 3.7: Multi-Product Listing Support (IMPLEMENTED - ERRORS BLOCKING)
+
+**Objective**: Enable extension to work on Amazon/Walmart search results pages with clickable product badges
+
+**Target URLs**:
+- Amazon: `https://www.amazon.com/milk/s?k=milk`
+- Walmart: `https://www.walmart.com/search?q=cereal`
+
+**Implementation Completed**:
+- [x] **Page Detection**: Added `isSearchPage()` to Amazon & Walmart parsers
+  - Amazon: Detects `/s/`, `?k=`, `/[category]/s?k=` URL patterns
+  - Walmart: Detects `/search?q=` URL pattern
+- [x] **Product Extraction**: `extractSearchProducts()` extracts product cards from search results
+  - Amazon: `[data-component-type="s-search-result"]` with `data-asin` attributes
+  - Walmart: `[data-item-id]` attributes
+  - Extracted data: ID, title, price, image, rating, URL
+- [x] **Badge Overlay System**: Injects "🌿 Analyze" badges on each product card
+  - CSS absolute positioning over product cards
+  - Visual states: Default → Analyzing → Analyzed
+  - Click handler triggers message flow
+- [x] **Message Flow**: Click badge → content → background → side panel → AI analysis
+  - New message type: `analyze-listing-product`
+  - Background opens side panel automatically
+  - Routes product data to side panel
+- [x] **Listing Analysis**: `analyzeListingProduct()` handles limited data from search results
+  - Creates facts from title/price only
+  - Infers properties: gluten-free, dairy-free, vegan, organic
+  - AI generates verdict with low confidence
+  - Caveat: "Limited data from search results. Click product for full details."
+- [x] **Security Updates**: Fixed esbuild vulnerability (0.20.0 → 0.25.10)
+- [x] **Language API Fix**: Added `expectedOutputs` parameter to LanguageModel.create()
+- [x] **Keyboard Shortcut Fix**: Updated all references to Option+Shift+W (Mac) / Alt+Shift+W (Windows/Linux)
+
+**Technical Details**:
+- Content script size: 14.7kb → 24.2kb (includes listing logic + 170 lines added)
+- Badge styling: Wellness brand colors (green/blue gradient)
+- Hover effects and visual feedback implemented
+- Build time: 16ms
+
+**Files Modified (8)**:
+1. `src/content/parsers/amazon.js` - Added `isSearchPage()` and `extractSearchProducts()` (60 lines)
+2. `src/content/parsers/walmart.js` - Added `isSearchPage()` and `extractSearchProducts()` (60 lines)
+3. `src/content/content.js` - Badge injection + listing mode + message handlers (170 lines)
+4. `src/background.js` - `analyze-listing-product` message handler (35 lines)
+5. `src/sidepanel/sidepanel.js` - `analyzeListingProduct()` method + language fix (70 lines)
+6. `package.json` - Updated esbuild to 0.25.10 (security fix)
+7. `CLAUDE.md` - Updated keyboard shortcut documentation
+8. `README.md` - Updated keyboard shortcut references
+
+**Badge Behavior**:
+- **Default**: 🌿 Analyze (green/blue gradient, top-right of card)
+- **Hover**: Scales 1.05x with enhanced shadow
+- **Analyzing**: ⏳ Analyzing... (yellow/orange gradient, cursor: wait)
+- **Complete**: ✓ Analyzed (darker green)
+
+**Analysis Approach**:
+- **Search results** (limited data): Title + price analysis, low confidence
+- **Product pages** (full data): Ingredients + descriptions, high confidence
+- Graceful degradation when data unavailable
+
+**Status**: ❌ **IMPLEMENTED BUT NOT WORKING - ERRORS BLOCKING FUNCTIONALITY**
+- ✅ Extension builds successfully (24.2kb bundle, 16ms build time)
+- ✅ Listing page detection logic in place
+- ✅ Badge injection code complete
+- ✅ Message flow architecture implemented
+- ❌ **RUNTIME ERRORS PREVENTING FUNCTIONALITY**
+- ❌ Unknown if badges are appearing on search pages
+- ❌ Unknown if click handlers work
+- ❌ Side panel may not be opening correctly
+- ❌ Testing completely blocked by unidentified errors
+
+**Console Expected Output** (if working):
+```
+Shop Well: Content script initializing...
+Shop Well: Detected Amazon/Walmart search listing page
+Shop Well: Found X product cards
+Shop Well: Successfully extracted X products
+Shop Well: Injecting product badges...
+Shop Well: Injected X badges
+```
+
+**Next Debug Steps**:
+1. Reload extension in chrome://extensions/
+2. Visit Amazon search page: amazon.com/milk/s?k=milk
+3. Open DevTools console and check for errors
+4. Verify "Detected listing page" message appears
+5. Check if badges are injected into DOM
+6. Test badge click functionality
+7. Verify side panel opens and receives message
+
+**Time Spent**: 3 hours
+**Branch**: `ui/panel-redesign`
+
+### 🧠 Phase 4: Multi-Condition Intelligence (BLOCKED - FIX ISSUES FIRST)
 - [ ] **POTS Condition Logic**: Compression wear, sodium, volume support
 - [ ] **ME/CFS Condition Logic**: Energy conservation, ergonomics
 - [ ] **Celiac Disease Logic**: Gluten-free certification, cross-contamination
@@ -163,11 +353,12 @@ Summarizer extracts facts → Prompt generates verdict → Panel displays result
 ## 🛠️ Technical Architecture
 
 ### Current Stack
-- **Extension Framework**: Chrome MV3 with ES modules
+- **Extension Framework**: Chrome MV3 with Side Panel API
+- **Architecture**: Side panel (AI + UI) + Content script (data extraction) + Background (message routing)
 - **Storage**: chrome.storage.local (user preferences + language)
-- **UI**: Vanilla HTML/CSS/JavaScript with design tokens
-- **Build**: Custom Node.js script (`scripts/build.mjs`)
-- **AI**: Chrome Built-in AI (Summarizer + Prompt APIs)
+- **UI**: Vanilla HTML/CSS/JavaScript with design tokens (in side panel)
+- **Build**: esbuild bundler + Node.js script (`scripts/build.mjs`)
+- **AI**: Chrome Built-in AI (Summarizer + Prompt APIs) - accessed in side panel only
 - **Design System**: Nature-inspired wellness brand palette
 - **Internationalization**: 5 languages (EN, ES, JA, FR, DE)
 
@@ -196,29 +387,66 @@ Summarizer extracts facts → Prompt generates verdict → Panel displays result
   - Brand consistency across panel, welcome, and options pages
   - Enhanced animations and components
   - UI/UX grade: B+ → A/A+ (9-10/10)
-- ✅ Git workflow: Clean commits, organized branching
+- ✅ **Phase 3.6: Architecture Refactor** (Side panel migration)
+  - Discovered AI APIs inaccessible from content scripts
+  - Complete rewrite to side panel architecture
+  - Content script simplified to data extraction only
+  - Added esbuild bundler for ES modules
+  - Fixed keyboard shortcut conflict (Option+Shift+W)
+  - Fixed LanguageModel API output language requirement
+- ⚠️ **Phase 3.7: Multi-Product Listing Support** (IMPLEMENTED - ERRORS BLOCKING)
+  - Added search/listing page detection for Amazon & Walmart
+  - Product card extraction from search results
+  - Badge overlay system with click handlers
+  - Message flow for listing product analysis
+  - Side panel analysis for limited listing data
+  - **Status**: Code complete, builds successfully, BUT NOT WORKING (runtime errors)
 
-### 🎯 **Current Status: Ready for Phase 4**
-**Branch**: `ui/panel-redesign` (ready to merge or continue development)
-**Completion**: 75% of total project complete (35.5/47.5 hours)
+### 🎯 **Current Status: Multi-Product Support Added, Critical Errors Blocking**
+**Branch**: `ui/panel-redesign`
+**Completion**: ~75% of total project complete (41.5/50.5 hours)
 
 **What's Ready**:
 - ✅ Complete design system with WCAG AA compliance
 - ✅ Nature-inspired wellness UI across ALL extension pages
+- ✅ Side panel architecture (Chrome AI accessible)
+- ✅ Message passing architecture (content → background → side panel)
+- ✅ esbuild bundling system for ES modules (v0.25.10 - security patched)
 - ✅ Enhanced accessibility (focus management, keyboard navigation)
 - ✅ Professional animations and visual polish
-- ✅ External CSS files for maintainability (31+ KB total)
+- ✅ **Keyboard shortcut fixed**: Option+Shift+W (Mac) / Alt+Shift+W (Windows/Linux)
+- ✅ **LanguageModel API fixed**: Added `expectedOutputs` parameter with language specification
+- ✅ **Multi-product listing support**: Search page detection + badge injection system
 
-**Testing Checklist**:
+**What's BROKEN (Critical)**:
+- ❌ **Extension still not functional** (runtime errors blocking all features)
+- ❌ **Listing page features untested** (errors prevent testing badge injection)
+- ❌ **Side panel may not be opening correctly** (unknown if message flow works)
+- ❌ **Unknown if badges appear on search pages** (cannot verify badge injection)
+- ❌ **AI analysis may not be working** (no successful end-to-end test yet)
+
+**Immediate Next Steps** (DEBUG MODE - PRIORITY 1):
+1. ⚠️ **RELOAD EXTENSION** - Refresh in chrome://extensions/ with latest build
+2. ⚠️ **TEST ON SEARCH PAGE** - Visit amazon.com/milk/s?k=milk OR walmart.com/search?q=cereal
+3. ⚠️ **CHECK CONSOLE FOR ERRORS** - Open DevTools, look for specific error messages
+4. ⚠️ **VERIFY PAGE DETECTION** - Console should show "Detected listing page"
+5. ⚠️ **DEBUG BADGE INJECTION** - Check if 🌿 badges appear on product cards (top-right)
+6. ⚠️ **TEST CLICK HANDLER** - Click badge, verify side panel opens
+7. ⚠️ **TEST MESSAGE FLOW** - Ensure click → background → side panel communication works
+8. ⚠️ **CHECK AI ANALYSIS** - Verify AI generates verdict for listing products
+
+**Testing Checklist** (READY TO TEST):
+- [x] ✅ FIXED keyboard shortcut (now Option+Shift+W, no more Chrome crashes)
 - [ ] Load extension in Chrome from `dist/` folder
-- [ ] Test welcome page (green→blue gradient, animations)
-- [ ] Test settings page (wellness-themed forms and AI status)
-- [ ] Test content panel on Amazon/Walmart (enhanced UI, animations)
-- [ ] Verify keyboard navigation (Tab, focus rings, auto-focus)
-- [ ] Check WCAG contrast with accessibility tools
+- [ ] Press Option+Shift+W (Mac) or Alt+Shift+W (Windows/Linux) to open side panel
+- [ ] Verify side panel displays welcome screen
+- [ ] Test on Amazon/Walmart product page
+- [ ] Verify AI analysis runs and displays results
+- [ ] Test all UI states (loading, setup, analysis, error)
+- [ ] Check console for errors
 
-### 🧠 **Next Priority: Phase 4**
-**Multi-Condition Intelligence Logic**
+### 🧠 **Next Priority After Fixes: Phase 4**
+**Multi-Condition Intelligence Logic** (BLOCKED until UI works)
 - Implement condition-specific analysis rules (POTS, ME/CFS, Celiac)
 - Enhance AI prompts with medical guidance
 - Validate copy for medical compliance (60-word limit, "may help" language)
@@ -233,11 +461,14 @@ Summarizer extracts facts → Prompt generates verdict → Panel displays result
 **Phase 2**: ✅ Complete (10 hours) - Including language detection & messaging fixes
 **Phase 3**: ✅ Complete (14 hours) - Including brand design system & UI/UX review
 **Phase 3.5**: ✅ Complete (1.5 hours) - Complete UI/UX redesign with WCAG AA compliance
-**Phase 4**: 📅 Planned (8 hours)
+**Phase 3.6**: ✅ Complete (3 hours) - Architecture refactor + keyboard shortcut fix + API fixes
+**Phase 3.7**: ⚠️ Complete but Not Working (3 hours) - Multi-product listing support (runtime errors blocking)
+**Phase 4**: ⏸️ Blocked (8 hours planned) - Waiting for debugging
 **Phase 5**: 📅 Planned (4 hours)
 **Phase 6**: 📅 Planned (6 hours)
 
-**Progress**: 35.5/47.5 hours complete (75%)
+**Progress**: 41.5/50.5 hours complete (~82%)
+**Blockers**: Runtime errors preventing all testing and functionality
 
 ---
 
