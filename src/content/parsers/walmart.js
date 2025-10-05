@@ -15,6 +15,16 @@ export class WalmartParser {
   }
 
   /**
+   * Check if current page is a Walmart Search/Listing Page
+   * @returns {boolean}
+   */
+  static isSearchPage() {
+    const pathname = window.location.pathname;
+    const search = window.location.search;
+    return pathname.includes('/search') && search.includes('?q=');
+  }
+
+  /**
    * Extract product data from Walmart PDP
    * @returns {Object|null} Parsed product data or null if extraction fails
    */
@@ -177,5 +187,67 @@ export class WalmartParser {
       reviews: this.extractReviews().length,
       url: window.location.href
     };
+  }
+
+  /**
+   * Extract product cards from Walmart search/listing page
+   * @returns {Array} Array of product objects with basic info
+   */
+  static extractSearchProducts() {
+    const products = [];
+
+    try {
+      // Walmart search results use data-item-id attribute
+      const productCards = document.querySelectorAll('[data-item-id]');
+      console.log(`Shop Well: Found ${productCards.length} Walmart product cards`);
+
+      productCards.forEach((card, index) => {
+        try {
+          const itemId = card.getAttribute('data-item-id');
+
+          // Title and link
+          const link = card.querySelector('a[link-identifier="itemTitle"], a[data-automation-id="product-title"]');
+          const title = link?.getAttribute('aria-label') ||
+                       link?.textContent?.trim() ||
+                       card.querySelector('[data-automation-id="product-title"]')?.textContent?.trim();
+
+          // Price
+          const priceEl = card.querySelector('[data-automation-id="product-price"]') ||
+                         card.querySelector('.price-main .w_iUH7');
+          const price = priceEl?.textContent?.trim();
+
+          // Image
+          const image = card.querySelector('img')?.src;
+
+          // Rating
+          const ratingEl = card.querySelector('[data-automation-id="product-rating"]');
+          const rating = ratingEl?.getAttribute('aria-label')?.match(/[\d.]+/)?.[0];
+
+          // Construct product URL
+          const productUrl = link?.href || (itemId ? `https://www.walmart.com/ip/${itemId}` : null);
+
+          if (itemId && title) {
+            products.push({
+              id: itemId,
+              title: title,
+              price: price,
+              image: image,
+              url: productUrl,
+              rating: rating,
+              position: index,
+              source: 'walmart_search'
+            });
+          }
+        } catch (err) {
+          console.warn('Shop Well: Failed to extract Walmart product card:', err);
+        }
+      });
+
+      console.log(`Shop Well: Successfully extracted ${products.length} Walmart products`);
+    } catch (error) {
+      console.error('Shop Well: Walmart search extraction failed:', error);
+    }
+
+    return products;
   }
 }

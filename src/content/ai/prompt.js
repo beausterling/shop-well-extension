@@ -1,4 +1,5 @@
 // Chrome Built-in AI Prompt Implementation
+import { getUserLanguage, getLanguageInstruction } from '../utils/language.js';
 
 /**
  * Generate wellness verdict using Chrome's Prompt API
@@ -13,19 +14,24 @@ export async function generateVerdict(facts, condition, allergies = [], customCo
     console.log('Shop Well: Starting AI verdict generation...');
 
     // Check if Prompt API is available
-    if (!window.ai?.languageModel) {
+    if (typeof LanguageModel === 'undefined') {
       console.warn('Shop Well: Prompt API not available');
       return null;
     }
 
-    // Prepare the prompt
-    const { systemPrompt, userPrompt } = preparePrompts(facts, condition, allergies, customCondition);
+    // Get user's language preference
+    const language = await getUserLanguage();
+    console.log('Shop Well: Using language:', language.code, `(${language.name})`);
+
+    // Prepare the prompt with language instruction
+    const { systemPrompt, userPrompt } = preparePrompts(facts, condition, allergies, customCondition, language);
 
     console.log('Shop Well: Prompt length:', userPrompt.length);
 
     // Create language model session
-    const session = await window.ai.languageModel.create({
-      systemPrompt: systemPrompt
+    const session = await LanguageModel.create({
+      systemPrompt: systemPrompt,
+      language: language.code
     });
 
     // Generate response
@@ -52,12 +58,16 @@ export async function generateVerdict(facts, condition, allergies = [], customCo
  * @param {string} condition - Health condition
  * @param {Array} allergies - Allergies list
  * @param {string} customCondition - Custom condition text
+ * @param {Object} language - Language object with code and name
  * @returns {Object} System and user prompts
  */
-function preparePrompts(facts, condition, allergies, customCondition) {
+function preparePrompts(facts, condition, allergies, customCondition, language) {
+  const languageInstruction = getLanguageInstruction(language.code);
+
   const systemPrompt = `You are a wellness shopping assistant that provides informational guidance only.
 
 CRITICAL RULES:
+- ${languageInstruction}
 - Never provide medical advice, diagnosis, or treatment recommendations
 - Use supportive language like "may be helpful", "could support", "consider"
 - Always include appropriate disclaimers

@@ -1,4 +1,5 @@
 // Chrome Built-in AI Summarizer Implementation
+import { getUserLanguage } from '../utils/language.js';
 
 /**
  * Extract structured wellness facts from product data using Chrome's Summarizer API
@@ -10,10 +11,14 @@ export async function summarizeProduct(productData) {
     console.log('Shop Well: Starting AI summarization...');
 
     // Check if Summarizer API is available
-    if (!window.ai?.summarizer) {
+    if (typeof Summarizer === 'undefined') {
       console.warn('Shop Well: Summarizer API not available');
       return null;
     }
+
+    // Get user's language preference
+    const language = await getUserLanguage();
+    console.log('Shop Well: Summarizing in:', language.code, `(${language.name})`);
 
     // Prepare input text with structured format
     const inputText = prepareInputText(productData);
@@ -26,7 +31,7 @@ export async function summarizeProduct(productData) {
     console.log('Shop Well: Summarizer input length:', inputText.length);
 
     // Create summarizer session
-    const summarizer = await window.ai.summarizer.create();
+    const summarizer = await Summarizer.create({ language: language.code });
 
     // Generate summary with structured prompt
     const summary = await summarizer.summarize(inputText);

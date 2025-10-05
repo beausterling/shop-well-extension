@@ -1,32 +1,274 @@
 // Shop Well Background Service Worker
+// Handles keyboard shortcuts, side panel management, and message routing
+
+console.log('Shop Well background service worker initialized');
+
+/* =============================================================================
+   KEYBOARD SHORTCUT HANDLER
+   ============================================================================= */
 
 // Listen for keyboard shortcuts
-chrome.commands.onCommand.addListener((command) => {
+chrome.commands.onCommand.addListener(async (command) => {
   if (command === 'toggle-panel') {
-    chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-      chrome.tabs.sendMessage(tabs[0].id, {command: 'toggle-panel'});
+    console.log('Shop Well: Keyboard shortcut triggered (Option+Shift+W on Mac, Alt+Shift+W on Windows/Linux)');
+
+    try {
+      // Get the current active tab
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+      if (!activeTab) {
+        console.warn('Shop Well: No active tab found');
+        return;
+      }
+
+      // Ensure the side panel uses the production panel
+      await chrome.sidePanel.setOptions({
+        tabId: activeTab.id,
+        path: 'sidepanel/index.html',
+        enabled: true
+      });
+
+      // Check if tab is valid and on a supported site
+      if (!activeTab.url ||
+          (!activeTab.url.includes('amazon.com') && !activeTab.url.includes('walmart.com'))) {
+        console.log('Shop Well: Not on a supported site');
+
+        // Still open side panel to show welcome message
+        await chrome.sidePanel.open({ windowId: activeTab.windowId });
+        return;
+      }
+
+      // Open the side panel
+      console.log('Shop Well: Opening side panel for tab:', activeTab.id);
+      await chrome.sidePanel.open({ windowId: activeTab.windowId });
+
+      // Request product data from content script
+      chrome.tabs.sendMessage(
+        activeTab.id,
+        { command: 'extract-product-data' },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('Shop Well: Failed to extract product data:', chrome.runtime.lastError.message);
+            return;
+          }
+
+          if (response && response.success && response.productData) {
+            console.log('Shop Well: Product data extracted, sending to side panel');
+
+            // Send product data to side panel for analysis
+            chrome.runtime.sendMessage({
+              type: 'analyze-product',
+              productData: response.productData
+            }, (sidePanelResponse) => {
+              if (chrome.runtime.lastError) {
+                console.warn('Shop Well: Side panel may not be ready yet:', chrome.runtime.lastError.message);
+              } else {
+                console.log('Shop Well: Analysis started in side panel');
+              }
+            });
+          } else {
+            console.warn('Shop Well: No product data received from content script');
+          }
+        }
+      );
+
+    } catch (error) {
+      console.error('Shop Well: Error handling keyboard shortcut:', error);
+    }
+  }
+
+  // Handle test UI panel shortcut (Command+Shift+S on Mac, Ctrl+Shift+S on Windows/Linux)
+  if (command === 'test-ui-panel') {
+    console.log('🧪 Shop Well: Test UI panel shortcut triggered (Command+Shift+S on Mac, Ctrl+Shift+S on Windows/Linux)');
+
+    try {
+      // Get the current active tab
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+      if (!activeTab) {
+        console.warn('Shop Well: No active tab found');
+        return;
+      }
+
+      // Set the side panel to use the test panel
+      await chrome.sidePanel.setOptions({
+        tabId: activeTab.id,
+        path: 'test-panel/index.html',
+        enabled: true
+      });
+
+      // Open the side panel with the test UI
+      console.log('🧪 Shop Well: Opening test UI panel');
+      await chrome.sidePanel.open({ windowId: activeTab.windowId });
+
+    } catch (error) {
+      console.error('Shop Well: Error opening test UI panel:', error);
+    }
+  }
+});
+
+/* =============================================================================
+   EXTENSION ICON CLICK HANDLER
+   ============================================================================= */
+
+// Handle extension icon click - open side panel
+chrome.action.onClicked.addListener(async (tab) => {
+  console.log('Shop Well: Extension icon clicked');
+
+  try {
+    await chrome.sidePanel.open({ windowId: tab.windowId });
+
+    // If on a supported site, extract product data
+    if (tab.url && (tab.url.includes('amazon.com') || tab.url.includes('walmart.com'))) {
+      chrome.tabs.sendMessage(
+        tab.id,
+        { command: 'extract-product-data' },
+        (response) => {
+          if (!chrome.runtime.lastError && response && response.success) {
+            chrome.runtime.sendMessage({
+              type: 'analyze-product',
+              productData: response.productData
+            });
+          }
+        }
+      );
+    }
+  } catch (error) {
+    console.error('Shop Well: Error opening side panel:', error);
+  }
+});
+
+/* =============================================================================
+   MESSAGE ROUTING
+   ============================================================================= */
+
+// Listen for messages from content scripts and side panel
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log('Shop Well: Message received:', message.type || message.command);
+
+  // Handle different message types
+  if (message.type === 'analyze-product' && message.productData) {
+    // This message is going to the side panel
+    // The side panel's listener will pick it up
+    console.log('Shop Well: Routing analysis request to side panel');
+
+    // Don't send response here - let the side panel handle it
+    return false;
+  }
+
+  if (message.type === 'analyze-listing-product' && message.productData) {
+    // Listing product badge was clicked
+    console.log('Shop Well: Listing product analysis requested:', message.productData.id);
+
+    // Open side panel first
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+      const activeTab = tabs[0];
+      if (activeTab) {
+        try {
+          await chrome.sidePanel.open({ windowId: activeTab.windowId });
+          console.log('Shop Well: Side panel opened for listing product');
+
+          // Send to side panel for analysis
+          chrome.runtime.sendMessage({
+            type: 'analyze-listing-product',
+            productData: message.productData
+          }, (response) => {
+            if (chrome.runtime.lastError) {
+              console.warn('Shop Well: Side panel not ready:', chrome.runtime.lastError.message);
+            } else {
+              console.log('Shop Well: Listing product sent to side panel');
+            }
+          });
+
+          sendResponse({ success: true });
+        } catch (error) {
+          console.error('Shop Well: Failed to open side panel:', error);
+          sendResponse({ success: false, error: error.message });
+        }
+      }
+    });
+
+    return true; // Will send response asynchronously
+  }
+
+  if (message.command === 'extract-product-data') {
+    // This is handled by the content script
+    return false;
+  }
+
+  if (message.type === 'product-data-extracted' && message.productData) {
+    // Content script extracted data, send to side panel
+    console.log('Shop Well: Product data received from content script, forwarding to side panel');
+
+    chrome.runtime.sendMessage({
+      type: 'analyze-product',
+      productData: message.productData
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.warn('Shop Well: Side panel not ready:', chrome.runtime.lastError.message);
+      }
+    });
+
+    sendResponse({ success: true });
+    return true;
+  }
+
+  return false;
+});
+
+/* =============================================================================
+   TAB CHANGE HANDLERS
+   ============================================================================= */
+
+// Listen for tab updates (navigation to new pages)
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  // Only act on complete page loads
+  if (changeInfo.status !== 'complete') return;
+
+  // Check if it's a supported site
+  if (tab.url && (tab.url.includes('amazon.com') || tab.url.includes('walmart.com'))) {
+    console.log('Shop Well: Navigated to supported site:', tab.url);
+
+    // Enable side panel for this tab
+    chrome.sidePanel.setOptions({
+      tabId: tabId,
+      enabled: true
+    }).catch(err => {
+      // Silently fail - side panel API might not be fully ready
     });
   }
 });
 
-// Handle extension installation
+/* =============================================================================
+   INSTALLATION & UPDATES
+   ============================================================================= */
+
+// Handle extension installation and updates
 chrome.runtime.onInstalled.addListener(async (details) => {
+  console.log('Shop Well: Extension installed/updated, reason:', details.reason);
+
   if (details.reason === 'install') {
-    // Set default settings
+    // Set default settings on first install
     await chrome.storage.local.set({
       condition: 'POTS',
       autoshow: true,
       allergies: [],
       customAllergies: [],
       customCondition: '',
+      languagePreference: 'auto',
       welcomeCompleted: false
     });
+
+    console.log('Shop Well: Default settings initialized');
 
     // Open welcome page on first install
     chrome.tabs.create({
       url: chrome.runtime.getURL('welcome/index.html')
     });
+
   } else if (details.reason === 'update') {
+    console.log('Shop Well: Extension updated to version', chrome.runtime.getManifest().version);
+
     // Check if user has completed welcome flow
     const { welcomeCompleted } = await chrome.storage.local.get(['welcomeCompleted']);
 
@@ -39,5 +281,13 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   }
 });
 
-// Future: Could add context menus, alarms for periodic checks, etc.
-console.log('Shop Well background service worker initialized');
+/* =============================================================================
+   CONTEXT MENU (OPTIONAL - FOR FUTURE)
+   ============================================================================= */
+
+// Future: Could add context menu items for quick actions
+// chrome.contextMenus.create({
+//   id: 'shop-well-analyze',
+//   title: 'Analyze with Shop Well',
+//   contexts: ['page']
+// });

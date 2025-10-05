@@ -1,324 +1,298 @@
 // Shop Well Content Script
+// Simplified: Only extracts product data from Amazon/Walmart pages
+// AI analysis now happens in the side panel
 
 import { AmazonParser } from './parsers/amazon.js';
 import { WalmartParser } from './parsers/walmart.js';
-import { checkAIAvailability, logAICapabilities, canUseAIAnalysis } from './ai/detector.js';
-import { summarizeProduct, createFallbackFacts } from './ai/summarize.js';
-import { generateVerdict, createFallbackVerdict } from './ai/prompt.js';
-import { ShopWellPanel } from './ui/panel.js';
 
-// Main application class
-class ShopWellApp {
+class ProductExtractor {
   constructor() {
-    this.panel = null;
     this.parser = null;
-    this.settings = {};
-    this.isAnalyzing = false;
-    this.aiCapabilities = null;
+    this.isProductPage = false;
+    this.pageType = null; // 'pdp' or 'listing'
+    this.listingProducts = []; // Array of products on listing page
   }
 
-  async init() {
-    console.log('Shop Well initializing...');
+  init() {
+    console.log('Shop Well: Content script initializing...');
 
-    try {
-      // Load user settings including custom conditions and allergies
-      this.settings = await chrome.storage.local.get([
-        'condition', 'customCondition', 'autoshow', 'allergies', 'customAllergies'
-      ]);
-      this.settings.condition = this.settings.condition || 'POTS';
-      this.settings.customCondition = this.settings.customCondition || '';
-      this.settings.autoshow = this.settings.autoshow !== false;
-      this.settings.allergies = this.settings.allergies || [];
-      this.settings.customAllergies = this.settings.customAllergies || [];
+    // Detect if we're on a product page or listing page
+    this.isProductPage = this.detectProductPage();
 
-      // Check AI capabilities
-      this.aiCapabilities = await checkAIAvailability();
-      logAICapabilities(this.aiCapabilities);
-
-      // Detect current site and check if it's a product page
-      if (!this.detectSiteAndParser()) {
-        console.log('Shop Well: Not a supported product page');
-        return;
-      }
-
-      console.log(`Shop Well: Detected ${this.parser.name || 'Unknown'} product page`);
-
-      // Initialize UI panel (will be implemented in Phase 3)
-      await this.initializePanel();
-
-      // Auto-show analysis if enabled
-      if (this.settings.autoshow) {
-        await this.analyzeAndShow();
-      }
-
-      // Listen for keyboard shortcuts and messages
-      this.setupEventListeners();
-
-    } catch (error) {
-      console.error('Shop Well initialization failed:', error);
+    if (this.pageType === 'pdp') {
+      console.log(`Shop Well: Detected ${this.parser.name || 'product'} detail page`);
+      // Set up message listener for PDP
+      this.setupMessageListener();
+    } else if (this.pageType === 'listing') {
+      console.log(`Shop Well: Detected ${this.parser.name || 'search'} listing page`);
+      // Initialize listing mode with badges
+      this.initListingMode();
+    } else {
+      console.log('Shop Well: Not a supported page type');
     }
   }
 
-  detectSiteAndParser() {
+  detectProductPage() {
+    // Check for Product Detail Page (PDP) first
     if (AmazonParser.isPDP()) {
       this.parser = AmazonParser;
-      console.log('Shop Well: Amazon PDP detected');
+      this.pageType = 'pdp';
       return true;
     } else if (WalmartParser.isPDP()) {
       this.parser = WalmartParser;
-      console.log('Shop Well: Walmart PDP detected');
+      this.pageType = 'pdp';
+      return true;
+    }
+
+    // Check for Search/Listing Page
+    if (AmazonParser.isSearchPage()) {
+      this.parser = AmazonParser;
+      this.pageType = 'listing';
+      return true;
+    } else if (WalmartParser.isSearchPage()) {
+      this.parser = WalmartParser;
+      this.pageType = 'listing';
       return true;
     }
 
     return false;
   }
 
-  async initializePanel() {
-    console.log('Shop Well: Initializing UI panel...');
-
-    try {
-      this.panel = new ShopWellPanel();
-      this.panel.create();
-
-      // Listen for retry events from the panel
-      window.addEventListener('shop-well-retry', () => {
-        this.analyzeAndShow();
-      });
-
-      console.log('Shop Well: Panel initialized successfully');
-    } catch (error) {
-      console.error('Shop Well: Panel initialization failed:', error);
-    }
-  }
-
-  async analyzeAndShow() {
-    if (this.isAnalyzing) return;
-
-    this.isAnalyzing = true;
-    console.log('Shop Well: Starting product analysis...');
-
-    // Show loading state in panel
-    if (this.panel) {
-      this.panel.showLoading();
+  extractProductData() {
+    if (!this.parser || !this.isProductPage) {
+      console.warn('Shop Well: Cannot extract data - not on a product page');
+      return null;
     }
 
+    console.log('Shop Well: Extracting product data...');
+
     try {
-      // Parse product data
       const productData = this.parser.parse();
 
       if (!productData) {
-        console.warn('Shop Well: Failed to parse product data');
-        if (this.panel) {
-          this.panel.showError('Unable to analyze this product page. Make sure you\'re on a supported product page.');
-        }
-        return;
+        console.warn('Shop Well: Parser returned no data');
+        return null;
       }
 
-      console.log('Shop Well: Product data parsed successfully');
-
-      // Get all allergies (preset + custom)
-      const allAllergies = [...this.settings.allergies, ...this.settings.customAllergies];
-
-      // Get actual condition name
-      const actualCondition = this.settings.condition === 'custom'
-        ? this.settings.customCondition
-        : this.settings.condition;
-
-      console.log('Shop Well: Analysis settings:', {
-        condition: actualCondition,
-        isCustom: this.settings.condition === 'custom',
-        allergies: allAllergies,
-        aiAvailable: canUseAIAnalysis(this.aiCapabilities)
+      console.log('Shop Well: Product data extracted successfully:', {
+        title: productData.title?.substring(0, 50) + '...',
+        hasIngredients: !!productData.ingredients,
+        bulletCount: productData.bullets?.length || 0,
+        price: productData.price
       });
 
-      // Step 1: Extract structured facts
-      let facts;
-      if (canUseAIAnalysis(this.aiCapabilities) && this.aiCapabilities.summarizer) {
-        console.log('Shop Well: Using AI for fact extraction...');
-        facts = await summarizeProduct(productData);
-      }
-
-      if (!facts) {
-        console.log('Shop Well: Using fallback fact extraction...');
-        facts = createFallbackFacts(productData);
-      }
-
-      // Step 2: Generate wellness verdict
-      let verdict;
-      if (canUseAIAnalysis(this.aiCapabilities) && this.aiCapabilities.prompt) {
-        console.log('Shop Well: Using AI for verdict generation...');
-        verdict = await generateVerdict(
-          facts,
-          this.settings.condition,
-          allAllergies,
-          this.settings.customCondition
-        );
-      }
-
-      if (!verdict) {
-        console.log('Shop Well: Using fallback verdict generation...');
-        verdict = createFallbackVerdict(facts, allAllergies);
-      }
-
-      // Step 3: Display results
-      this.displayAnalysisResults(productData, facts, verdict, actualCondition);
-
-      // Step 4: Show results in panel
-      if (this.panel) {
-        // Check if AI is available to show setup or analysis
-        if (!canUseAIAnalysis(this.aiCapabilities)) {
-          this.panel.showSetup();
-        } else {
-          // Prepare analysis data for panel
-          const analysisData = {
-            ...verdict,
-            condition: actualCondition,
-            allergen_warnings: facts.allergen_warnings || [],
-            confidence: facts.confidence || 'medium'
-          };
-          this.panel.showAnalysis(analysisData);
-        }
-      }
-
-      // Legacy allergen check (will be replaced by AI analysis)
-      if (productData.ingredients && allAllergies.length > 0) {
-        this.checkBasicAllergens(productData.ingredients, allAllergies);
-      }
+      return productData;
 
     } catch (error) {
-      console.error('Shop Well analysis failed:', error);
-      if (this.panel) {
-        this.panel.showError('Analysis failed. Please try again or check your Chrome AI settings.');
-      }
-    } finally {
-      this.isAnalyzing = false;
+      console.error('Shop Well: Product extraction failed:', error);
+      return null;
     }
   }
 
-  /**
-   * Display comprehensive analysis results
-   */
-  displayAnalysisResults(productData, facts, verdict, condition) {
-    console.log('='.repeat(50));
-    console.log('🛍️ SHOP WELL ANALYSIS RESULTS');
-    console.log('='.repeat(50));
+  initListingMode() {
+    // Extract all products from search results
+    this.listingProducts = this.parser.extractSearchProducts();
+    console.log(`Shop Well: Found ${this.listingProducts.length} products on listing page`);
 
-    console.log('📋 Product:', productData.title);
-    console.log('🏥 Condition:', condition);
-    console.log('🔬 AI Enhanced:', canUseAIAnalysis(this.aiCapabilities));
-
-    console.log('\n📊 EXTRACTED FACTS:');
-    Object.entries(facts).forEach(([key, value]) => {
-      if (key !== 'summary_text' && value !== false && value !== null && value !== '') {
-        console.log(`  • ${key}: ${Array.isArray(value) ? value.join(', ') : value}`);
-      }
-    });
-
-    console.log('\n🎯 WELLNESS VERDICT:');
-    const verdictEmoji = {
-      'helpful': '✅',
-      'mixed': '⚠️',
-      'not_ideal': '❌'
-    };
-
-    console.log(`  ${verdictEmoji[verdict.verdict]} ${verdict.verdict.toUpperCase()}`);
-
-    console.log('\n💡 KEY INSIGHTS:');
-    verdict.bullets.forEach((bullet, index) => {
-      console.log(`  ${index + 1}. ${bullet}`);
-    });
-
-    console.log('\n⚠️ IMPORTANT CAVEAT:');
-    console.log(`  ${verdict.caveat}`);
-
-    if (verdict.allergen_alert) {
-      console.log('\n🚨 ALLERGEN ALERT: This product may contain allergens you specified!');
-    }
-
-    console.log('\n💬 DISCLAIMER: This is informational guidance only, not medical advice.');
-    console.log('='.repeat(50));
-  }
-
-  /**
-   * Basic allergen checking (legacy - enhanced AI analysis above)
-   * @param {string} ingredients
-   * @param {Array} allergies
-   */
-  checkBasicAllergens(ingredients, allergies) {
-    const foundAllergens = [];
-    const ingredientsLower = ingredients.toLowerCase();
-
-    for (const allergen of allergies) {
-      const allergenPatterns = {
-        'peanuts': ['peanut', 'groundnut'],
-        'tree-nuts': ['almond', 'walnut', 'pecan', 'cashew', 'hazelnut', 'pistachio', 'macadamia'],
-        'milk': ['milk', 'dairy', 'cheese', 'butter', 'cream', 'whey', 'casein', 'lactose'],
-        'eggs': ['egg', 'albumin', 'mayonnaise'],
-        'wheat': ['wheat', 'flour', 'gluten', 'bread'],
-        'soy': ['soy', 'soybean', 'tofu', 'miso', 'tempeh'],
-        'fish': ['fish', 'salmon', 'tuna', 'cod', 'halibut'],
-        'shellfish': ['shrimp', 'crab', 'lobster', 'shellfish', 'clam', 'oyster', 'scallop'],
-        'sesame': ['sesame', 'tahini']
-      };
-
-      const patterns = allergenPatterns[allergen] || [allergen.toLowerCase()];
-      for (const pattern of patterns) {
-        if (ingredientsLower.includes(pattern)) {
-          foundAllergens.push(allergen);
-          break;
-        }
-      }
-    }
-
-    if (foundAllergens.length > 0) {
-      console.warn('Shop Well: LEGACY ALLERGEN CHECK - Found:', foundAllergens);
-      console.warn('Shop Well: Note: Enhanced AI analysis above provides more accurate results');
-    } else if (allergies.length > 0) {
-      console.log('Shop Well: Legacy check - No obvious allergens detected');
-    }
-  }
-
-  async togglePanel() {
-    console.log('Shop Well: Toggle panel requested');
-
-    // Initialize panel if it doesn't exist
-    if (!this.panel) {
-      await this.initializePanel();
-    }
-
-    // If panel is visible, hide it
-    if (this.panel && this.panel.isVisible) {
-      this.panel.hide();
+    if (this.listingProducts.length === 0) {
+      console.warn('Shop Well: No products found on listing page');
       return;
     }
 
-    // If panel is not visible, analyze and show
-    await this.analyzeAndShow();
+    // Import and initialize badge overlay
+    // Note: We'll dynamically inject the overlay UI
+    this.injectListingBadges();
+
+    // Setup message listener for badge clicks
+    this.setupListingMessageListener();
   }
 
-  setupEventListeners() {
-    // Listen for messages from background script
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      if (message.command === 'toggle-panel') {
-        this.togglePanel();
-        sendResponse({ success: true });
+  injectListingBadges() {
+    console.log('Shop Well: Injecting product badges...');
+
+    // We'll create this functionality in listing-overlay.js
+    // For now, create a simple badge injector inline
+    this.listingProducts.forEach((product, index) => {
+      try {
+        // Find the product card element
+        let cardSelector;
+        if (product.source === 'amazon_search') {
+          cardSelector = `[data-asin="${product.id}"]`;
+        } else if (product.source === 'walmart_search') {
+          cardSelector = `[data-item-id="${product.id}"]`;
+        }
+
+        const card = document.querySelector(cardSelector);
+        if (!card) {
+          console.warn(`Shop Well: Could not find card for product ${product.id}`);
+          return;
+        }
+
+        // Make card position relative for absolute badge positioning
+        card.style.position = 'relative';
+
+        // Create badge element
+        const badge = document.createElement('div');
+        badge.className = 'shop-well-badge';
+        badge.setAttribute('data-product-index', index);
+        badge.innerHTML = '🌿 Analyze';
+
+        // Add click handler
+        badge.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.handleBadgeClick(product);
+        });
+
+        // Inject badge into card
+        card.appendChild(badge);
+
+      } catch (error) {
+        console.error(`Shop Well: Failed to inject badge for product ${product.id}:`, error);
       }
     });
 
-    console.log('Shop Well: Event listeners set up');
+    // Inject badge styles
+    this.injectBadgeStyles();
+
+    console.log(`Shop Well: Injected ${this.listingProducts.length} badges`);
+  }
+
+  injectBadgeStyles() {
+    // Check if styles already injected
+    if (document.getElementById('shop-well-badge-styles')) {
+      return;
+    }
+
+    const style = document.createElement('style');
+    style.id = 'shop-well-badge-styles';
+    style.textContent = `
+      .shop-well-badge {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        z-index: 1000;
+        background: linear-gradient(135deg, #6BAF7A, #65AEDD);
+        color: white;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        transition: transform 0.2s, background 0.2s;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+
+      .shop-well-badge:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      }
+
+      .shop-well-badge.analyzing {
+        background: linear-gradient(135deg, #F2C94C, #F2A94C);
+        cursor: wait;
+      }
+
+      .shop-well-badge.analyzed {
+        background: linear-gradient(135deg, #6BAF7A, #4A9D5F);
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  handleBadgeClick(product) {
+    console.log('Shop Well: Badge clicked for product:', product.id);
+
+    // Visual feedback
+    const badge = document.querySelector(`.shop-well-badge[data-product-index="${product.position}"]`);
+    if (badge) {
+      badge.classList.add('analyzing');
+      badge.innerHTML = '⏳ Analyzing...';
+    }
+
+    // Send message to background to open side panel and analyze
+    chrome.runtime.sendMessage({
+      type: 'analyze-listing-product',
+      productData: product
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error('Shop Well: Failed to send listing product message:', chrome.runtime.lastError);
+        if (badge) {
+          badge.classList.remove('analyzing');
+          badge.innerHTML = '❌ Error';
+        }
+      } else {
+        console.log('Shop Well: Listing product analysis initiated');
+        if (badge) {
+          badge.classList.remove('analyzing');
+          badge.classList.add('analyzed');
+          badge.innerHTML = '✓ Analyzed';
+        }
+      }
+    });
+  }
+
+  setupListingMessageListener() {
+    // Listen for messages from background/side panel
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      console.log('Shop Well: Listing message received:', message.type);
+
+      if (message.type === 'get-listing-products') {
+        sendResponse({
+          success: true,
+          products: this.listingProducts
+        });
+        return true;
+      }
+
+      return false;
+    });
+
+    console.log('Shop Well: Listing message listener set up');
+  }
+
+  setupMessageListener() {
+    // Listen for messages from background script
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      console.log('Shop Well: Message received:', message.command);
+
+      if (message.command === 'extract-product-data') {
+        const productData = this.extractProductData();
+
+        if (productData) {
+          sendResponse({
+            success: true,
+            productData: productData
+          });
+        } else {
+          sendResponse({
+            success: false,
+            error: 'Failed to extract product data'
+          });
+        }
+
+        // Return true to indicate we'll send response asynchronously
+        return true;
+      }
+
+      return false;
+    });
+
+    console.log('Shop Well: Message listener set up');
   }
 }
 
 // Initialize when DOM is ready
-function initializeShopWell() {
-  const app = new ShopWellApp();
-  app.init();
+function initializeExtractor() {
+  const extractor = new ProductExtractor();
+  extractor.init();
 }
 
 // Handle different document ready states
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializeShopWell);
+  document.addEventListener('DOMContentLoaded', initializeExtractor);
 } else {
   // DOM is already ready
-  initializeShopWell();
+  initializeExtractor();
 }

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shop Well - Wellness Analysis</title>
+  <link rel="stylesheet" href="design-tokens.css">
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <div id="shop-well-sidepanel">
+    <!-- Header -->
+    <header class="shop-well-header">
+      <div class="shop-well-logo">
+        <span class="shop-well-icon">🌿</span>
+        <span class="shop-well-title">Shop Well</span>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="shop-well-content">
+
+      <!-- Loading State -->
+      <div class="shop-well-loading hidden">
+        <div class="loading-spinner"></div>
+        <p>Analyzing product with Chrome AI...</p>
+        <small>This may take a few seconds</small>
+      </div>
+
+      <!-- Setup Instructions State -->
+      <div class="shop-well-setup hidden">
+        <div class="setup-icon">⚙️</div>
+        <h2>Chrome AI Setup Required</h2>
+        <p>Enable Chrome's Built-in AI for enhanced wellness analysis:</p>
+        <ol>
+          <li>
+            <strong>Enable AI Flags:</strong>
+            <ul>
+              <li>
+                <button class="copy-link" data-url="chrome://flags/#optimization-guide-on-device-model" title="Copy to clipboard">
+                  optimization-guide-on-device-model
+                </button>
+              </li>
+              <li>
+                <button class="copy-link" data-url="chrome://flags/#prompt-api-for-gemini-nano" title="Copy to clipboard">
+                  prompt-api-for-gemini-nano
+                </button>
+              </li>
+              <li>
+                <button class="copy-link" data-url="chrome://flags/#summarization-api-for-gemini-nano" title="Copy to clipboard">
+                  summarization-api-for-gemini-nano
+                </button>
+              </li>
+            </ul>
+          </li>
+          <li><strong>Restart Chrome</strong> completely (Cmd+Q on Mac, fully quit on Windows)</li>
+          <li><strong>Wait 2-3 minutes</strong> for AI models to download</li>
+          <li><strong>Return here</strong> and click the button below</li>
+        </ol>
+
+        <button class="retry-button" id="checkAIButton">
+          Check AI Availability
+        </button>
+
+        <div class="setup-note">
+          <p><strong>Requirements:</strong></p>
+          <ul>
+            <li>Chrome 128+ (Stable)</li>
+            <li>22 GB free storage for AI models</li>
+            <li>4+ GB VRAM (GPU memory)</li>
+          </ul>
+          <p>
+            <a href="chrome://on-device-internals" target="_blank" class="external-link">
+              Check AI model status →
+            </a>
+          </p>
+        </div>
+      </div>
+
+      <!-- AI Analysis Results State -->
+      <div class="shop-well-analysis hidden">
+        <div class="analysis-header">
+          <div class="verdict-badge"></div>
+          <div class="condition-info"></div>
+        </div>
+
+        <div class="product-info">
+          <h3 class="product-title"></h3>
+          <div class="product-meta">
+            <span class="product-price"></span>
+            <span class="product-rating"></span>
+          </div>
+        </div>
+
+        <div class="analysis-content">
+          <!-- Key Insights -->
+          <section class="key-insights">
+            <h4>💡 Key Insights</h4>
+            <ul class="insights-list"></ul>
+          </section>
+
+          <!-- Allergen Alerts -->
+          <section class="allergen-alerts hidden">
+            <h4>🚨 Allergen Alert</h4>
+            <div class="alert-content"></div>
+          </section>
+
+          <!-- Important Caveat -->
+          <section class="important-caveat hidden">
+            <h4>⚠️ Important</h4>
+            <div class="caveat-content"></div>
+          </section>
+        </div>
+
+        <div class="analysis-footer">
+          <div class="confidence-indicator">
+            <span class="confidence-label">Analysis Confidence:</span>
+            <span class="confidence-value"></span>
+          </div>
+          <button class="refresh-button" id="refreshAnalysis" title="Re-analyze product">
+            <span>🔄</span> Refresh Analysis
+          </button>
+        </div>
+      </div>
+
+      <!-- Error State -->
+      <div class="shop-well-error hidden" role="alert">
+        <div class="error-icon">⚠️</div>
+        <h2>Analysis Failed</h2>
+        <p class="error-message"></p>
+        <button class="retry-button" id="retryAnalysis">Try Again</button>
+      </div>
+
+      <!-- Welcome State (shown when no product page active) -->
+      <div class="shop-well-welcome">
+        <div class="welcome-icon">🌿</div>
+        <h2>Welcome to Shop Well</h2>
+        <p>Your wellness-friendly shopping companion!</p>
+
+        <div class="welcome-instructions">
+          <p><strong>To get started:</strong></p>
+          <ol>
+            <li>Visit an Amazon or Walmart product page</li>
+            <li>Press <kbd>⌥⇧W</kbd> (Mac) or <kbd>Alt+Shift+W</kbd> (Windows/Linux)</li>
+            <li>Get instant wellness analysis powered by Chrome AI</li>
+          </ol>
+        </div>
+
+        <div class="welcome-features">
+          <h3>Features:</h3>
+          <ul>
+            <li>✅ AI-powered ingredient analysis</li>
+            <li>✅ Personalized wellness recommendations</li>
+            <li>✅ Allergen detection and warnings</li>
+            <li>✅ 100% private, on-device processing</li>
+          </ul>
+        </div>
+
+        <a href="chrome-extension://EXTENSION_ID/options/index.html" class="settings-link" id="settingsLink">
+          ⚙️ Configure Your Settings
+        </a>
+      </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="shop-well-footer">
+      <p class="disclaimer">
+        <small>ℹ️ Informational only - not medical advice. Always verify ingredients yourself.</small>
+      </p>
+      <p class="ai-badge">
+        <small>⚡ Powered by Chrome Built-in AI (Gemini Nano)</small>
+      </p>
+    </footer>
+  </div>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>

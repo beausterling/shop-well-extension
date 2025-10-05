@@ -11,43 +11,19 @@ async function checkAIAvailability() {
   };
 
   try {
-    // Check if window.ai exists
-    if (!window.ai) {
-      result.error = 'Chrome Built-in AI not available. Requires Chrome 128+ with AI flags enabled.';
-      return result;
-    }
-
-    result.available = true;
-
-    // Check Summarizer API with timeout
-    if (window.ai.summarizer) {
+    // Check for Prompt API (Language Model) - Official Chrome API
+    if (typeof LanguageModel !== 'undefined') {
       try {
-        const summarizerCapabilities = await Promise.race([
-          window.ai.summarizer.capabilities(),
+        const availability = await Promise.race([
+          LanguageModel.availability({ language: 'en' }),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
         ]);
-        result.summarizer = summarizerCapabilities.available === 'readily';
-        result.details.summarizer = summarizerCapabilities;
+        result.prompt = availability === 'readily';
+        result.details.prompt = { available: availability };
+        result.available = true;
+        console.log('Shop Well Options: LanguageModel found, availability:', availability);
       } catch (error) {
-        console.warn('Shop Well Options: Summarizer capabilities check failed:', error);
-        result.details.summarizerError = error.message;
-        if (error.message === 'Timeout') {
-          result.details.summarizerError = 'Chrome AI is still downloading models. Please wait a few minutes and try again.';
-        }
-      }
-    }
-
-    // Check Prompt API (Language Model) with timeout
-    if (window.ai.languageModel) {
-      try {
-        const promptCapabilities = await Promise.race([
-          window.ai.languageModel.capabilities(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-        ]);
-        result.prompt = promptCapabilities.available === 'readily';
-        result.details.prompt = promptCapabilities;
-      } catch (error) {
-        console.warn('Shop Well Options: Prompt API capabilities check failed:', error);
+        console.warn('Shop Well Options: LanguageModel availability check failed:', error);
         result.details.promptError = error.message;
         if (error.message === 'Timeout') {
           result.details.promptError = 'Chrome AI is still downloading models. Please wait a few minutes and try again.';
@@ -55,13 +31,39 @@ async function checkAIAvailability() {
       }
     }
 
+    // Check for Summarizer API - Official Chrome API
+    if (typeof Summarizer !== 'undefined') {
+      try {
+        const availability = await Promise.race([
+          Summarizer.availability({ language: 'en' }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]);
+        result.summarizer = availability === 'readily';
+        result.details.summarizer = { available: availability };
+        result.available = true;
+        console.log('Shop Well Options: Summarizer found, availability:', availability);
+      } catch (error) {
+        console.warn('Shop Well Options: Summarizer availability check failed:', error);
+        result.details.summarizerError = error.message;
+        if (error.message === 'Timeout') {
+          result.details.summarizerError = 'Chrome AI is still downloading models. Please wait a few minutes and try again.';
+        }
+      }
+    }
+
+    // If no APIs are available at all
+    if (!result.available) {
+      result.error = 'Chrome Built-in AI not available. Requires Chrome 128+ with AI flags enabled. Check chrome://on-device-internals for model download status.';
+      return result;
+    }
+
     // Overall assessment
     if (!result.summarizer && !result.prompt) {
-      result.error = 'Chrome AI APIs are not ready. Please check Chrome flags and try again.';
+      result.error = 'Chrome AI APIs are not ready. Please check Chrome flags and try again. Models may still be downloading.';
     } else if (!result.summarizer) {
-      result.error = 'Summarizer API not available. Product analysis will be limited.';
+      result.error = 'Summarizer API not available. Product analysis will be limited. Models may still be downloading.';
     } else if (!result.prompt) {
-      result.error = 'Prompt API not available. Wellness recommendations will be limited.';
+      result.error = 'Prompt API not available. Wellness recommendations will be limited. Models may still be downloading.';
     }
 
   } catch (error) {
@@ -176,8 +178,12 @@ function setupCopyButtons() {
 async function loadSettings() {
   try {
     const settings = await chrome.storage.local.get([
-      'condition', 'customCondition', 'autoshow', 'allergies', 'customAllergies'
+      'condition', 'customCondition', 'autoshow', 'allergies', 'customAllergies', 'languagePreference'
     ]);
+
+    // Load language preference
+    const languagePreference = settings.languagePreference || 'auto';
+    document.getElementById('language-preference').value = languagePreference;
 
     // Load condition settings
     const condition = settings.condition || 'POTS';
@@ -213,6 +219,7 @@ async function saveSettings() {
   try {
     const condition = document.getElementById('condition').value;
     const autoshow = document.getElementById('autoshow').checked;
+    const languagePreference = document.getElementById('language-preference').value;
 
     // Get custom condition if applicable
     const customCondition = condition === 'custom'
@@ -238,7 +245,8 @@ async function saveSettings() {
       customCondition,
       autoshow,
       allergies,
-      customAllergies
+      customAllergies,
+      languagePreference
     });
 
     const totalAllergens = allergies.length + customAllergies.length;
@@ -402,6 +410,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Custom condition input handler
   document.getElementById('custom-condition').addEventListener('input', saveSettings);
+
+  // Auto-save when language preference changes
+  document.getElementById('language-preference').addEventListener('change', saveSettings);
 
   // Auto-save when autoshow changes
   document.getElementById('autoshow').addEventListener('change', saveSettings);

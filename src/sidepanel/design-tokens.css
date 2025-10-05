@@ -1,0 +1,179 @@
+/* Shop Well Design System - Nature-Inspired Wellness Brand
+ * A warm, approachable design system for health-conscious users
+ */
+
+:root {
+  /* 🌿 Primary Colors - Health & Trust */
+  --sw-green: #6BAF7A;           /* Fresh Leaf Green - nature, health, vitality */
+  --sw-green-dark: #5A9D68;      /* Darker green for hover states */
+  --sw-green-light: #E8F5EA;     /* Light green tint for backgrounds */
+
+  --sw-blue: #65AEDD;            /* Sky Blue - trust, clarity, calm */
+  --sw-blue-dark: #5599C8;       /* Darker blue for hover states */
+  --sw-blue-light: #E6F4FA;      /* Light blue tint for backgrounds */
+
+  /* 🍂 Secondary Colors - Warmth & Emphasis */
+  --sw-beige: #E9DFC9;           /* Soft Beige - warm, approachable */
+  --sw-terracotta: #D38B6D;      /* Warm Terracotta - grounding, natural */
+  --sw-terracotta-dark: #C17A5C; /* Darker terracotta */
+  --sw-terracotta-light: #F5EBE6; /* Light terracotta tint */
+
+  --sw-honey: #F2C94C;           /* Golden Honey - attention, highlights */
+  --sw-honey-dark: #E0B73D;      /* Darker honey for hover */
+  --sw-honey-light: #FDF6E3;     /* Light honey tint */
+
+  /* ☁️ Neutrals - Foundation */
+  --sw-white: #FAFAF5;           /* Warm White - clean, airy */
+  --sw-charcoal: #3D3D3D;        /* Charcoal Gray - readable text */
+  --sw-taupe: #776B63;           /* Soft Taupe - WCAG AA compliant (4.5:1 contrast) */
+  --sw-taupe-light: #E5DFD9;     /* Light taupe for borders */
+
+  /* 🎨 Semantic Colors (mapped from brand palette) */
+  --color-success: var(--sw-green);
+  --color-success-bg: var(--sw-green-light);
+  --color-success-text: #3D7A4C; /* WCAG AA compliant (4.6:1 contrast) */
+
+  --color-warning: var(--sw-honey);
+  --color-warning-bg: var(--sw-honey-light);
+  --color-warning-text: #9C6A0A;
+
+  --color-danger: var(--sw-terracotta);
+  --color-danger-bg: var(--sw-terracotta-light);
+  --color-danger-text: var(--sw-terracotta-dark);
+
+  /* 🚨 Allergen Alert Colors (high urgency) */
+  --sw-alert-red: #C84A3A;       /* Urgent alert red for allergens */
+  --sw-alert-red-bg: #FEE;       /* Light red background */
+  --sw-alert-red-text: #7F1D1D;  /* Dark red text for contrast */
+
+  --color-info: var(--sw-blue);
+  --color-info-bg: var(--sw-blue-light);
+  --color-info-text: var(--sw-blue-dark);
+
+  /* 📐 Spacing Scale (4px base unit) */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* 🔤 Typography */
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', system-ui, sans-serif;
+  --emoji-font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', sans-serif;
+
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-size-2xl: 20px;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  /* 🌑 Shadows (soft, natural elevation) */
+  --shadow-xs: 0 1px 2px rgba(61, 61, 61, 0.05);
+  --shadow-sm: 0 2px 4px rgba(61, 61, 61, 0.08);
+  --shadow-md: 0 4px 12px rgba(61, 61, 61, 0.12);
+  --shadow-lg: 0 8px 24px rgba(61, 61, 61, 0.15);
+  --shadow-xl: 0 12px 32px rgba(61, 61, 61, 0.18);
+
+  /* 🔲 Border Radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* 📏 Borders */
+  --border-width: 1px;
+  --border-color: var(--sw-taupe-light);
+  --border: var(--border-width) solid var(--border-color);
+
+  /* ⚡ Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.2s ease;
+  --transition-slow: 0.3s ease;
+  --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* 📱 Z-Index Scale */
+  --z-base: 0;
+  --z-dropdown: 1000;
+  --z-sticky: 1100;
+  --z-fixed: 1200;
+  --z-overlay: 1300;
+  --z-modal: 1400;
+  --z-popover: 1500;
+  --z-toast: 1600;
+  --z-tooltip: 1700;
+  --z-max: 999999; /* For extension overlays */
+}
+
+/* 🌓 Dark Mode Overrides (if needed) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sw-white: #2D2D2D;
+    --sw-charcoal: #E5E5E5;
+    --sw-beige: #3A3530;
+    --sw-taupe: #B8ADA3;
+    --border-color: #4A4A4A;
+  }
+}
+
+/* ♿ Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 0s;
+    --transition-normal: 0s;
+    --transition-slow: 0s;
+  }
+}
+
+/* 🎯 Focus Ring (for accessibility) */
+:root {
+  --focus-ring: 0 0 0 3px var(--sw-blue-light);
+  --focus-ring-color: var(--sw-blue);
+}
+
+/* 📦 Component Tokens */
+:root {
+  /* Button Tokens */
+  --btn-padding-y: var(--space-2);
+  --btn-padding-x: var(--space-4);
+  --btn-radius: var(--radius-md);
+  --btn-font-size: var(--font-size-sm);
+  --btn-font-weight: var(--font-weight-medium);
+
+  /* Badge Tokens */
+  --badge-padding-y: var(--space-1);
+  --badge-padding-x: var(--space-3);
+  --badge-radius: var(--radius-full);
+  --badge-font-size: var(--font-size-sm);
+  --badge-font-weight: var(--font-weight-semibold);
+
+  /* Card Tokens */
+  --card-padding: var(--space-5);
+  --card-radius: var(--radius-lg);
+  --card-shadow: var(--shadow-md);
+  --card-bg: var(--sw-white);
+
+  /* Input Tokens */
+  --input-padding-y: var(--space-2);
+  --input-padding-x: var(--space-3);
+  --input-radius: var(--radius-md);
+  --input-border-color: var(--sw-taupe-light);
+  --input-focus-border-color: var(--sw-blue);
+}

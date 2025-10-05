@@ -22,7 +22,7 @@ export class ShopWellPanel {
     this.panel.innerHTML = `
       <div class="shop-well-header">
         <div class="shop-well-logo">
-          <span class="shop-well-icon">🌿</span>
+          <span class="shop-well-icon">=�</span>
           <span class="shop-well-title">Shop Well</span>
         </div>
         <button class="shop-well-close" title="Close panel (Ctrl+Shift+S / Cmd+Shift+S)" aria-label="Close Shop Well panel">
@@ -37,7 +37,7 @@ export class ShopWellPanel {
         </div>
 
         <div class="shop-well-setup hidden">
-          <div class="setup-icon">⚙️</div>
+          <div class="setup-icon">�</div>
           <h3>Chrome AI Setup Required</h3>
           <p>Enable Chrome's Built-in AI for enhanced analysis:</p>
           <ol>
@@ -69,7 +69,7 @@ export class ShopWellPanel {
             </div>
 
             <div class="allergen-alerts hidden">
-              <h4>Allergen Alert</h4>
+              <h4>� Allergen Alert:</h4>
               <div class="alert-content"></div>
             </div>
 
@@ -195,11 +195,12 @@ export class ShopWellPanel {
     verdictBadge.className = `verdict-badge verdict-${verdict}`;
 
     const verdictText = {
-      'helpful': '✅ Helpful',
-      'mixed': '⚠️ Mixed Results',
-      'not_ideal': '❌ Not Ideal',
-      'unknown': '❓ Analysis Incomplete'
+      'helpful': ' Helpful',
+      'mixed': '� Mixed Results',
+      'not_ideal': 'L Not Ideal',
+      'unknown': 'S Analysis Incomplete'
     };
+    verdictBadge.textContent = verdictText[verdict] || verdictText.unknown;
 
     // Update condition info
     const conditionInfo = analysisSection.querySelector('.condition-info');
@@ -289,12 +290,6 @@ export class ShopWellPanel {
     setTimeout(() => {
       this.panel.classList.add('animate-in');
     }, 10);
-
-    // Auto-focus close button for accessibility
-    setTimeout(() => {
-      const closeBtn = this.panel.querySelector('.shop-well-close');
-      if (closeBtn) closeBtn.focus();
-    }, 350); // After animation completes
 
     console.log('Shop Well: Panel shown');
   }
