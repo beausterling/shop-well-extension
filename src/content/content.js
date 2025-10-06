@@ -204,7 +204,7 @@ class ProductExtractor {
   handleBadgeClick(product) {
     console.log('Shop Well: Badge clicked for product:', product.id);
 
-    // Visual feedback
+    // Visual feedback - stay in analyzing state
     const badge = document.querySelector(`.shop-well-badge[data-product-index="${product.position}"]`);
     if (badge) {
       badge.classList.add('analyzing');
@@ -223,12 +223,8 @@ class ProductExtractor {
           badge.innerHTML = '❌ Error';
         }
       } else {
-        console.log('Shop Well: Listing product analysis initiated');
-        if (badge) {
-          badge.classList.remove('analyzing');
-          badge.classList.add('analyzed');
-          badge.innerHTML = '✓ Analyzed';
-        }
+        console.log('Shop Well: Listing product analysis request sent to background');
+        // Badge stays in "analyzing" state - check side panel for results
       }
     });
   }

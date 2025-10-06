@@ -4,6 +4,13 @@
 console.log('Shop Well background service worker initialized');
 
 /* =============================================================================
+   MESSAGE QUEUE FOR SIDE PANEL
+   ============================================================================= */
+
+// Store pending analysis requests until side panel is ready
+let pendingAnalysisRequest = null;
+
+/* =============================================================================
    KEYBOARD SHORTCUT HANDLER
    ============================================================================= */
 
@@ -76,35 +83,6 @@ chrome.commands.onCommand.addListener(async (command) => {
       console.error('Shop Well: Error handling keyboard shortcut:', error);
     }
   }
-
-  // Handle test UI panel shortcut (Command+Shift+S on Mac, Ctrl+Shift+S on Windows/Linux)
-  if (command === 'test-ui-panel') {
-    console.log('🧪 Shop Well: Test UI panel shortcut triggered (Command+Shift+S on Mac, Ctrl+Shift+S on Windows/Linux)');
-
-    try {
-      // Get the current active tab
-      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-      if (!activeTab) {
-        console.warn('Shop Well: No active tab found');
-        return;
-      }
-
-      // Set the side panel to use the test panel
-      await chrome.sidePanel.setOptions({
-        tabId: activeTab.id,
-        path: 'test-panel/index.html',
-        enabled: true
-      });
-
-      // Open the side panel with the test UI
-      console.log('🧪 Shop Well: Opening test UI panel');
-      await chrome.sidePanel.open({ windowId: activeTab.windowId });
-
-    } catch (error) {
-      console.error('Shop Well: Error opening test UI panel:', error);
-    }
-  }
 });
 
 /* =============================================================================
@@ -146,6 +124,30 @@ chrome.action.onClicked.addListener(async (tab) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Shop Well: Message received:', message.type || message.command);
 
+  // Handle side panel ready signal
+  if (message.type === 'sidepanel-ready') {
+    console.log('Shop Well: Side panel is ready');
+
+    // If there's a pending analysis request, deliver it now
+    if (pendingAnalysisRequest) {
+      console.log('Shop Well: Delivering queued analysis request:', pendingAnalysisRequest.type);
+
+      chrome.runtime.sendMessage(pendingAnalysisRequest, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn('Shop Well: Failed to deliver queued message:', chrome.runtime.lastError.message);
+        } else {
+          console.log('Shop Well: Queued message delivered successfully');
+        }
+      });
+
+      // Clear the queue
+      pendingAnalysisRequest = null;
+    }
+
+    sendResponse({ success: true });
+    return true;
+  }
+
   // Handle different message types
   if (message.type === 'analyze-product' && message.productData) {
     // This message is going to the side panel
@@ -160,6 +162,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Listing product badge was clicked
     console.log('Shop Well: Listing product analysis requested:', message.productData.id);
 
+    // Queue the analysis request
+    pendingAnalysisRequest = {
+      type: 'analyze-listing-product',
+      productData: message.productData
+    };
+    console.log('Shop Well: Analysis request queued until side panel is ready');
+
     // Open side panel first
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       const activeTab = tabs[0];
@@ -168,21 +177,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           await chrome.sidePanel.open({ windowId: activeTab.windowId });
           console.log('Shop Well: Side panel opened for listing product');
 
-          // Send to side panel for analysis
-          chrome.runtime.sendMessage({
-            type: 'analyze-listing-product',
-            productData: message.productData
-          }, (response) => {
-            if (chrome.runtime.lastError) {
-              console.warn('Shop Well: Side panel not ready:', chrome.runtime.lastError.message);
-            } else {
-              console.log('Shop Well: Listing product sent to side panel');
-            }
-          });
-
+          // Message will be sent when side panel signals it's ready
           sendResponse({ success: true });
         } catch (error) {
           console.error('Shop Well: Failed to open side panel:', error);
+          pendingAnalysisRequest = null; // Clear queue on error
           sendResponse({ success: false, error: error.message });
         }
       }

@@ -49,6 +49,41 @@ function getLanguageInstruction(languageCode) {
 }
 
 /* =============================================================================
+   TIMEOUT UTILITIES
+   ============================================================================= */
+
+class TimeoutError extends Error {
+  constructor(message, operation) {
+    super(message);
+    this.name = 'TimeoutError';
+    this.operation = operation;
+  }
+}
+
+/**
+ * Wraps a promise with a timeout. If the promise doesn't resolve within the
+ * specified time, it rejects with a TimeoutError.
+ *
+ * @param {Promise} promise - The promise to wrap
+ * @param {number} timeoutMs - Timeout in milliseconds
+ * @param {string} operation - Description of the operation (for error messages)
+ * @returns {Promise} The wrapped promise
+ */
+function withTimeout(promise, timeoutMs, operation = 'Operation') {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new TimeoutError(
+          `${operation} timed out after ${timeoutMs}ms`,
+          operation
+        ));
+      }, timeoutMs);
+    })
+  ]);
+}
+
+/* =============================================================================
    AI AVAILABILITY DETECTION
    ============================================================================= */
 
@@ -141,14 +176,23 @@ async function summarizeProduct(productData) {
 
     console.log('Shop Well: Summarizer input length:', inputText.length);
 
-    const summarizer = await window.ai.summarizer.create({
-      sharedContext: 'Extract key wellness and dietary information from this product.',
-      type: 'key-points',
-      format: 'plain-text',
-      length: 'short'
-    });
+    // Wrap AI calls with 30-second timeout to prevent hanging
+    const summarizer = await withTimeout(
+      window.ai.summarizer.create({
+        sharedContext: 'Extract key wellness and dietary information from this product.',
+        type: 'key-points',
+        format: 'plain-text',
+        length: 'short'
+      }),
+      30000,
+      'Summarizer creation'
+    );
 
-    const summary = await summarizer.summarize(inputText);
+    const summary = await withTimeout(
+      summarizer.summarize(inputText),
+      30000,
+      'Product summarization'
+    );
     console.log('Shop Well: Raw summarizer output:', summary);
 
     const facts = parseStructuredFacts(summary, productData);
@@ -157,7 +201,12 @@ async function summarizeProduct(productData) {
     return facts;
 
   } catch (error) {
-    console.error('Shop Well: Summarization failed:', error);
+    if (error instanceof TimeoutError) {
+      console.error('Shop Well: Summarization timed out:', error.operation);
+      console.warn('Shop Well: AI models may still be downloading or Chrome needs restart');
+    } else {
+      console.error('Shop Well: Summarization failed:', error);
+    }
     return null;
   }
 }
@@ -316,15 +365,24 @@ async function generateVerdict(facts, condition, allergies = [], customCondition
     const { systemPrompt, userPrompt } = preparePrompts(facts, condition, allergies, customCondition, language);
     console.log('Shop Well: Prompt length:', userPrompt.length);
 
-    const session = await window.ai.languageModel.create({
-      systemPrompt: systemPrompt,
-      expectedOutputs: [{
-        type: "text",
-        languages: [language.code]
-      }]
-    });
+    // Wrap AI calls with 30-second timeout to prevent hanging
+    const session = await withTimeout(
+      window.ai.languageModel.create({
+        systemPrompt: systemPrompt,
+        expectedOutputs: [{
+          type: "text",
+          languages: [language.code]
+        }]
+      }),
+      30000,
+      'Language model session creation'
+    );
 
-    const response = await session.prompt(userPrompt);
+    const response = await withTimeout(
+      session.prompt(userPrompt),
+      30000,
+      'Verdict generation'
+    );
     console.log('Shop Well: Raw AI response:', response);
 
     const verdict = parseVerdictResponse(response, facts, allergies);
@@ -333,7 +391,12 @@ async function generateVerdict(facts, condition, allergies = [], customCondition
     return verdict;
 
   } catch (error) {
-    console.error('Shop Well: Verdict generation failed:', error);
+    if (error instanceof TimeoutError) {
+      console.error('Shop Well: Verdict generation timed out:', error.operation);
+      console.warn('Shop Well: AI models may still be downloading or Chrome needs restart');
+    } else {
+      console.error('Shop Well: Verdict generation failed:', error);
+    }
     return null;
   }
 }
@@ -538,13 +601,17 @@ class SidePanelUI {
     this.aiCapabilities = null;
     this.settings = {};
     this.currentProductData = null;
+    this.timeoutWarningTimer = null;
+    this.isAnalyzing = false;
+    this.messageReceivedTimer = null;
 
     this.elements = {
       loading: document.querySelector('.shop-well-loading'),
       setup: document.querySelector('.shop-well-setup'),
       analysis: document.querySelector('.shop-well-analysis'),
       error: document.querySelector('.shop-well-error'),
-      welcome: document.querySelector('.shop-well-welcome')
+      welcome: document.querySelector('.shop-well-welcome'),
+      timeoutWarning: document.querySelector('.loading-timeout-warning')
     };
 
     this.init();
@@ -583,6 +650,23 @@ class SidePanelUI {
     }
 
     console.log('Shop Well Side Panel initialized');
+
+    // Signal to background that side panel is ready to receive messages
+    chrome.runtime.sendMessage({ type: 'sidepanel-ready' }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.warn('Shop Well: Failed to signal ready state:', chrome.runtime.lastError.message);
+      } else {
+        console.log('Shop Well: Ready signal sent to background');
+      }
+    });
+
+    // Set up a timer to detect if no analysis request arrives
+    this.messageReceivedTimer = setTimeout(() => {
+      if (this.currentState === 'welcome' && !this.currentProductData) {
+        console.log('Shop Well: No analysis request received - showing welcome screen');
+        console.log('Shop Well: If you clicked a badge, try clicking it again');
+      }
+    }, 2000);
   }
 
   setupEventListeners() {
@@ -620,12 +704,30 @@ class SidePanelUI {
       });
     }
 
+    // Cancel analysis button
+    const cancelButton = document.getElementById('cancelAnalysis');
+    if (cancelButton) {
+      cancelButton.addEventListener('click', () => {
+        this.cancelAnalysis();
+      });
+    }
+
     // Listen for messages from content script/background
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.type === 'analyze-product') {
+        // Clear the message received timer
+        if (this.messageReceivedTimer) {
+          clearTimeout(this.messageReceivedTimer);
+          this.messageReceivedTimer = null;
+        }
         this.analyzeProduct(message.productData);
         sendResponse({ success: true });
       } else if (message.type === 'analyze-listing-product') {
+        // Clear the message received timer
+        if (this.messageReceivedTimer) {
+          clearTimeout(this.messageReceivedTimer);
+          this.messageReceivedTimer = null;
+        }
         this.analyzeListingProduct(message.productData);
         sendResponse({ success: true });
       }
@@ -634,6 +736,12 @@ class SidePanelUI {
   }
 
   hideAllStates() {
+    // Clear timeout warning timer if active
+    if (this.timeoutWarningTimer) {
+      clearTimeout(this.timeoutWarningTimer);
+      this.timeoutWarningTimer = null;
+    }
+
     Object.values(this.elements).forEach(el => {
       if (el) el.classList.add('hidden');
     });
@@ -644,6 +752,20 @@ class SidePanelUI {
     if (this.elements.loading) {
       this.elements.loading.classList.remove('hidden');
     }
+
+    // Hide timeout warning initially
+    if (this.elements.timeoutWarning) {
+      this.elements.timeoutWarning.classList.add('hidden');
+    }
+
+    // Show timeout warning after 10 seconds
+    this.timeoutWarningTimer = setTimeout(() => {
+      if (this.currentState === 'loading' && this.elements.timeoutWarning) {
+        this.elements.timeoutWarning.classList.remove('hidden');
+        console.log('Shop Well: Showing timeout warning');
+      }
+    }, 10000);
+
     this.currentState = 'loading';
     console.log('Shop Well: Showing loading state');
   }
@@ -772,8 +894,23 @@ class SidePanelUI {
     console.log('Shop Well: Showing analysis state');
   }
 
+  cancelAnalysis() {
+    console.log('Shop Well: Analysis cancelled by user');
+    this.isAnalyzing = false;
+
+    // Clear timeout warning timer
+    if (this.timeoutWarningTimer) {
+      clearTimeout(this.timeoutWarningTimer);
+      this.timeoutWarningTimer = null;
+    }
+
+    // Show error state with cancellation message
+    this.showError('Analysis cancelled. Press the analyze button to try again.');
+  }
+
   async analyzeProduct(productData) {
     this.currentProductData = productData;
+    this.isAnalyzing = true;
     this.showLoading();
 
     console.log('Shop Well: Starting product analysis...', productData);
@@ -782,8 +919,15 @@ class SidePanelUI {
       // Re-check AI capabilities
       this.aiCapabilities = await checkAIAvailability();
 
+      // Check if cancelled
+      if (!this.isAnalyzing) {
+        console.log('Shop Well: Analysis cancelled before AI check');
+        return;
+      }
+
       if (!canUseAIAnalysis(this.aiCapabilities)) {
         this.showSetup();
+        this.isAnalyzing = false;
         return;
       }
 
@@ -795,6 +939,12 @@ class SidePanelUI {
       if (this.aiCapabilities.summarizer) {
         console.log('Shop Well: Using AI for fact extraction...');
         facts = await summarizeProduct(productData);
+      }
+
+      // Check if cancelled
+      if (!this.isAnalyzing) {
+        console.log('Shop Well: Analysis cancelled during fact extraction');
+        return;
       }
 
       if (!facts) {
@@ -814,17 +964,35 @@ class SidePanelUI {
         );
       }
 
+      // Check if cancelled
+      if (!this.isAnalyzing) {
+        console.log('Shop Well: Analysis cancelled during verdict generation');
+        return;
+      }
+
       if (!verdict) {
         console.log('Shop Well: Using fallback verdict generation...');
         verdict = createFallbackVerdict(facts, allAllergies);
       }
 
       // Display results
+      this.isAnalyzing = false;
       this.showAnalysis(productData, facts, verdict);
 
     } catch (error) {
+      this.isAnalyzing = false;
       console.error('Shop Well: Analysis failed:', error);
-      this.showError('Analysis failed. Please try again or check your Chrome AI settings.');
+
+      // Provide specific error messages for timeouts
+      if (error instanceof TimeoutError) {
+        this.showError(
+          'Analysis timed out after 30 seconds. ' +
+          'Chrome AI models may still be downloading. ' +
+          'Check chrome://on-device-internals and restart Chrome if needed.'
+        );
+      } else {
+        this.showError('Analysis failed. Please try again or check your Chrome AI settings.');
+      }
     }
   }
 
@@ -835,37 +1003,62 @@ class SidePanelUI {
     console.log('Shop Well: Analyzing listing product...', productData);
 
     try {
-      // Re-check AI capabilities
+      // Re-check AI capabilities (but proceed with fallback if unavailable)
       this.aiCapabilities = await checkAIAvailability();
-
-      if (!canUseAIAnalysis(this.aiCapabilities)) {
-        this.showSetup();
-        return;
-      }
 
       // Get all allergies
       const allAllergies = [...this.settings.allergies, ...this.settings.customAllergies];
 
-      // Create facts from limited listing data
+      // Create facts from limited listing data with enhanced allergen detection
+      const titleLower = (productData.title || '').toLowerCase();
+
+      // Detect allergens in title
+      const allergenWarnings = [];
+      const allergenPatterns = {
+        'peanuts': ['peanut', 'groundnut'],
+        'tree-nuts': ['almond', 'walnut', 'pecan', 'cashew', 'hazelnut', 'pistachio'],
+        'milk': ['milk', 'dairy', 'cheese', 'whey', 'casein', 'butter'],
+        'eggs': ['egg'],
+        'wheat': ['wheat', 'flour'],
+        'soy': ['soy', 'soybean', 'tofu'],
+        'fish': ['fish', 'salmon', 'tuna', 'cod'],
+        'shellfish': ['shrimp', 'crab', 'lobster', 'shellfish'],
+        'sesame': ['sesame', 'tahini']
+      };
+
+      for (const [allergen, patterns] of Object.entries(allergenPatterns)) {
+        for (const pattern of patterns) {
+          if (titleLower.includes(pattern)) {
+            allergenWarnings.push(allergen);
+            break;
+          }
+        }
+      }
+
       const facts = {
         title: productData.title,
         price: productData.price || 'Unknown',
         product_type: 'general',
         confidence: 'low',
-        allergen_warnings: [],
+        allergen_warnings: allergenWarnings,
         // Try to infer properties from title
-        gluten_free: /gluten.?free/i.test(productData.title),
-        dairy_free: /dairy.?free/i.test(productData.title),
-        vegan: /vegan/i.test(productData.title),
-        organic: /organic/i.test(productData.title),
-        source: productData.source || 'listing_page'
+        gluten_free: /gluten.?free/i.test(titleLower),
+        dairy_free: /dairy.?free/i.test(titleLower),
+        vegan: /vegan/i.test(titleLower),
+        organic: /organic/i.test(titleLower),
+        high_sodium: /electrolyte|sodium|salt/i.test(titleLower),
+        high_sugar: /sugar|sweet|candy|chocolate/i.test(titleLower),
+        source: productData.source || 'listing_page',
+        summary_text: `Limited data from search results. Product: ${productData.title}`
       };
 
       console.log('Shop Well: Created facts from listing data:', facts);
 
       // Generate verdict with AI (using title-based analysis)
       let verdict;
-      if (this.aiCapabilities.prompt) {
+      let usedAI = false;
+
+      if (this.aiCapabilities && this.aiCapabilities.prompt) {
         console.log('Shop Well: Using AI for listing product verdict...');
         verdict = await generateVerdict(
           facts,
@@ -873,6 +1066,9 @@ class SidePanelUI {
           allAllergies,
           this.settings.customCondition
         );
+        if (verdict) {
+          usedAI = true;
+        }
       }
 
       if (!verdict) {
@@ -880,12 +1076,18 @@ class SidePanelUI {
         verdict = createFallbackVerdict(facts, allAllergies);
       }
 
-      // Add note about limited data
+      // Add note about limited data and analysis type
+      const analysisType = usedAI ? 'AI analysis' : 'Basic pattern matching';
+      const dataNote = `${analysisType} from limited search result data.`;
+
       if (verdict.caveat) {
-        verdict.caveat = `Limited data from search results. ${verdict.caveat}`;
+        verdict.caveat = `${dataNote} ${verdict.caveat} Click product for full ingredient analysis.`;
       } else {
-        verdict.caveat = 'Analysis based on limited search result data. Click product for full details.';
+        verdict.caveat = `${dataNote} Click product for detailed ingredient analysis and full details.`;
       }
+
+      // Mark confidence as low for all listing analyses
+      facts.confidence = 'low';
 
       // Display results
       this.showAnalysis(productData, facts, verdict);

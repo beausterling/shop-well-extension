@@ -37,13 +37,6 @@
         "mac": "Alt+Shift+W"
       },
       "description": "Toggle Shop Well panel"
-    },
-    "test-ui-panel": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+S",
-        "mac": "Ctrl+Shift+S"
-      },
-      "description": "Open UI test panel"
     }
   }
 }

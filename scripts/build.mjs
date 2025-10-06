@@ -215,8 +215,6 @@ async function build() {
     console.log('3. Click "Load unpacked" and select the dist folder');
     console.log('4. Test the extension on Amazon or Walmart product pages');
     console.log('5. Press Option+Shift+W (Mac) or Alt+Shift+W (Windows/Linux) to open the side panel');
-    console.log('\n🧪 Test Panel:');
-    console.log('- Press Command+Shift+S (Mac) or Ctrl+Shift+S (Windows/Linux) to open the UI test panel');
 
   } catch (error) {
     console.error('\n❌ Build failed:', error.message);
