@@ -104,6 +104,12 @@ async function copyFilesSelectively() {
     path.join(distDir, 'welcome')
   );
 
+  // Copy content/ui (needed for design-tokens.css used by welcome page)
+  await copyFiles(
+    path.join(srcDir, 'content/ui'),
+    path.join(distDir, 'content/ui')
+  );
+
   console.log('✓ Extension files copied');
 }
 
@@ -128,17 +134,34 @@ async function validateManifest() {
   console.log('✓ Manifest validation passed');
 }
 
+async function copyAssets() {
+  // Copy assets folder from project root to dist
+  const assetsDir = path.join(projectRoot, 'assets');
+  const destAssetsDir = path.join(distDir, 'assets');
+
+  try {
+    await copyFiles(assetsDir, destAssetsDir);
+    console.log('✓ Copied assets folder');
+  } catch (error) {
+    console.error('⚠️  Warning: Could not copy assets folder:', error.message);
+  }
+}
+
 async function createIcon() {
-  // Create a simple placeholder icon for development
+  // Create a simple placeholder icon for development if icon doesn't exist
   const iconDir = path.join(distDir, 'assets');
   await fs.mkdir(iconDir, { recursive: true });
 
-  // For now, just create a placeholder file
-  // In a real project, you'd have actual icon files
+  // Check if icon already exists (from assets folder)
   const iconPath = path.join(iconDir, 'icon128.png');
-  await fs.writeFile(iconPath, '# Placeholder icon file\n# Replace with actual 128x128 PNG icon');
-
-  console.log('✓ Created placeholder icon');
+  try {
+    await fs.access(iconPath);
+    // Icon exists, no need to create placeholder
+  } catch {
+    // Icon doesn't exist, create placeholder
+    await fs.writeFile(iconPath, '# Placeholder icon file\n# Replace with actual 128x128 PNG icon');
+    console.log('✓ Created placeholder icon');
+  }
 }
 
 async function generatePackageInfo() {
@@ -198,7 +221,10 @@ async function build() {
     // Copy other files
     await copyFilesSelectively();
 
-    // Create placeholder icon
+    // Copy assets folder (includes SHOP-WELL.png and other brand assets)
+    await copyAssets();
+
+    // Create placeholder icon if needed
     await createIcon();
 
     // Validate manifest

@@ -1,7 +1,7 @@
 {
   "brand": {
     "name": "Shop Well",
-    "theme": "Allergy-friendly, health-conscious shopping experience",
+    "theme": "Allergy-friendly,` health-conscious shopping experience",
     "style_keywords": ["fresh", "clean", "warm", "trustworthy", "natural", "minimal", "uplifting"]
   },
 

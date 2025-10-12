@@ -58,18 +58,73 @@ body {
    ==================== */
 
 .welcome-header {
-  /* Wellness gradient header */
-  background: linear-gradient(135deg, var(--sw-green) 0%, var(--sw-blue) 100%);
+  /* Enhanced wellness gradient header with depth */
+  background: linear-gradient(135deg, var(--sw-green) 0%, var(--sw-blue) 80%, var(--sw-blue-dark) 100%);
   color: var(--sw-white);
-  padding: var(--space-10);
+  padding: var(--space-12);
   text-align: center;
+  position: relative;
+  overflow: hidden;
 }
 
-.welcome-logo {
-  font-size: 48px;
-  font-family: var(--emoji-font-family);
-  margin-bottom: var(--space-4);
-  animation: bounce 1s ease-out;
+.welcome-header::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -10%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  border-radius: var(--radius-full);
+  animation: float 6s ease-in-out infinite;
+}
+
+.welcome-header::after {
+  content: '';
+  position: absolute;
+  bottom: -30%;
+  left: -5%;
+  width: 250px;
+  height: 250px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
+  border-radius: var(--radius-full);
+  animation: float 8s ease-in-out infinite reverse;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(20px, 20px); }
+}
+
+.brand-image-container {
+  margin-bottom: var(--space-6);
+  animation: fadeInScale 0.8s ease-out;
+  position: relative;
+  z-index: 1;
+}
+
+.brand-image {
+  max-width: 400px;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  transition: transform var(--transition-normal);
+}
+
+.brand-image:hover {
+  transform: scale(1.02);
+}
+
+@keyframes fadeInScale {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes bounce {
@@ -82,6 +137,8 @@ body {
   font-weight: var(--font-weight-bold);
   margin-bottom: var(--space-2);
   letter-spacing: -0.02em;
+  position: relative;
+  z-index: 1;
 }
 
 .welcome-header p {
@@ -89,6 +146,8 @@ body {
   opacity: 0.95;
   margin-bottom: var(--space-6);
   line-height: var(--line-height-relaxed);
+  position: relative;
+  z-index: 1;
 }
 
 .version-badge {
@@ -98,6 +157,9 @@ body {
   font-size: var(--font-size-sm);
   display: inline-block;
   font-weight: var(--font-weight-medium);
+  position: relative;
+  z-index: 1;
+  backdrop-filter: blur(10px);
 }
 
 /* ====================
@@ -383,14 +445,15 @@ body {
 }
 
 .btn-primary {
-  background: var(--sw-green);
+  background: linear-gradient(135deg, var(--sw-green) 0%, var(--sw-blue) 100%);
   color: var(--sw-white);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:hover {
-  background: var(--sw-green-dark);
+  background: linear-gradient(135deg, var(--sw-green-dark) 0%, var(--sw-blue-dark) 100%);
   transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
 }
 
 .btn-primary:focus {
@@ -429,24 +492,57 @@ body {
 }
 
 .feature-card {
-  background: var(--sw-white);
+  background: linear-gradient(135deg, var(--sw-white) 0%, var(--sw-beige) 100%);
   border: var(--border);
-  border-radius: var(--radius-md);
-  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
   text-align: center;
-  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+  transition: all var(--transition-normal);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--sw-green) 0%, var(--sw-blue) 100%);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
 }
 
 .feature-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lg);
   border-color: var(--sw-green);
 }
 
+.feature-card:hover::before {
+  opacity: 1;
+}
+
 .feature-icon {
-  font-size: 32px;
+  font-size: 36px;
   font-family: var(--emoji-font-family);
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-4);
+  width: 80px;
+  height: 80px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--sw-green-light) 0%, var(--sw-blue-light) 100%);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-normal);
+}
+
+.feature-card:hover .feature-icon {
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: var(--shadow-md);
 }
 
 .feature-card h4 {
@@ -622,6 +718,10 @@ body {
 
   .welcome-header {
     padding: var(--space-8) var(--space-5);
+  }
+
+  .brand-image {
+    max-width: 280px;
   }
 
   .welcome-content {

@@ -15,13 +15,13 @@ async function checkAIAvailability() {
     if (typeof LanguageModel !== 'undefined') {
       try {
         const availability = await Promise.race([
-          LanguageModel.availability({ language: 'en' }),
+          LanguageModel.capabilities(),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
         ]);
-        result.prompt = availability === 'readily';
-        result.details.prompt = { available: availability };
+        result.prompt = availability.available === 'readily';
+        result.details.prompt = { available: availability.available };
         result.available = true;
-        console.log('Shop Well Options: LanguageModel found, availability:', availability);
+        console.log('Shop Well Options: LanguageModel found, availability:', availability.available);
       } catch (error) {
         console.warn('Shop Well Options: LanguageModel availability check failed:', error);
         result.details.promptError = error.message;
@@ -35,13 +35,13 @@ async function checkAIAvailability() {
     if (typeof Summarizer !== 'undefined') {
       try {
         const availability = await Promise.race([
-          Summarizer.availability({ language: 'en' }),
+          Summarizer.capabilities(),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
         ]);
-        result.summarizer = availability === 'readily';
-        result.details.summarizer = { available: availability };
+        result.summarizer = availability.available === 'readily';
+        result.details.summarizer = { available: availability.available };
         result.available = true;
-        console.log('Shop Well Options: Summarizer found, availability:', availability);
+        console.log('Shop Well Options: Summarizer found, availability:', availability.available);
       } catch (error) {
         console.warn('Shop Well Options: Summarizer availability check failed:', error);
         result.details.summarizerError = error.message;

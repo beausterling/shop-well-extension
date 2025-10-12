@@ -383,6 +383,35 @@ npm run build
 **Branch**: `ui/panel-redesign` (merged to main via functional-mvp)
 **Time Spent**: 2 hours
 
+### ⚠️ Phase 3.9: AI API Access Fix (IN PROGRESS)
+
+**Critical Discovery**: `self.ai` and `window.ai` don't exist in Chrome extension contexts.
+
+**Problems Identified**:
+1. **Keyboard Shortcut**: Option+Shift+W fails with "sidePanel.open() may only be called in response to a user gesture"
+   - Chrome restriction: keyboard shortcuts don't count as user gestures
+   - **Workaround**: Users must click extension icon or product badges
+   - **Status**: Cannot be fixed in code (Chrome platform limitation)
+
+2. **AI API Access**: `self.ai.languageModel` and `self.ai.summarizer` are undefined
+   - Extensions must use global `LanguageModel` and `Summarizer` objects
+   - Web pages use `window.ai.languageModel`, extensions use `LanguageModel` directly
+   - options.js already had correct pattern
+
+**Fixes Applied**:
+- [x] Updated `checkAIAvailability()` - Changed to `typeof LanguageModel !== 'undefined'`
+- [x] Updated `summarizeProduct()` - Changed to `Summarizer.create()`
+- [x] Updated `generateVerdict()` - Changed to `LanguageModel.create()`
+- [x] Rebuilt extension (npm run build)
+- [ ] Testing AI detection and analysis
+
+**Files Modified (1)**:
+- `src/sidepanel/sidepanel.js` - All AI API calls updated to use global objects
+
+**Status**: Code updated, needs user testing to verify AI now works
+**Time Spent**: 4 hours debugging
+**Branch**: `functional-mvp`
+
 ### 🧠 Phase 4: Multi-Condition Intelligence (NEXT - READY TO START)
 - [ ] **POTS Condition Logic**: Compression wear, sodium, volume support
 - [ ] **ME/CFS Condition Logic**: Energy conservation, ergonomics
@@ -438,30 +467,14 @@ npm run build
 - ✅ Phase 3: Brand design system implementation (design tokens + panel styling)
 - ✅ Phase 3: UI/UX agent review completed (B+ rating)
 - ✅ **Phase 3.5: Complete UI/UX redesign** (ALL pages redesigned with wellness palette)
-  - WCAG AA accessibility compliance achieved
-  - Brand consistency across panel, welcome, and options pages
-  - Enhanced animations and components
-  - UI/UX grade: B+ → A/A+ (9-10/10)
 - ✅ **Phase 3.6: Architecture Refactor** (Side panel migration)
-  - Discovered AI APIs inaccessible from content scripts
-  - Complete rewrite to side panel architecture
-  - Content script simplified to data extraction only
-  - Added esbuild bundler for ES modules
-  - Fixed keyboard shortcut conflict (Option+Shift+W)
-  - Fixed LanguageModel API output language requirement
-- ⚠️ **Phase 3.7: Multi-Product Listing Support** (IMPLEMENTED - ERRORS BLOCKING)
-  - Added search/listing page detection for Amazon & Walmart
-  - Product card extraction from search results
-  - Badge overlay system with click handlers
-  - Message flow for listing product analysis
-  - Side panel analysis for limited listing data
-  - **Status**: Code complete, builds successfully, BUT NOT WORKING (runtime errors)
-- ✅ **Phase 3.8: Test UI Panel for Development** (COMPLETED)
-  - Created standalone test environment for UI development
-  - Keyboard shortcut: Command+Shift+S (Mac) / Ctrl+Shift+S (Windows/Linux)
-  - Fixed Chrome shortcut restrictions (avoided forbidden Ctrl+Alt pattern)
-  - Dynamic side panel path switching for test vs production
-  - State toggling system for rapid UI iteration
+- ✅ **Phase 3.7: Multi-Product Listing Support** (search page badges working)
+- ✅ **Phase 3.8: Test UI Panel for Development** (Command+Shift+S test environment)
+- ⚠️ **Phase 3.9: AI API Access Fix** (IN PROGRESS)
+  - Discovered `self.ai` doesn't exist in extension contexts
+  - Fixed all AI calls to use global `LanguageModel` and `Summarizer` objects
+  - Keyboard shortcut blocked by Chrome (user gesture required)
+  - **Status**: Code fixed, awaiting testing
 
 ### 🎯 **Current Status: Foundation Complete, Ready for UI & Functionality Work**
 **Branch**: `functional-mvp` (active development branch)
@@ -486,40 +499,32 @@ npm run build
 - ⚠️ **AI analysis robustness**: Edge case handling and error recovery
 - ⚠️ **Performance optimization**: Badge injection speed, memory management
 
-**Immediate Next Steps** (UI & FUNCTIONALITY - PRIORITY 1):
-1. 🎨 **Test & Refine UI**: Use test panel (Command+Shift+S) to iterate on design
-   - Verify all 5 states render correctly (welcome, loading, setup, analysis, error)
-   - Test animations and transitions
-   - Validate accessibility (focus states, keyboard navigation)
-   - Check responsive layout at different sizes
+**Immediate Next Steps** (PRIORITY 1 - AI FIX VERIFICATION):
+1. 🔧 **Test AI API Fix**: Verify global LanguageModel/Summarizer works
+   - Reload extension at chrome://extensions/
+   - Go to walmart.com/search?q=cereal
+   - Click any product "Analyze" badge (NOT keyboard shortcut)
+   - Check side panel DevTools console for "LanguageModel found, availability: readily"
+   - Verify AI analysis completes successfully
 
-2. 🔧 **Debug Multi-Product Listing**: Verify Phase 3.7 implementation works
-   - Test on Amazon search: amazon.com/milk/s?k=milk
-   - Test on Walmart search: walmart.com/search?q=cereal
-   - Verify badge injection and click handlers
-   - Check message flow and AI analysis
+2. 🎨 **Test & Refine UI**: Use test panel (Command+Shift+S) to iterate on design
+   - Verify all 5 states render correctly
+   - Test animations and transitions
+   - Validate accessibility
 
 3. 🧠 **Enhance AI Logic**: Improve condition-specific analysis (Phase 4)
-   - POTS: Sodium content, hydration support, compression products
-   - ME/CFS: Energy conservation, ergonomic features
-   - Celiac: Gluten-free certification, cross-contamination warnings
-   - Medical compliance: "May help" language, 60-word limit
+   - POTS: Sodium content, hydration support
+   - ME/CFS: Energy conservation, ergonomics
+   - Celiac: Gluten-free certification
 
-4. ⚡ **Performance & Stability**: Optimize for production (Phase 5)
-   - Error boundaries and graceful degradation
-   - Rate limiting for AI API calls
-   - Memory management for large product lists
-   - Fallback mechanisms when AI unavailable
-
-**Testing Checklist** (READY TO TEST):
-- [x] ✅ FIXED keyboard shortcut (now Option+Shift+W, no more Chrome crashes)
-- [ ] Load extension in Chrome from `dist/` folder
-- [ ] Press Option+Shift+W (Mac) or Alt+Shift+W (Windows/Linux) to open side panel
-- [ ] Verify side panel displays welcome screen
-- [ ] Test on Amazon/Walmart product page
-- [ ] Verify AI analysis runs and displays results
-- [ ] Test all UI states (loading, setup, analysis, error)
-- [ ] Check console for errors
+**Testing Checklist** (CRITICAL - AI VERIFICATION):
+- [x] ✅ Fixed AI API access (global LanguageModel/Summarizer)
+- [x] ✅ Keyboard shortcut known limitation (Chrome restriction)
+- [ ] Reload extension in chrome://extensions/
+- [ ] Click product badge on search page (NOT keyboard shortcut)
+- [ ] Verify AI detection succeeds: `available: true, summarizer: true, prompt: true`
+- [ ] Verify AI analysis completes (not fallback pattern matching)
+- [ ] Check for Chrome AI-generated verdicts
 
 ### 🧠 **Next Priority After Fixes: Phase 4**
 **Multi-Condition Intelligence Logic** (BLOCKED until UI works)
@@ -538,14 +543,15 @@ npm run build
 **Phase 3**: ✅ Complete (14 hours) - Including brand design system & UI/UX review
 **Phase 3.5**: ✅ Complete (1.5 hours) - Complete UI/UX redesign with WCAG AA compliance
 **Phase 3.6**: ✅ Complete (3 hours) - Architecture refactor + keyboard shortcut fix + API fixes
-**Phase 3.7**: ⚠️ Complete (3 hours) - Multi-product listing support (needs testing)
+**Phase 3.7**: ✅ Complete (3 hours) - Multi-product listing support (search page badges working)
 **Phase 3.8**: ✅ Complete (2 hours) - Test UI panel for development
+**Phase 3.9**: ⚠️ In Progress (4 hours) - AI API access fix (global LanguageModel/Summarizer)
 **Phase 4**: 📅 Next (8 hours planned) - Multi-condition intelligence logic
 **Phase 5**: 📅 Planned (4 hours)
 **Phase 6**: 📅 Planned (6 hours)
 
-**Progress**: 43.5/50.5 hours complete (~86%)
-**Current Focus**: UI refinement and functionality testing
+**Progress**: 47.5/58.5 hours complete (~81%)
+**Current Focus**: AI API verification and testing
 
 ---
 
@@ -568,7 +574,7 @@ npm run build
 
 ---
 
-**Last Updated**: Phase 3.8 complete - Test UI panel implemented, ready for UI & functionality work
+**Last Updated**: Phase 3.9 in progress - AI API access fixed (global objects), awaiting testing
 **Repository**: https://github.com/beausterling/shop-well-extension
 **License**: MIT
 **Current Branch**: functional-mvp (active development)

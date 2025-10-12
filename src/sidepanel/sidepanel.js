@@ -97,10 +97,10 @@ async function checkAIAvailability() {
   };
 
   try {
-    // Check for Prompt API (Language Model)
-    if (typeof window.ai !== 'undefined' && typeof window.ai.languageModel !== 'undefined') {
+    // Check for Prompt API (Language Model) - Use global object in extensions
+    if (typeof LanguageModel !== 'undefined') {
       try {
-        const availability = await window.ai.languageModel.capabilities();
+        const availability = await LanguageModel.capabilities();
         result.prompt = availability.available === 'readily';
         result.details.prompt = { available: availability.available };
         result.available = true;
@@ -111,10 +111,10 @@ async function checkAIAvailability() {
       }
     }
 
-    // Check for Summarizer API
-    if (typeof window.ai !== 'undefined' && typeof window.ai.summarizer !== 'undefined') {
+    // Check for Summarizer API - Use global object in extensions
+    if (typeof Summarizer !== 'undefined') {
       try {
-        const availability = await window.ai.summarizer.capabilities();
+        const availability = await Summarizer.capabilities();
         result.summarizer = availability.available === 'readily';
         result.details.summarizer = { available: availability.available };
         result.available = true;
@@ -160,7 +160,7 @@ async function summarizeProduct(productData) {
   try {
     console.log('Shop Well: Starting AI summarization...');
 
-    if (typeof window.ai === 'undefined' || typeof window.ai.summarizer === 'undefined') {
+    if (typeof Summarizer === 'undefined') {
       console.warn('Shop Well: Summarizer API not available');
       return null;
     }
@@ -178,7 +178,7 @@ async function summarizeProduct(productData) {
 
     // Wrap AI calls with 30-second timeout to prevent hanging
     const summarizer = await withTimeout(
-      window.ai.summarizer.create({
+      Summarizer.create({
         sharedContext: 'Extract key wellness and dietary information from this product.',
         type: 'key-points',
         format: 'plain-text',
@@ -354,7 +354,7 @@ async function generateVerdict(facts, condition, allergies = [], customCondition
   try {
     console.log('Shop Well: Starting AI verdict generation...');
 
-    if (typeof window.ai === 'undefined' || typeof window.ai.languageModel === 'undefined') {
+    if (typeof LanguageModel === 'undefined') {
       console.warn('Shop Well: Prompt API not available');
       return null;
     }
@@ -367,12 +367,25 @@ async function generateVerdict(facts, condition, allergies = [], customCondition
 
     // Wrap AI calls with 30-second timeout to prevent hanging
     const session = await withTimeout(
-      window.ai.languageModel.create({
-        systemPrompt: systemPrompt,
-        expectedOutputs: [{
-          type: "text",
-          languages: [language.code]
-        }]
+      LanguageModel.create({
+        initialPrompts: [
+          {
+            role: 'system',
+            content: systemPrompt
+          }
+        ],
+        expectedInputs: [
+          {
+            type: "text",
+            languages: [language.code]
+          }
+        ],
+        expectedOutputs: [
+          {
+            type: "text",
+            languages: [language.code]
+          }
+        ]
       }),
       30000,
       'Language model session creation'
