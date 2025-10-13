@@ -19,7 +19,11 @@ npm run build
 # 3. Click "Load unpacked" and select the dist/ folder
 
 # Test extension functionality
-# Visit Amazon or Walmart product pages and press Option+Shift+W (Mac) or Alt+Shift+W (Windows/Linux)
+# Visit Amazon or Walmart product pages
+# ⚠️ IMPORTANT: Keyboard shortcut (Option+Shift+W) does NOT work due to Chrome security restrictions
+# Instead, use one of these methods to open the side panel:
+#   1. Click the Shop Well extension icon in the Chrome toolbar
+#   2. Click a product badge (green "🌿 Analyze" button on search results)
 # The side panel will open showing wellness analysis
 # Check browser console for diagnostic messages
 ```
@@ -42,7 +46,7 @@ npm run build
 - ES modules bundled with esbuild for browser compatibility
 
 **Message Flow Architecture**:
-1. User presses `Option+Shift+W` (Mac) or `Alt+Shift+W` (Windows/Linux) keyboard shortcut
+1. User clicks extension icon OR product badge (⚠️ Keyboard shortcut disabled by Chrome security)
 2. Background worker opens side panel for current tab
 3. Background sends `extract-product-data` command to content script
 4. Content script uses parser to extract product data from page DOM
@@ -51,7 +55,8 @@ npm run build
 7. Side panel runs AI analysis (Summarizer → Prompt API) and displays results
 
 **Side Panel AI Processing** (`sidepanel/sidepanel.js`):
-- Chrome AI availability detection (`window.ai.languageModel`, `window.ai.summarizer`)
+- Chrome AI availability detection (global `LanguageModel` and `Summarizer` objects)
+- Uses `LanguageModel.availability()` and `Summarizer.availability()` (NOT `.capabilities()`)
 - Product fact extraction using Summarizer API
 - Wellness verdict generation using Prompt API (LanguageModel)
 - Multi-language support with auto-detection
@@ -85,11 +90,14 @@ Chrome storage.local contains:
 ## Chrome Built-in AI Integration (Active)
 
 The extension uses Chrome's on-device AI APIs in the side panel:
-- **Summarizer API** (`window.ai.summarizer`): Extract structured facts from product data
-- **Prompt API** (`window.ai.languageModel`): Generate wellness verdicts based on health conditions
+- **Summarizer API** (global `Summarizer` object): Extract structured facts from product data
+- **Prompt API** (global `LanguageModel` object): Generate wellness verdicts based on health conditions
 - All processing happens locally on-device (no external servers, complete privacy)
 
-**IMPORTANT**: AI APIs are only available in extension contexts (side panel, popup, options), NOT in content scripts.
+**IMPORTANT**:
+- AI APIs use global objects in extensions: `LanguageModel.availability()` and `Summarizer.availability()`
+- Web pages use `window.ai.*` namespace, but extensions use global objects directly
+- AI APIs are only available in extension contexts (side panel, popup, options), NOT in content scripts
 
 Enable Chrome AI flags for development:
 - `chrome://flags/#optimization-guide-on-device-model` → Enabled
@@ -133,4 +141,14 @@ Extension logs extensively to browser console:
 - `sidePanel`: Chrome Side Panel API access for AI-powered UI
 - `tabs`: Tab management for side panel context
 - `host_permissions`: Amazon.com and Walmart.com access only
-- `commands`: Option+Shift+W keyboard shortcut (Mac uses Option key, Windows/Linux use Alt key)
+- `commands`: Option+Shift+W keyboard shortcut (⚠️ DISABLED by Chrome - keyboard shortcuts cannot trigger side panels due to security restrictions)
+
+## Known Limitations
+
+**Keyboard Shortcut Does Not Work**: Option+Shift+W (Mac) / Alt+Shift+W (Windows/Linux) will fail with error: "sidePanel.open() may only be called in response to a user gesture". This is a Chrome platform security restriction that cannot be bypassed.
+
+**Workarounds**:
+1. Click the extension icon in Chrome toolbar
+2. Click product badges on search results pages
+
+This is **NOT** a bug in the extension code - all Chrome extensions face this limitation.

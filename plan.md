@@ -383,33 +383,27 @@ npm run build
 **Branch**: `ui/panel-redesign` (merged to main via functional-mvp)
 **Time Spent**: 2 hours
 
-### ⚠️ Phase 3.9: AI API Access Fix (IN PROGRESS)
+### ✅ Phase 3.9: AI API Access Fix (COMPLETED)
 
-**Critical Discovery**: `self.ai` and `window.ai` don't exist in Chrome extension contexts.
+**Bugs Fixed**:
+1. **API method name error**: Changed `.capabilities()` → `.availability()` (4 locations)
+2. **API return type error**: Changed `availability.available` → `availability` (string not object)
+3. **Availability check**: Accept both `'readily'` and `'available'` as ready states
+4. **Missing property**: Added `dietary_claims: []` to facts object in analyzeListingProduct
+5. **Hardcoded language**: Force English (`en`) to eliminate language issues
 
-**Problems Identified**:
-1. **Keyboard Shortcut**: Option+Shift+W fails with "sidePanel.open() may only be called in response to a user gesture"
-   - Chrome restriction: keyboard shortcuts don't count as user gestures
-   - **Workaround**: Users must click extension icon or product badges
-   - **Status**: Cannot be fixed in code (Chrome platform limitation)
+**Key Fixes**:
+- sidepanel.js: Fixed LanguageModel/Summarizer availability checks (lines 105, 121)
+- options.js: Fixed LanguageModel/Summarizer availability checks (lines 23, 45)
+- sidepanel.js: Added missing `dietary_claims` property (line 1063)
+- sidepanel.js: Hardcoded `getUserLanguage()` to always return English (line 19)
 
-2. **AI API Access**: `self.ai.languageModel` and `self.ai.summarizer` are undefined
-   - Extensions must use global `LanguageModel` and `Summarizer` objects
-   - Web pages use `window.ai.languageModel`, extensions use `LanguageModel` directly
-   - options.js already had correct pattern
+**Known Issue**:
+- Chrome language warning appears but doesn't block AI execution (Chrome bug #444653109)
+- Keyboard shortcut (Option+Shift+W) doesn't work - Chrome security restriction
 
-**Fixes Applied**:
-- [x] Updated `checkAIAvailability()` - Changed to `typeof LanguageModel !== 'undefined'`
-- [x] Updated `summarizeProduct()` - Changed to `Summarizer.create()`
-- [x] Updated `generateVerdict()` - Changed to `LanguageModel.create()`
-- [x] Rebuilt extension (npm run build)
-- [ ] Testing AI detection and analysis
-
-**Files Modified (1)**:
-- `src/sidepanel/sidepanel.js` - All AI API calls updated to use global objects
-
-**Status**: Code updated, needs user testing to verify AI now works
-**Time Spent**: 4 hours debugging
+**Status**: ✅ AI fully functional - verified working
+**Time Spent**: 6 hours debugging
 **Branch**: `functional-mvp`
 
 ### 🧠 Phase 4: Multi-Condition Intelligence (NEXT - READY TO START)

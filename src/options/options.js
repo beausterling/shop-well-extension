@@ -15,13 +15,15 @@ async function checkAIAvailability() {
     if (typeof LanguageModel !== 'undefined') {
       try {
         const availability = await Promise.race([
-          LanguageModel.capabilities(),
+          LanguageModel.availability(),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
         ]);
-        result.prompt = availability.available === 'readily';
-        result.details.prompt = { available: availability.available };
+        // availability() returns a string: 'readily', 'available', 'after-download', 'no'
+        // Accept both 'readily' and 'available' as ready states
+        result.prompt = availability === 'readily' || availability === 'available';
+        result.details.prompt = { available: availability };
         result.available = true;
-        console.log('Shop Well Options: LanguageModel found, availability:', availability.available);
+        console.log('Shop Well Options: LanguageModel found, availability:', availability);
       } catch (error) {
         console.warn('Shop Well Options: LanguageModel availability check failed:', error);
         result.details.promptError = error.message;
@@ -35,13 +37,15 @@ async function checkAIAvailability() {
     if (typeof Summarizer !== 'undefined') {
       try {
         const availability = await Promise.race([
-          Summarizer.capabilities(),
+          Summarizer.availability(),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
         ]);
-        result.summarizer = availability.available === 'readily';
-        result.details.summarizer = { available: availability.available };
+        // availability() returns a string: 'readily', 'available', 'after-download', 'no'
+        // Accept both 'readily' and 'available' as ready states
+        result.summarizer = availability === 'readily' || availability === 'available';
+        result.details.summarizer = { available: availability };
         result.available = true;
-        console.log('Shop Well Options: Summarizer found, availability:', availability.available);
+        console.log('Shop Well Options: Summarizer found, availability:', availability);
       } catch (error) {
         console.warn('Shop Well Options: Summarizer availability check failed:', error);
         result.details.summarizerError = error.message;

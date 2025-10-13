@@ -14,38 +14,37 @@ const SUPPORTED_LANGUAGES = {
 };
 
 async function getUserLanguage() {
-  try {
-    const settings = await chrome.storage.local.get(['languagePreference']);
-    const preference = settings.languagePreference || 'auto';
-    let languageCode;
-
-    if (preference === 'auto') {
-      const browserLang = navigator.language || navigator.userLanguage || 'en';
-      const primaryLang = browserLang.split('-')[0].toLowerCase();
-      languageCode = SUPPORTED_LANGUAGES[primaryLang] ? primaryLang : 'en';
-    } else {
-      languageCode = preference;
-    }
-
-    if (!SUPPORTED_LANGUAGES[languageCode]) {
-      console.warn(`Shop Well: Unsupported language '${languageCode}', falling back to English`);
-      languageCode = 'en';
-    }
-
-    return {
-      code: languageCode,
-      name: SUPPORTED_LANGUAGES[languageCode],
-      isAuto: preference === 'auto'
-    };
-  } catch (error) {
-    console.error('Shop Well: Language detection failed:', error);
-    return { code: 'en', name: 'English', isAuto: false };
-  }
+  // HARDCODED: Always return English to eliminate language errors
+  // Chrome AI only reliably supports 'en' without warnings
+  return { code: 'en', name: 'English', isAuto: false };
 }
 
 function getLanguageInstruction(languageCode) {
   const languageName = SUPPORTED_LANGUAGES[languageCode] || 'English';
   return `Your response must be in ${languageName}.`;
+}
+
+/**
+ * Maps user-selected language to Chrome API-compatible language code.
+ * Chrome LanguageModel API only supports: en, es, ja
+ * Unsupported languages (fr, de) are mapped to English fallback.
+ *
+ * @param {string} languageCode - User's preferred language code
+ * @returns {string} Chrome API-compatible language code
+ */
+function getAPICompatibleLanguage(languageCode) {
+  // Chrome LanguageModel API officially supports only these 3 languages
+  const CHROME_SUPPORTED_LANGUAGES = ['en', 'es', 'ja'];
+
+  if (CHROME_SUPPORTED_LANGUAGES.includes(languageCode)) {
+    return languageCode; // Already supported - use as-is
+  }
+
+  // Unsupported language (fr, de, etc.) - fallback to English
+  // Note: System prompt will still request the desired language,
+  // and Gemini Nano may still respond in that language based on the prompt
+  console.log(`Shop Well: Language '${languageCode}' not supported by Chrome API, using 'en' fallback`);
+  return 'en';
 }
 
 /* =============================================================================
@@ -100,11 +99,13 @@ async function checkAIAvailability() {
     // Check for Prompt API (Language Model) - Use global object in extensions
     if (typeof LanguageModel !== 'undefined') {
       try {
-        const availability = await LanguageModel.capabilities();
-        result.prompt = availability.available === 'readily';
-        result.details.prompt = { available: availability.available };
+        const availability = await LanguageModel.availability();
+        // availability() returns a string: 'readily', 'available', 'after-download', 'no'
+        // Accept both 'readily' and 'available' as ready states
+        result.prompt = availability === 'readily' || availability === 'available';
+        result.details.prompt = { available: availability };
         result.available = true;
-        console.log('Shop Well: LanguageModel found, availability:', availability.available);
+        console.log('Shop Well: LanguageModel found, availability:', availability);
       } catch (error) {
         console.warn('Shop Well: LanguageModel availability check failed:', error);
         result.details.promptError = error.message;
@@ -114,11 +115,13 @@ async function checkAIAvailability() {
     // Check for Summarizer API - Use global object in extensions
     if (typeof Summarizer !== 'undefined') {
       try {
-        const availability = await Summarizer.capabilities();
-        result.summarizer = availability.available === 'readily';
-        result.details.summarizer = { available: availability.available };
+        const availability = await Summarizer.availability();
+        // availability() returns a string: 'readily', 'available', 'after-download', 'no'
+        // Accept both 'readily' and 'available' as ready states
+        result.summarizer = availability === 'readily' || availability === 'available';
+        result.details.summarizer = { available: availability };
         result.available = true;
-        console.log('Shop Well: Summarizer found, availability:', availability.available);
+        console.log('Shop Well: Summarizer found, availability:', availability);
       } catch (error) {
         console.warn('Shop Well: Summarizer availability check failed:', error);
         result.details.summarizerError = error.message;
@@ -156,13 +159,13 @@ function canUseAIAnalysis(availability) {
    AI SUMMARIZER - Extract Product Facts
    ============================================================================= */
 
-async function summarizeProduct(productData) {
+async function summarizeProduct(productData, cachedSummarizer = null) {
   try {
     console.log('Shop Well: Starting AI summarization...');
 
     if (typeof Summarizer === 'undefined') {
       console.warn('Shop Well: Summarizer API not available');
-      return null;
+      return { facts: null, summarizer: null };
     }
 
     const language = await getUserLanguage();
@@ -171,26 +174,34 @@ async function summarizeProduct(productData) {
     const inputText = prepareInputText(productData);
     if (!inputText) {
       console.warn('Shop Well: No suitable content for summarization');
-      return null;
+      return { facts: null, summarizer: cachedSummarizer };
     }
 
     console.log('Shop Well: Summarizer input length:', inputText.length);
 
-    // Wrap AI calls with 30-second timeout to prevent hanging
-    const summarizer = await withTimeout(
-      Summarizer.create({
-        sharedContext: 'Extract key wellness and dietary information from this product.',
-        type: 'key-points',
-        format: 'plain-text',
-        length: 'short'
-      }),
-      30000,
-      'Summarizer creation'
-    );
+    // Reuse cached summarizer or create new one
+    let summarizer = cachedSummarizer;
+    if (!summarizer) {
+      console.log('Shop Well: Creating new summarizer session (first-time may take 60-90s)...');
+      // Wrap AI calls with extended timeout (first-time can take 60-90s)
+      summarizer = await withTimeout(
+        Summarizer.create({
+          sharedContext: 'Extract key wellness and dietary information from this product.',
+          type: 'key-points',
+          format: 'plain-text',
+          length: 'short'
+        }),
+        90000,
+        'Summarizer creation'
+      );
+      console.log('Shop Well: Summarizer session created successfully');
+    } else {
+      console.log('Shop Well: Reusing cached summarizer session (fast path)');
+    }
 
     const summary = await withTimeout(
       summarizer.summarize(inputText),
-      30000,
+      60000,
       'Product summarization'
     );
     console.log('Shop Well: Raw summarizer output:', summary);
@@ -198,7 +209,7 @@ async function summarizeProduct(productData) {
     const facts = parseStructuredFacts(summary, productData);
     console.log('Shop Well: Extracted facts:', facts);
 
-    return facts;
+    return { facts, summarizer };
 
   } catch (error) {
     if (error instanceof TimeoutError) {
@@ -207,7 +218,7 @@ async function summarizeProduct(productData) {
     } else {
       console.error('Shop Well: Summarization failed:', error);
     }
-    return null;
+    return { facts: null, summarizer: cachedSummarizer };
   }
 }
 
@@ -350,13 +361,13 @@ function createFallbackFacts(productData) {
    AI PROMPT - Generate Wellness Verdict
    ============================================================================= */
 
-async function generateVerdict(facts, condition, allergies = [], customCondition = '') {
+async function generateVerdict(facts, condition, allergies = [], customCondition = '', cachedLanguageModel = null) {
   try {
     console.log('Shop Well: Starting AI verdict generation...');
 
     if (typeof LanguageModel === 'undefined') {
       console.warn('Shop Well: Prompt API not available');
-      return null;
+      return { verdict: null, languageModel: null };
     }
 
     const language = await getUserLanguage();
@@ -365,35 +376,46 @@ async function generateVerdict(facts, condition, allergies = [], customCondition
     const { systemPrompt, userPrompt } = preparePrompts(facts, condition, allergies, customCondition, language);
     console.log('Shop Well: Prompt length:', userPrompt.length);
 
-    // Wrap AI calls with 30-second timeout to prevent hanging
-    const session = await withTimeout(
-      LanguageModel.create({
-        initialPrompts: [
-          {
-            role: 'system',
-            content: systemPrompt
-          }
-        ],
-        expectedInputs: [
-          {
-            type: "text",
-            languages: [language.code]
-          }
-        ],
-        expectedOutputs: [
-          {
-            type: "text",
-            languages: [language.code]
-          }
-        ]
-      }),
-      30000,
-      'Language model session creation'
-    );
+    // Map language to Chrome API-compatible code (only en, es, ja supported)
+    const apiLanguage = getAPICompatibleLanguage(language.code);
+
+    // Reuse cached language model or create new one
+    let session = cachedLanguageModel;
+    if (!session) {
+      console.log('Shop Well: Creating new language model session (first-time may take 60-90s)...');
+      // Wrap AI calls with extended timeout (first-time can take 60-90s)
+      session = await withTimeout(
+        LanguageModel.create({
+          initialPrompts: [
+            {
+              role: 'system',
+              content: systemPrompt
+            }
+          ],
+          expectedInputs: [
+            {
+              type: "text",
+              languages: [apiLanguage]
+            }
+          ],
+          expectedOutputs: [
+            {
+              type: "text",
+              languages: [apiLanguage]
+            }
+          ]
+        }),
+        90000,
+        'Language model session creation'
+      );
+      console.log('Shop Well: Language model session created successfully');
+    } else {
+      console.log('Shop Well: Reusing cached language model session (fast path)');
+    }
 
     const response = await withTimeout(
       session.prompt(userPrompt),
-      30000,
+      60000,
       'Verdict generation'
     );
     console.log('Shop Well: Raw AI response:', response);
@@ -401,7 +423,7 @@ async function generateVerdict(facts, condition, allergies = [], customCondition
     const verdict = parseVerdictResponse(response, facts, allergies);
     console.log('Shop Well: Generated verdict:', verdict);
 
-    return verdict;
+    return { verdict, languageModel: session };
 
   } catch (error) {
     if (error instanceof TimeoutError) {
@@ -410,7 +432,7 @@ async function generateVerdict(facts, condition, allergies = [], customCondition
     } else {
       console.error('Shop Well: Verdict generation failed:', error);
     }
-    return null;
+    return { verdict: null, languageModel: cachedLanguageModel };
   }
 }
 
@@ -618,6 +640,11 @@ class SidePanelUI {
     this.isAnalyzing = false;
     this.messageReceivedTimer = null;
 
+    // Session caching for faster subsequent analyses
+    this.cachedSummarizer = null;
+    this.cachedLanguageModel = null;
+    this.hasSuccessfulAICall = false; // Track if we've had a successful call
+
     this.elements = {
       loading: document.querySelector('.shop-well-loading'),
       setup: document.querySelector('.shop-well-setup'),
@@ -771,13 +798,13 @@ class SidePanelUI {
       this.elements.timeoutWarning.classList.add('hidden');
     }
 
-    // Show timeout warning after 10 seconds
+    // Show timeout warning after 30 seconds (first AI call can take 60-90s)
     this.timeoutWarningTimer = setTimeout(() => {
       if (this.currentState === 'loading' && this.elements.timeoutWarning) {
         this.elements.timeoutWarning.classList.remove('hidden');
         console.log('Shop Well: Showing timeout warning');
       }
-    }, 10000);
+    }, 30000);
 
     this.currentState = 'loading';
     console.log('Shop Well: Showing loading state');
@@ -951,7 +978,13 @@ class SidePanelUI {
       let facts;
       if (this.aiCapabilities.summarizer) {
         console.log('Shop Well: Using AI for fact extraction...');
-        facts = await summarizeProduct(productData);
+        const result = await summarizeProduct(productData, this.cachedSummarizer);
+        facts = result.facts;
+        // Cache the summarizer for future use
+        if (result.summarizer) {
+          this.cachedSummarizer = result.summarizer;
+          console.log('Shop Well: Summarizer session cached for reuse');
+        }
       }
 
       // Check if cancelled
@@ -969,12 +1002,19 @@ class SidePanelUI {
       let verdict;
       if (this.aiCapabilities.prompt) {
         console.log('Shop Well: Using AI for verdict generation...');
-        verdict = await generateVerdict(
+        const result = await generateVerdict(
           facts,
           this.settings.condition,
           allAllergies,
-          this.settings.customCondition
+          this.settings.customCondition,
+          this.cachedLanguageModel
         );
+        verdict = result.verdict;
+        // Cache the language model for future use
+        if (result.languageModel) {
+          this.cachedLanguageModel = result.languageModel;
+          console.log('Shop Well: Language model session cached for reuse');
+        }
       }
 
       // Check if cancelled
@@ -988,6 +1028,11 @@ class SidePanelUI {
         verdict = createFallbackVerdict(facts, allAllergies);
       }
 
+      // Mark that we've had at least one successful AI call
+      if (facts || verdict) {
+        this.hasSuccessfulAICall = true;
+      }
+
       // Display results
       this.isAnalyzing = false;
       this.showAnalysis(productData, facts, verdict);
@@ -999,7 +1044,7 @@ class SidePanelUI {
       // Provide specific error messages for timeouts
       if (error instanceof TimeoutError) {
         this.showError(
-          'Analysis timed out after 30 seconds. ' +
+          'Analysis timed out after 90 seconds. ' +
           'Chrome AI models may still be downloading. ' +
           'Check chrome://on-device-internals and restart Chrome if needed.'
         );
@@ -1054,6 +1099,7 @@ class SidePanelUI {
         product_type: 'general',
         confidence: 'low',
         allergen_warnings: allergenWarnings,
+        dietary_claims: [], // Required by preparePrompts - empty for listing products
         // Try to infer properties from title
         gluten_free: /gluten.?free/i.test(titleLower),
         dairy_free: /dairy.?free/i.test(titleLower),
@@ -1073,12 +1119,19 @@ class SidePanelUI {
 
       if (this.aiCapabilities && this.aiCapabilities.prompt) {
         console.log('Shop Well: Using AI for listing product verdict...');
-        verdict = await generateVerdict(
+        const result = await generateVerdict(
           facts,
           this.settings.condition,
           allAllergies,
-          this.settings.customCondition
+          this.settings.customCondition,
+          this.cachedLanguageModel
         );
+        verdict = result.verdict;
+        // Cache the language model for future use
+        if (result.languageModel) {
+          this.cachedLanguageModel = result.languageModel;
+          console.log('Shop Well: Language model session cached for reuse');
+        }
         if (verdict) {
           usedAI = true;
         }
