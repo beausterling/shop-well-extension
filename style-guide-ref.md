@@ -9,12 +9,10 @@
     "primary": {
       "name": "Leaf Green",
       "hex": "#6BAF7A",
-      "use": ["primary buttons", "links", "emphasis text", "icons"]
     },
     "secondary": {
       "name": "Sky Blue",
       "hex": "#65AEDD",
-      "use": ["hover states", "highlights", "callouts"]
     },
     "accent1": {
       "name": "Golden Honey",
@@ -24,7 +22,7 @@
     "accent2": {
       "name": "Warm Terracotta",
       "hex": "#D38B6D",
-      "use": ["section headers", "illustration accents", "secondary highlights"]
+      "use": ["section headers", "illustration accents", "secondary highlights", "borders"]
     },
     "background": {
       "name": "Warm White",
@@ -34,12 +32,12 @@
     "background_alt": {
       "name": "Soft Beige",
       "hex": "#E9DFC9",
-      "use": ["section dividers", "footers", "alternate panels"]
+      "use": ["section backgrounds", "footers", "alternate panels"]
     },
     "text_primary": {
       "name": "Charcoal Gray",
       "hex": "#3D3D3D",
-      "use": ["main text", "headings"]
+      "use": ["main text", "headings", "section borders"]
     },
     "text_secondary": {
       "name": "Soft Taupe",

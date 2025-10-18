@@ -132,6 +132,38 @@
             <span>🔄</span> Refresh Analysis
           </button>
         </div>
+
+        <!-- Chat Interface -->
+        <div class="chat-section">
+          <div class="chat-header">
+            <h4>💬 Ask Questions</h4>
+            <p class="chat-subtitle">Ask anything about this product for your condition</p>
+          </div>
+
+          <div class="chat-messages" id="chatMessages">
+            <!-- Chat messages will be inserted here -->
+          </div>
+
+          <div class="chat-input-container">
+            <input
+              type="text"
+              id="chatInput"
+              class="chat-input"
+              placeholder="e.g., 'How much sodium is too much?' or 'Can I eat this daily?'"
+              maxlength="200"
+            />
+            <button id="chatSendButton" class="chat-send-button" title="Send message">
+              <span>➤</span>
+            </button>
+          </div>
+
+          <div class="chat-loading hidden" id="chatLoading">
+            <div class="chat-loading-dots">
+              <span></span><span></span><span></span>
+            </div>
+            <small>AI is thinking...</small>
+          </div>
+        </div>
       </div>
 
       <!-- Error State -->

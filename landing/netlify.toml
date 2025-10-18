@@ -1,0 +1,61 @@
+# Netlify Configuration for Shop Well Landing Page
+# https://docs.netlify.com/configure-builds/file-based-configuration/
+
+[build]
+  # Publish directory (the folder to deploy)
+  publish = "."
+
+  # No build command needed for static HTML site
+  command = ""
+
+# Redirect rules for clean URLs (optional)
+[[redirects]]
+  from = "/about"
+  to = "/about.html"
+  status = 200
+
+[[redirects]]
+  from = "/index"
+  to = "/index.html"
+  status = 200
+
+# Custom headers for security
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+
+# Headers for static assets (cache for 1 year)
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Headers for CSS and JS (cache for 1 week)
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+# 404 page (optional - create if needed)
+# [[redirects]]
+#   from = "/*"
+#   to = "/404.html"
+#   status = 404
+
+# Environment variables (if needed later)
+# [build.environment]
+#   NODE_VERSION = "18"
+
+# Plugin configuration (optional - for future use)
+# [[plugins]]
+#   package = "@netlify/plugin-lighthouse"

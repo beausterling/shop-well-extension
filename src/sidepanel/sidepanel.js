@@ -446,9 +446,9 @@ CRITICAL RULES:
 - Never provide medical advice, diagnosis, or treatment recommendations
 - Use supportive language like "may be helpful", "could support", "consider"
 - Always include appropriate disclaimers
-- Keep responses under 60 words total
 - Output ONLY valid JSON format
 - Be supportive but not prescriptive
+- Provide detailed, actionable insights
 
 You help people with chronic conditions make informed shopping decisions based on product features.`;
 
@@ -484,37 +484,43 @@ Product facts:
 Return ONLY this JSON structure:
 {
   "verdict": "helpful" | "mixed" | "not_ideal",
-  "bullets": ["point 1", "point 2", "point 3"],
+  "bullets": ["point 1", "point 2", "point 3", "point 4", "point 5", "point 6"],
   "caveat": "important warning or limitation"
 }
 
-Keep each bullet under 15 words. Total response under 60 words.`;
+Provide 5-6 detailed bullet points (20-25 words each) with specific, actionable insights. Explain WHY each point matters for the condition.`;
 
   return { systemPrompt, userPrompt };
 }
 
 function getConditionSpecificGuidance(condition) {
   const guidance = {
-    'POTS': `POTS considerations:
-- Compression garments may support circulation
-- Higher sodium products could help with volume
-- Avoid excessive sugar which may worsen symptoms
-- Consider ease of use during flare-ups`,
+    'POTS': `POTS (Postural Orthostatic Tachycardia Syndrome) considerations:
+- Blood volume management: Higher sodium content (electrolytes, salt) may help maintain blood volume and reduce symptoms
+- Circulation support: Compression garments can improve venous return and reduce pooling
+- Blood sugar stability: Avoid high sugar content which can cause rapid glucose spikes/crashes and worsen symptoms
+- Energy conservation: Easy-to-use, lightweight products reduce physical strain during daily activities
+- Symptom management: Consider products that support hydration, temperature regulation, and orthostatic tolerance
+- Explain HOW each feature specifically helps with POTS symptom management`,
 
-    'ME/CFS': `ME/CFS considerations:
-- Lightweight, easy-to-use products reduce energy expenditure
-- Ergonomic design supports comfort during activities
-- Avoid heavy or complex items that require significant effort
-- Consider products that promote rest and recovery`,
+    'ME/CFS': `ME/CFS (Myalgic Encephalomyelitis/Chronic Fatigue Syndrome) considerations:
+- Energy envelope: Lightweight, effortless products help conserve precious energy and prevent crashes
+- Pacing support: Easy-to-use items reduce physical and cognitive load during activities
+- Ergonomic design: Proper support minimizes muscle strain and reduces recovery time
+- Nutritional support: Nutrient-dense foods with minimal prep effort support cellular energy
+- Symptom triggers: Avoid products requiring sustained effort or complex preparation
+- Explain HOW each feature helps with energy management and PEM (post-exertional malaise) prevention`,
 
-    'Celiac Disease': `Celiac considerations:
-- Certified gluten-free products are essential
-- Check for cross-contamination warnings
-- Verified allergen information is critical
-- Consider products with clear ingredient labeling`
+    'Celiac Disease': `Celiac Disease considerations:
+- Gluten-free certification: ONLY certified gluten-free products are safe (look for official seals)
+- Cross-contamination: Check manufacturing warnings about shared facilities with wheat/barley/rye
+- Hidden gluten: Watch for barley malt, wheat starch, or modified food starch in ingredients
+- Nutritional adequacy: Gluten-free products should provide adequate fiber, B vitamins, and iron
+- Ingredient transparency: Clear, detailed labeling is essential for safe consumption
+- Explain WHY each ingredient matters for intestinal healing and immune response`
   };
 
-  return guidance[condition] || 'Provide general wellness and comfort analysis.';
+  return guidance[condition] || 'Provide general wellness and comfort analysis with specific reasoning for each point.';
 }
 
 function parseVerdictResponse(response, facts, allergies) {
@@ -547,21 +553,24 @@ function parseVerdictResponse(response, facts, allergies) {
 function validateVerdict(verdict, facts, allergies) {
   const sanitized = {
     verdict: ['helpful', 'mixed', 'not_ideal'].includes(verdict.verdict) ? verdict.verdict : 'mixed',
-    bullets: Array.isArray(verdict.bullets) ? verdict.bullets.slice(0, 3) : ['Analysis available'],
+    bullets: Array.isArray(verdict.bullets) ? verdict.bullets.slice(0, 6) : ['Analysis available'],
     caveat: typeof verdict.caveat === 'string' ? verdict.caveat : 'Please verify product details',
     allergen_alert: false
   };
 
-  while (sanitized.bullets.length < 2) {
+  // Ensure at least 3 bullets
+  while (sanitized.bullets.length < 3) {
     sanitized.bullets.push('Additional analysis available');
   }
 
+  // Allow longer bullets (up to 150 characters for detailed explanations)
   sanitized.bullets = sanitized.bullets.map(bullet =>
-    bullet.length > 80 ? bullet.substring(0, 77) + '...' : bullet
+    bullet.length > 150 ? bullet.substring(0, 147) + '...' : bullet
   );
 
-  if (sanitized.caveat.length > 100) {
-    sanitized.caveat = sanitized.caveat.substring(0, 97) + '...';
+  // Allow longer caveats (up to 200 characters)
+  if (sanitized.caveat.length > 200) {
+    sanitized.caveat = sanitized.caveat.substring(0, 197) + '...';
   }
 
   if (facts.allergen_warnings.length > 0) {
@@ -645,13 +654,22 @@ class SidePanelUI {
     this.cachedLanguageModel = null;
     this.hasSuccessfulAICall = false; // Track if we've had a successful call
 
+    // Chat state
+    this.chatHistory = [];
+    this.currentFacts = null; // Store facts from analysis for chat context
+
     this.elements = {
       loading: document.querySelector('.shop-well-loading'),
       setup: document.querySelector('.shop-well-setup'),
       analysis: document.querySelector('.shop-well-analysis'),
       error: document.querySelector('.shop-well-error'),
       welcome: document.querySelector('.shop-well-welcome'),
-      timeoutWarning: document.querySelector('.loading-timeout-warning')
+      timeoutWarning: document.querySelector('.loading-timeout-warning'),
+      // Chat elements
+      chatMessages: document.getElementById('chatMessages'),
+      chatInput: document.getElementById('chatInput'),
+      chatSendButton: document.getElementById('chatSendButton'),
+      chatLoading: document.getElementById('chatLoading')
     };
 
     this.init();
@@ -752,6 +770,23 @@ class SidePanelUI {
       });
     }
 
+    // Chat send button
+    if (this.elements.chatSendButton) {
+      this.elements.chatSendButton.addEventListener('click', () => {
+        this.handleChatSend();
+      });
+    }
+
+    // Chat input - send on Enter key
+    if (this.elements.chatInput) {
+      this.elements.chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          this.handleChatSend();
+        }
+      });
+    }
+
     // Listen for messages from content script/background
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.type === 'analyze-product') {
@@ -782,7 +817,16 @@ class SidePanelUI {
       this.timeoutWarningTimer = null;
     }
 
-    Object.values(this.elements).forEach(el => {
+    // Only hide main state containers, not child elements like chat input
+    const stateContainers = [
+      this.elements.loading,
+      this.elements.setup,
+      this.elements.analysis,
+      this.elements.error,
+      this.elements.welcome
+    ];
+
+    stateContainers.forEach(el => {
       if (el) el.classList.add('hidden');
     });
   }
@@ -844,6 +888,15 @@ class SidePanelUI {
   showAnalysis(productData, facts, verdict) {
     this.hideAllStates();
     if (!this.elements.analysis) return;
+
+    // Store facts for chat context
+    this.currentFacts = facts;
+
+    // Clear chat history for new product
+    this.chatHistory = [];
+    if (this.elements.chatMessages) {
+      this.elements.chatMessages.innerHTML = '';
+    }
 
     this.elements.analysis.classList.remove('hidden');
 
@@ -1162,6 +1215,153 @@ class SidePanelUI {
       console.error('Shop Well: Listing product analysis failed:', error);
       this.showError('Analysis failed. Click product to see full details.');
     }
+  }
+
+  /* =============================================================================
+     CHAT FUNCTIONALITY
+     ============================================================================= */
+
+  handleChatSend() {
+    if (!this.elements.chatInput) return;
+
+    const message = this.elements.chatInput.value.trim();
+    if (!message) return;
+
+    // Clear input
+    this.elements.chatInput.value = '';
+
+    // Send message
+    this.sendChatMessage(message);
+  }
+
+  async sendChatMessage(userMessage) {
+    console.log('Shop Well: Sending chat message:', userMessage);
+
+    // Check if we have a product to chat about
+    if (!this.currentProductData || !this.currentFacts) {
+      this.addChatMessage('Please analyze a product first before asking questions.', 'ai');
+      return;
+    }
+
+    // Check if AI is available
+    if (!this.cachedLanguageModel && (!this.aiCapabilities || !this.aiCapabilities.prompt)) {
+      this.addChatMessage('Chat requires Chrome AI. Please ensure AI is enabled and try analyzing a product again.', 'ai');
+      return;
+    }
+
+    // Add user message to chat
+    this.addChatMessage(userMessage, 'user');
+
+    // Show loading indicator
+    if (this.elements.chatLoading) {
+      this.elements.chatLoading.classList.remove('hidden');
+    }
+
+    // Disable input while processing
+    if (this.elements.chatInput) this.elements.chatInput.disabled = true;
+    if (this.elements.chatSendButton) this.elements.chatSendButton.disabled = true;
+
+    try {
+      // Prepare chat context with product info
+      const language = await getUserLanguage();
+      const actualCondition = this.settings.condition === 'custom'
+        ? this.settings.customCondition
+        : this.settings.condition;
+
+      const contextPrompt = `You are a wellness shopping assistant helping someone with ${actualCondition}.
+
+PRODUCT CONTEXT:
+- Product: ${this.currentProductData.title || 'Unknown'}
+- High sodium: ${this.currentFacts.high_sodium || false}
+- High sugar: ${this.currentFacts.high_sugar || false}
+- Gluten-free: ${this.currentFacts.gluten_free || false}
+- Allergen warnings: ${this.currentFacts.allergen_warnings?.join(', ') || 'none'}
+
+CRITICAL RULES:
+- Answer questions about THIS specific product for someone with ${actualCondition}
+- Use supportive language like "may", "could", "consider"
+- Never provide medical advice or diagnosis
+- Keep responses under 100 words
+- Be specific and actionable
+- Reference the product features when answering
+
+User question: ${userMessage}
+
+Provide a helpful, informative response:`;
+
+      // Use cached language model or create new one
+      let result;
+      if (this.cachedLanguageModel) {
+        console.log('Shop Well: Using cached language model for chat');
+        result = { languageModel: this.cachedLanguageModel };
+      } else {
+        console.log('Shop Well: Creating new language model for chat');
+        const apiLanguage = getAPICompatibleLanguage(language.code);
+        result = {
+          languageModel: await withTimeout(
+            LanguageModel.create({
+              expectedInputs: [{type: "text", languages: [apiLanguage]}],
+              expectedOutputs: [{type: "text", languages: [apiLanguage]}]
+            }),
+            90000,
+            'Chat language model creation'
+          )
+        };
+        this.cachedLanguageModel = result.languageModel;
+      }
+
+      // Get AI response
+      const aiResponse = await withTimeout(
+        result.languageModel.prompt(contextPrompt),
+        60000,
+        'Chat response generation'
+      );
+
+      console.log('Shop Well: Chat AI response:', aiResponse);
+
+      // Add AI response to chat
+      this.addChatMessage(aiResponse.trim(), 'ai');
+
+    } catch (error) {
+      console.error('Shop Well: Chat failed:', error);
+      if (error instanceof TimeoutError) {
+        this.addChatMessage('Response timed out. Please try again or ask a simpler question.', 'ai');
+      } else {
+        this.addChatMessage('Sorry, I encountered an error. Please try again.', 'ai');
+      }
+    } finally {
+      // Hide loading indicator
+      if (this.elements.chatLoading) {
+        this.elements.chatLoading.classList.add('hidden');
+      }
+
+      // Re-enable input
+      if (this.elements.chatInput) this.elements.chatInput.disabled = false;
+      if (this.elements.chatSendButton) this.elements.chatSendButton.disabled = false;
+
+      // Focus input for next message
+      if (this.elements.chatInput) this.elements.chatInput.focus();
+    }
+  }
+
+  addChatMessage(message, type) {
+    if (!this.elements.chatMessages) return;
+
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `chat-message chat-message-${type}`;
+
+    const bubble = document.createElement('div');
+    bubble.className = `chat-bubble chat-bubble-${type}`;
+    bubble.textContent = message;
+
+    messageDiv.appendChild(bubble);
+    this.elements.chatMessages.appendChild(messageDiv);
+
+    // Store in history
+    this.chatHistory.push({ message, type, timestamp: Date.now() });
+
+    // Scroll to bottom
+    this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
   }
 }
 

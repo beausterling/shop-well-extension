@@ -1,3 +1,6 @@
+IMPORTANT BEST PRACTICES!
+https://developer.chrome.com/docs/webstore/best-practices?utm_source=chatgpt.com
+
 Latest official docs for google chrome developers:
 https://developer.chrome.com/docs/extensions/whats-new?utm_source=ext_sidebar
 
