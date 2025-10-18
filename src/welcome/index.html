@@ -5,268 +5,244 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Welcome to Shop Well</title>
   <link rel="stylesheet" href="welcome.css">
-  
 </head>
 <body>
-  <div class="welcome-container">
-    <div class="welcome-header">
-      <div class="brand-image-container">
-        <img src="../assets/SHOP-WELL.png" alt="Shop Well - Your wellness shopping companion" class="brand-image">
-      </div>
-      <h1>Welcome to Shop Well</h1>
-      <p>Your wellness-friendly shopping assistant for chronic conditions</p>
-      <div class="version-badge">Version 0.1.0</div>
+  <div class="onboarding-container">
+    <!-- Progress Bar -->
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progress-bar"></div>
     </div>
 
-    <div class="welcome-content">
-      <div class="setup-progress">
-        <div class="progress-step">
-          <div class="step-circle active" id="step1-circle">1</div>
-          <div class="step-label">Welcome</div>
+    <!-- Step 1: Welcome & Why -->
+    <div class="onboarding-step active" id="step-1" data-step="1">
+      <div class="step-content">
+        <div class="hero-section">
+          <div class="brand-image-container">
+            <img src="../assets/SHOP-WELL.png" alt="Shop Well" class="hero-image">
+          </div>
+          <h1 class="hero-title">Welcome to Shop Well</h1>
+          <p class="hero-subtitle">Shopping made safer for chronic conditions & allergies</p>
+          <p class="hero-description">
+            Your AI-powered companion for wellness-friendly shopping decisions on Amazon & Walmart.
+            100% private, always free.
+          </p>
         </div>
-        <div class="progress-step">
-          <div class="step-circle" id="step2-circle">2</div>
-          <div class="step-label">Setup Chrome AI</div>
+
+        <div class="benefits-grid">
+          <div class="benefit-card">
+            <div class="benefit-icon">🛡️</div>
+            <h3>Feel Safe</h3>
+            <p>Know exactly what's in every product before you buy</p>
+          </div>
+          <div class="benefit-card">
+            <div class="benefit-icon">⚡</div>
+            <h3>Save Time</h3>
+            <p>Instant AI analysis—no more hours of research</p>
+          </div>
+          <div class="benefit-card">
+            <div class="benefit-icon">🔒</div>
+            <h3>Stay Private</h3>
+            <p>100% on-device processing, zero data sharing</p>
+          </div>
         </div>
-        <div class="progress-step">
-          <div class="step-circle" id="step3-circle">3</div>
-          <div class="step-label">Configure Settings</div>
-        </div>
-        <div class="progress-step">
-          <div class="step-circle" id="step4-circle">4</div>
-          <div class="step-label">Try It Out</div>
+
+        <div class="step-actions">
+          <button class="btn btn-primary btn-large" id="next-step-1">
+            Let's Get Started →
+          </button>
         </div>
       </div>
+    </div>
 
-      <!-- Step 1: Welcome -->
-      <div class="step-content" id="step1-content">
-        <h2 class="step-title">🎉 Installation Complete!</h2>
-        <p class="step-description">
-          Shop Well analyzes products on Amazon and Walmart to provide wellness-friendly suggestions for your chronic condition.
-          Everything happens locally on your device - no data is ever sent to external servers.
-        </p>
-
-        <div class="feature-highlights">
-          <div class="feature-card">
-            <div class="feature-icon">🤖</div>
-            <h4>AI-Powered Analysis</h4>
-            <p>Uses Chrome's Built-in AI for intelligent product insights</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">🛡️</div>
-            <p>100% private analysis with local AI processing</p>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">⚡</div>
-            <h4>Instant Results</h4>
-            <p>Press Alt+Shift+W (Option+Shift+W on Mac) on any product page for immediate analysis</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Step 2: Chrome AI Setup -->
-      <div class="step-content hidden" id="step2-content">
-        <h2 class="step-title">🤖 Enable Chrome Built-in AI</h2>
-        <p class="step-description">
-          For enhanced analysis, we need to enable Chrome's experimental AI features. This is a one-time setup that unlocks detailed wellness insights.
-        </p>
-
-        <div id="ai-status" class="ai-status-indicator ai-status-checking">
-          <div class="status-spinner"></div>
-          <span>Checking Chrome AI availability...</span>
+    <!-- Step 2: Quick Setup (Chrome AI) -->
+    <div class="onboarding-step" id="step-2" data-step="2">
+      <div class="step-content">
+        <div class="step-header">
+          <div class="step-number">Step 1 of 2</div>
+          <h2 class="step-title">🤖 Unlock Smart Analysis</h2>
+          <p class="step-description">
+            Enable Chrome's AI features for intelligent product insights. This one-time setup
+            takes about 2 minutes and unlocks powerful wellness analysis.
+          </p>
         </div>
 
-        <div class="setup-box">
-          <h4>Setup Instructions</h4>
-          <p>Follow these steps to enable Chrome's Built-in AI:</p>
+        <!-- AI Status Indicator -->
+        <div class="ai-status-card" id="ai-status-card">
+          <div class="status-icon" id="status-icon">
+            <div class="spinner"></div>
+          </div>
+          <div class="status-content">
+            <div class="status-title" id="status-title">Checking Chrome AI...</div>
+            <div class="status-message" id="status-message">Please wait while we detect AI availability</div>
+          </div>
+        </div>
 
-          <div class="flags-setup-steps">
-            <div class="setup-step">
-              <div class="step-number">1</div>
-              <div class="step-content">
-                <p><strong>Open a new tab:</strong></p>
-                <button class="open-tab-btn" id="open-new-tab">
-                  🌐 Open New Tab
-                </button>
-              </div>
-            </div>
-
-            <div class="setup-step">
-              <div class="step-number">2</div>
-              <div class="step-content">
-                <p><strong>Copy this URL and paste it in the new tab:</strong></p>
-                <div class="url-copy-container">
-                  <input type="text" id="flags-url" value="chrome://flags" readonly>
-                  <button class="copy-url-btn" id="copy-flags-url">Copy URL</button>
-                </div>
-                <p class="url-instruction">Click in the new tab's address bar, paste (Ctrl+V), and press Enter</p>
-              </div>
-            </div>
-
-            <div class="setup-step">
-              <div class="step-number">3</div>
-              <div class="step-content">
-                <p><strong>Enable these flags</strong> (click to copy each one):</p>
-                <ul class="chrome-flags-list">
-                  <li>
+        <!-- Setup Instructions (hidden by default, shown when AI not ready) -->
+        <div class="setup-instructions hidden" id="setup-instructions">
+          <div class="instruction-card">
+            <div class="instruction-step">
+              <div class="instruction-number">1</div>
+              <div class="instruction-content">
+                <h4>Enable Chrome AI Flags</h4>
+                <p>Copy and enable these flags in <code>chrome://flags</code></p>
+                <div class="flags-list">
+                  <div class="flag-item">
                     <span class="flag-name">optimization-guide-on-device-model</span>
-                    <button class="copy-flag-btn" data-flag="optimization-guide-on-device-model">Copy</button>
-                  </li>
-                  <li>
+                    <button class="btn-copy-flag" data-flag="optimization-guide-on-device-model">Copy</button>
+                  </div>
+                  <div class="flag-item">
                     <span class="flag-name">prompt-api-for-gemini-nano</span>
-                    <button class="copy-flag-btn" data-flag="prompt-api-for-gemini-nano">Copy</button>
-                  </li>
-                  <li>
+                    <button class="btn-copy-flag" data-flag="prompt-api-for-gemini-nano">Copy</button>
+                  </div>
+                  <div class="flag-item">
                     <span class="flag-name">summarization-api-for-gemini-nano</span>
-                    <button class="copy-flag-btn" data-flag="summarization-api-for-gemini-nano">Copy</button>
-                  </li>
-                </ul>
-                <div class="flag-enable-help">
-                  <p><strong>How to enable each flag:</strong></p>
-                  <ol>
-                    <li>Search for the flag name in chrome://flags</li>
-                    <li>Find the flag and click its dropdown menu</li>
-                    <li>Select <strong>"Enabled"</strong> from the dropdown</li>
-                    <li>Repeat for all three flags</li>
-                  </ol>
-                  <div class="dropdown-example">
-                    💡 <strong>Tip:</strong> Look for a dropdown menu showing "Default" - click it and select "Enabled" instead.
+                    <button class="btn-copy-flag" data-flag="summarization-api-for-gemini-nano">Copy</button>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div class="setup-step">
-              <div class="step-number">4</div>
-              <div class="step-content">
-                <p><strong>Restart Chrome completely</strong> and refresh this page to continue.</p>
-                <div class="restart-note">
-                  <strong>Important:</strong> Use Cmd+Q (Mac) or fully quit Chrome, don't just close windows. Chrome may need a few minutes to download the AI models after restart.
-                </div>
+            <div class="instruction-step">
+              <div class="instruction-number">2</div>
+              <div class="instruction-content">
+                <h4>Restart Chrome Completely</h4>
+                <p>Use <strong>Cmd+Q</strong> (Mac) or fully quit Chrome on Windows/Linux. Wait 2-3 minutes for AI models to download.</p>
               </div>
             </div>
 
-            <div class="setup-step">
-              <div class="step-number">5</div>
-              <div class="step-content">
-                <p><strong>Check model download status (if AI still not available):</strong></p>
-
-                <div class="flag-enable-help">
-                  <p><strong>Method 1: Enable Chrome Debug Pages</strong></p>
-                  <ol>
-                    <li>Go to: <code>chrome://chrome-urls/</code></li>
-                    <li>Click "Enable debug pages" button</li>
-                    <li>Then visit: <code>chrome://on-device-internals</code></li>
-                    <li>Check "Model Status" tab for download progress</li>
-                  </ol>
-                </div>
-
-                <div class="flag-enable-help">
-                  <p><strong>Method 2: Quick Console Check</strong></p>
-                  <ol>
-                    <li>Press F12 to open Chrome DevTools</li>
-                    <li>Click "Console" tab</li>
-                    <li>Type: <code>await LanguageModel.availability()</code></li>
-                    <li>Press Enter - should return "readily" when ready</li>
-                  </ol>
-                </div>
-
-                <div class="flag-enable-help">
-                  <p><strong>Method 3: Check Components</strong></p>
-                  <ol>
-                    <li>Visit: <code>chrome://components/</code></li>
-                    <li>Find "Optimization Guide On Device Model"</li>
-                    <li>Check for "Version" and "Updated" status</li>
-                  </ol>
-                </div>
-
-                <div class="restart-note">
-                  <p><strong>Requirements for Chrome AI:</strong></p>
-                  <ul>
-                    <li>22 GB of free storage space for AI model</li>
-                    <li>GPU with more than 4 GB VRAM</li>
-                    <li>Unmetered internet connection for download</li>
-                    <li>Allow 2-3 minutes for model download after restart</li>
-                  </ul>
-                </div>
+            <div class="instruction-step">
+              <div class="instruction-number">3</div>
+              <div class="instruction-content">
+                <h4>Return Here</h4>
+                <p>Refresh this page and we'll detect if Chrome AI is ready!</p>
               </div>
+            </div>
+          </div>
+
+          <div class="help-note">
+            <strong>💡 Tip:</strong> Check AI model status at <code>chrome://components</code>
+            under "Optimization Guide On Device Model"
+          </div>
+        </div>
+
+        <div class="step-actions">
+          <button class="btn btn-secondary" id="prev-step-2">← Back</button>
+          <button class="btn btn-primary" id="recheck-ai">
+            <span id="recheck-text">Check AI Status</span>
+          </button>
+          <button class="btn btn-primary hidden" id="next-step-2">
+            Continue →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Personalize -->
+    <div class="onboarding-step" id="step-3" data-step="3">
+      <div class="step-content">
+        <div class="step-header">
+          <div class="step-number">Step 2 of 2</div>
+          <h2 class="step-title">⚙️ Personalize Your Experience</h2>
+          <p class="step-description">
+            Tell us about your health needs so we can provide tailored wellness insights.
+          </p>
+        </div>
+
+        <div class="settings-form">
+          <!-- Condition Selection -->
+          <div class="form-section">
+            <label class="form-label">What brings you here?</label>
+            <div class="condition-selector">
+              <div class="condition-option" data-condition="POTS">
+                <input type="radio" name="condition" id="condition-pots" value="POTS">
+                <label for="condition-pots">
+                  <span class="condition-icon">💚</span>
+                  <span class="condition-name">POTS</span>
+                  <span class="condition-desc">Postural Orthostatic Tachycardia Syndrome</span>
+                </label>
+              </div>
+              <div class="condition-option" data-condition="ME/CFS">
+                <input type="radio" name="condition" id="condition-mecfs" value="ME/CFS">
+                <label for="condition-mecfs">
+                  <span class="condition-icon">💙</span>
+                  <span class="condition-name">ME/CFS</span>
+                  <span class="condition-desc">Myalgic Encephalomyelitis / Chronic Fatigue Syndrome</span>
+                </label>
+              </div>
+              <div class="condition-option" data-condition="Celiac Disease">
+                <input type="radio" name="condition" id="condition-celiac" value="Celiac Disease">
+                <label for="condition-celiac">
+                  <span class="condition-icon">🌾</span>
+                  <span class="condition-name">Celiac Disease</span>
+                  <span class="condition-desc">Gluten sensitivity & autoimmune response</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Allergen Selection -->
+          <div class="form-section">
+            <label class="form-label">Any allergies to watch for?</label>
+            <p class="form-helper">Select all that apply—we'll alert you when detected</p>
+            <div class="allergen-chips">
+              <label class="allergen-chip">
+                <input type="checkbox" name="allergen" value="peanuts">
+                <span>🥜 Peanuts</span>
+              </label>
+              <label class="allergen-chip">
+                <input type="checkbox" name="allergen" value="tree nuts">
+                <span>🌰 Tree Nuts</span>
+              </label>
+              <label class="allergen-chip">
+                <input type="checkbox" name="allergen" value="milk">
+                <span>🥛 Milk</span>
+              </label>
+              <label class="allergen-chip">
+                <input type="checkbox" name="allergen" value="eggs">
+                <span>🥚 Eggs</span>
+              </label>
+              <label class="allergen-chip">
+                <input type="checkbox" name="allergen" value="soy">
+                <span>🫘 Soy</span>
+              </label>
+              <label class="allergen-chip">
+                <input type="checkbox" name="allergen" value="wheat">
+                <span>🌾 Wheat</span>
+              </label>
+              <label class="allergen-chip">
+                <input type="checkbox" name="allergen" value="fish">
+                <span>🐟 Fish</span>
+              </label>
+              <label class="allergen-chip">
+                <input type="checkbox" name="allergen" value="shellfish">
+                <span>🦐 Shellfish</span>
+              </label>
+              <label class="allergen-chip">
+                <input type="checkbox" name="allergen" value="sesame">
+                <span>🌻 Sesame</span>
+              </label>
             </div>
           </div>
         </div>
 
-        <button class="btn btn-secondary" id="recheck-ai">
-          🔄 Check AI Status Again
-        </button>
-      </div>
-
-      <!-- Step 3: Settings -->
-      <div class="step-content hidden" id="step3-content">
-        <h2 class="step-title">⚙️ Configure Your Settings</h2>
-        <p class="step-description">
-          Let's set up your health condition and allergen preferences so Shop Well can provide personalized analysis.
-        </p>
-
-        <div class="setup-box">
-          <h4>What we'll configure:</h4>
-          <ul style="margin-left: 20px; margin-top: 12px;">
-            <li>Your primary health condition (POTS, ME/CFS, Celiac, or custom)</li>
-            <li>Allergen monitoring (9 major allergens + custom ones)</li>
-            <li>Auto-show preferences for the analysis panel</li>
-          </ul>
-        </div>
-
-        <a href="../options/index.html" class="btn btn-primary">
-          ⚙️ Open Settings Page
-        </a>
-      </div>
-
-      <!-- Step 4: Try It Out -->
-      <div class="step-content hidden" id="step4-content">
-        <h2 class="step-title">🎯 Ready to Shop Smarter!</h2>
-        <p class="step-description">
-          You're all set! Shop Well is now ready to help you make wellness-friendly shopping decisions.
-        </p>
-
-        <div class="setup-box">
-          <h4>How to use Shop Well:</h4>
-          <ol style="margin-left: 20px; margin-top: 12px;">
-            <li>Visit any Amazon or Walmart product page</li>
-            <li>Press <strong>Alt+Shift+W</strong> (or <strong>Option+Shift+W</strong> on Mac) to toggle the analysis panel</li>
-            <li>Review the wellness insights based on your condition</li>
-            <li>Make informed shopping decisions with confidence</li>
-          </ol>
-        </div>
-
-        <div class="feature-highlights">
-          <div class="feature-card">
-            <div class="feature-icon">🛒</div>
-            <h4>Try It Now</h4>
-            <p>Visit a product page and press Alt+Shift+W (Option+Shift+W on Mac)</p>
-            <a href="https://amazon.com" class="demo-link" target="_blank">
-              Visit Amazon →
-            </a>
-          </div>
-          <div class="feature-card">
-            <div class="feature-icon">⚙️</div>
-            <h4>Adjust Settings</h4>
-            <p>Update your conditions or allergies anytime</p>
-            <a href="../options/index.html" class="demo-link">
-              Open Settings →
-            </a>
-          </div>
+        <div class="step-actions">
+          <button class="btn btn-secondary" id="prev-step-3">← Back</button>
+          <button class="btn btn-primary btn-large" id="finish-setup">
+            🎉 Start Shopping Smarter
+          </button>
         </div>
       </div>
+    </div>
 
-      <div class="welcome-actions">
-        <button class="btn btn-secondary" id="prev-btn" style="display: none;">
-          ← Previous
-        </button>
-        <button class="btn btn-primary" id="next-btn">
-          Next →
-        </button>
-        <button class="btn btn-primary hidden" id="finish-btn">
-          🎉 Start Shopping Smarter
-        </button>
+    <!-- Success Celebration (hidden, shown after completion) -->
+    <div class="celebration hidden" id="celebration">
+      <div class="celebration-content">
+        <div class="celebration-icon">🎉</div>
+        <h2>You're All Set!</h2>
+        <p>Shop Well is ready to help you make safer shopping decisions.</p>
+        <div class="celebration-note">
+          Visit any Amazon or Walmart product page and click the Shop Well extension icon to get started!
+        </div>
       </div>
     </div>
   </div>

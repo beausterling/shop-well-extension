@@ -1,9 +1,15 @@
-// Shop Well Welcome Page JavaScript
+// Shop Well Welcome/Onboarding Page JavaScript
+// 3-Step Simplified Onboarding Flow
 
+// ===================================
+// STATE MANAGEMENT
+// ===================================
 let currentStep = 1;
-const totalSteps = 4;
+const totalSteps = 3;
 
-// AI Detection (copied from options.js)
+// ===================================
+// AI AVAILABILITY DETECTION
+// ===================================
 async function checkAIAvailability() {
   const result = {
     available: false,
@@ -14,54 +20,49 @@ async function checkAIAvailability() {
   };
 
   try {
-    // Check for Prompt API (Language Model) - Official Chrome API
+    // Check for Prompt API (Language Model)
     if (typeof LanguageModel !== 'undefined') {
       try {
         const availability = await Promise.race([
           LanguageModel.availability({ language: 'en' }),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
         ]);
-        result.prompt = availability === 'readily';
+        result.prompt = availability === 'readily' || availability === 'available';
         result.details.prompt = { available: availability };
         result.available = true;
-        console.log('Welcome: LanguageModel found, availability:', availability);
+        console.log('Welcome: LanguageModel availability:', availability);
       } catch (error) {
-        console.warn('Welcome: LanguageModel availability check failed:', error);
-        result.details.promptError = error.message;
-        if (error.message === 'Timeout') {
-          result.details.promptError = 'Chrome AI is still downloading models. Please wait a few minutes and try again.';
-        }
+        console.warn('Welcome: LanguageModel check failed:', error);
+        result.details.promptError = error.message === 'Timeout'
+          ? 'Chrome AI is downloading models. Please wait and try again.'
+          : error.message;
       }
     }
 
-    // Check for Summarizer API - Official Chrome API
+    // Check for Summarizer API
     if (typeof Summarizer !== 'undefined') {
       try {
         const availability = await Promise.race([
           Summarizer.availability({ language: 'en' }),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
         ]);
-        result.summarizer = availability === 'readily';
+        result.summarizer = availability === 'readily' || availability === 'available';
         result.details.summarizer = { available: availability };
         result.available = true;
-        console.log('Welcome: Summarizer found, availability:', availability);
+        console.log('Welcome: Summarizer availability:', availability);
       } catch (error) {
-        console.warn('Welcome: Summarizer availability check failed:', error);
-        result.details.summarizerError = error.message;
-        if (error.message === 'Timeout') {
-          result.details.summarizerError = 'Chrome AI is still downloading models. Please wait a few minutes and try again.';
-        }
+        console.warn('Welcome: Summarizer check failed:', error);
+        result.details.summarizerError = error.message === 'Timeout'
+          ? 'Chrome AI is downloading models. Please wait and try again.'
+          : error.message;
       }
     }
 
-    // If no APIs are available at all
+    // Set error message if no APIs available
     if (!result.available) {
-      result.error = 'Chrome Built-in AI not available. Requires Chrome 128+ with AI flags enabled. Check chrome://on-device-internals for model download status.';
-      return result;
-    }
-
-    if (!result.summarizer && !result.prompt) {
-      result.error = 'Chrome AI APIs are not ready. Please check Chrome flags and try again. Models may still be downloading.';
+      result.error = 'Chrome Built-in AI not available. Requires Chrome 128+ with AI flags enabled.';
+    } else if (!result.summarizer && !result.prompt) {
+      result.error = 'Chrome AI APIs are not ready. Please enable flags and restart Chrome.';
     }
 
   } catch (error) {
@@ -72,252 +73,307 @@ async function checkAIAvailability() {
   return result;
 }
 
+// ===================================
+// AI STATUS UPDATE (Step 2)
+// ===================================
 async function updateAIStatus() {
   console.log('Welcome: Checking AI status...');
 
-  const statusElement = document.getElementById('ai-status');
-  statusElement.className = 'ai-status-indicator ai-status-checking';
-  statusElement.innerHTML = `
-    <div class="status-spinner"></div>
-    <span>Checking Chrome AI availability...</span>
-  `;
+  const statusCard = document.getElementById('ai-status-card');
+  const statusIcon = document.getElementById('status-icon');
+  const statusTitle = document.getElementById('status-title');
+  const statusMessage = document.getElementById('status-message');
+  const setupInstructions = document.getElementById('setup-instructions');
+  const recheckBtn = document.getElementById('recheck-ai');
+  const nextBtn = document.getElementById('next-step-2');
+
+  // Show checking state
+  statusCard.className = 'ai-status-card checking';
+  statusIcon.innerHTML = '<div class="spinner"></div>';
+  statusTitle.textContent = 'Checking Chrome AI...';
+  statusMessage.textContent = 'Please wait while we detect AI availability';
+  setupInstructions.classList.add('hidden');
 
   try {
     const aiStatus = await checkAIAvailability();
     console.log('Welcome: AI Status Result:', aiStatus);
 
     if (aiStatus.available && aiStatus.summarizer && aiStatus.prompt) {
-      // AI is fully ready
-      statusElement.className = 'ai-status-indicator ai-status-ready';
-      statusElement.innerHTML = `
-        <span>✅</span>
-        <span>Chrome AI is ready! Enhanced analysis is available.</span>
-      `;
+      // ✅ AI is fully ready - SUCCESS!
+      statusCard.className = 'ai-status-card ready';
+      statusIcon.innerHTML = '✅';
+      statusTitle.textContent = 'Chrome AI is Ready!';
+      statusMessage.textContent = 'Enhanced wellness analysis is available. Auto-advancing to next step...';
 
-      // Auto-advance to next step after a delay
+      // Hide instructions, show next button
+      setupInstructions.classList.add('hidden');
+      recheckBtn.classList.add('hidden');
+      nextBtn.classList.remove('hidden');
+
+      // Auto-advance after 2 seconds
       setTimeout(() => {
-        nextStep();
+        goToStep(3);
       }, 2000);
 
     } else if (aiStatus.available) {
-      // Partial AI availability
-      statusElement.className = 'ai-status-indicator ai-status-not-ready';
-      statusElement.innerHTML = `
-        <span>⚠️</span>
-        <span>Chrome AI partially available. Please complete the setup below.</span>
-      `;
+      // ⚠️ Partial AI availability
+      statusCard.className = 'ai-status-card not-ready';
+      statusIcon.innerHTML = '⚠️';
+      statusTitle.textContent = 'Chrome AI Partially Available';
+      statusMessage.textContent = 'Please complete the setup instructions below.';
+      setupInstructions.classList.remove('hidden');
+
     } else {
-      // No AI available
-      statusElement.className = 'ai-status-indicator ai-status-not-ready';
-      statusElement.innerHTML = `
-        <span>❌</span>
-        <span>${aiStatus.error || 'Chrome AI not available. Follow the setup instructions below.'}</span>
-      `;
+      // ❌ No AI available
+      statusCard.className = 'ai-status-card not-ready';
+      statusIcon.innerHTML = '❌';
+      statusTitle.textContent = 'Chrome AI Not Available';
+      statusMessage.textContent = aiStatus.error || 'Follow the setup instructions below to enable AI features.';
+      setupInstructions.classList.remove('hidden');
     }
   } catch (error) {
     console.error('Welcome: AI status check failed:', error);
-    statusElement.className = 'ai-status-indicator ai-status-not-ready';
-    statusElement.innerHTML = `
-      <span>❌</span>
-      <span>Failed to check AI status. Please try again.</span>
-    `;
+    statusCard.className = 'ai-status-card not-ready';
+    statusIcon.innerHTML = '❌';
+    statusTitle.textContent = 'Status Check Failed';
+    statusMessage.textContent = 'Unable to check AI status. Please try again.';
+    setupInstructions.classList.remove('hidden');
   }
 }
 
-function updateStepVisibility() {
-  // Hide all step content
-  for (let i = 1; i <= totalSteps; i++) {
-    document.getElementById(`step${i}-content`).classList.add('hidden');
-  }
+// ===================================
+// STEP NAVIGATION
+// ===================================
+function goToStep(stepNumber) {
+  if (stepNumber < 1 || stepNumber > totalSteps) return;
 
-  // Show current step content
-  document.getElementById(`step${currentStep}-content`).classList.remove('hidden');
+  // Update current step
+  currentStep = stepNumber;
 
-  // Update step circles
-  for (let i = 1; i <= totalSteps; i++) {
-    const circle = document.getElementById(`step${i}-circle`);
-    circle.classList.remove('active', 'completed');
-
-    if (i < currentStep) {
-      circle.classList.add('completed');
-      circle.innerHTML = '✓';
-    } else if (i === currentStep) {
-      circle.classList.add('active');
-      circle.innerHTML = i;
-    } else {
-      circle.innerHTML = i;
-    }
-  }
-
-  // Update navigation buttons
-  const prevBtn = document.getElementById('prev-btn');
-  const nextBtn = document.getElementById('next-btn');
-  const finishBtn = document.getElementById('finish-btn');
-
-  prevBtn.style.display = currentStep > 1 ? 'inline-flex' : 'none';
-
-  if (currentStep === totalSteps) {
-    nextBtn.classList.add('hidden');
-    finishBtn.classList.remove('hidden');
-  } else {
-    nextBtn.classList.remove('hidden');
-    finishBtn.classList.add('hidden');
-  }
-}
-
-function nextStep() {
-  if (currentStep < totalSteps) {
-    currentStep++;
-    updateStepVisibility();
-
-    // Trigger AI check when entering step 2
-    if (currentStep === 2) {
-      updateAIStatus();
-    }
-  }
-}
-
-function prevStep() {
-  if (currentStep > 1) {
-    currentStep--;
-    updateStepVisibility();
-  }
-}
-
-function setupCopyButtons() {
-  document.querySelectorAll('.copy-flag-btn').forEach(button => {
-    button.addEventListener('click', async (e) => {
-      const flagText = e.target.dataset.flag;
-
-      try {
-        await navigator.clipboard.writeText(flagText);
-
-        // Visual feedback
-        const originalText = e.target.textContent;
-        e.target.textContent = '✓ Copied!';
-        e.target.classList.add('copied');
-
-        setTimeout(() => {
-          e.target.textContent = originalText;
-          e.target.classList.remove('copied');
-        }, 2000);
-
-      } catch (error) {
-        console.error('Failed to copy flag:', error);
-        e.target.textContent = 'Failed';
-        setTimeout(() => {
-          e.target.textContent = 'Copy';
-        }, 2000);
-      }
-    });
+  // Hide all steps
+  document.querySelectorAll('.onboarding-step').forEach(step => {
+    step.classList.remove('active');
   });
+
+  // Show current step
+  document.getElementById(`step-${currentStep}`).classList.add('active');
+
+  // Update progress bar
+  const progressBar = document.getElementById('progress-bar');
+  const progressPercent = (currentStep / totalSteps) * 100;
+  progressBar.style.width = `${progressPercent}%`;
+
+  // Trigger AI check when entering step 2
+  if (currentStep === 2) {
+    setTimeout(updateAIStatus, 300);
+  }
+
+  // Scroll to top
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  console.log(`Welcome: Navigated to step ${currentStep}`);
 }
 
-function openNewTab() {
+// ===================================
+// SETTINGS SAVE (Step 3)
+// ===================================
+async function saveSettings() {
+  // Get selected condition
+  const conditionInput = document.querySelector('input[name="condition"]:checked');
+  const condition = conditionInput ? conditionInput.value : 'POTS'; // Default to POTS
+
+  // Get selected allergens
+  const allergenInputs = document.querySelectorAll('input[name="allergen"]:checked');
+  const allergies = Array.from(allergenInputs).map(input => input.value);
+
+  console.log('Welcome: Saving settings:', { condition, allergies });
+
   try {
-    // Open a blank new tab/window
-    window.open('about:blank', '_blank');
+    // Save to Chrome storage
+    await chrome.storage.local.set({
+      condition,
+      allergies,
+      welcomeCompleted: true,
+      setupDate: new Date().toISOString()
+    });
+
+    console.log('Welcome: Settings saved successfully');
+    return true;
   } catch (error) {
-    console.error('Failed to open new tab:', error);
-    alert('Please manually open a new tab (Ctrl+T or Cmd+T) and continue with step 2.');
+    console.error('Welcome: Failed to save settings:', error);
+    return false;
   }
 }
 
-async function copyFlagsUrl() {
-  const urlInput = document.getElementById('flags-url');
-  const copyBtn = document.getElementById('copy-flags-url');
+// ===================================
+// FINISH SETUP
+// ===================================
+async function finishSetup() {
+  console.log('Welcome: Finishing setup...');
 
+  // Save settings
+  const success = await saveSettings();
+
+  if (!success) {
+    alert('Failed to save settings. Please try again.');
+    return;
+  }
+
+  // Show celebration
+  const celebration = document.getElementById('celebration');
+  celebration.classList.remove('hidden');
+  celebration.classList.add('active');
+
+  // Close after 3 seconds
+  setTimeout(() => {
+    window.close();
+  }, 3000);
+}
+
+// ===================================
+// COPY TO CLIPBOARD
+// ===================================
+async function copyToClipboard(text, button) {
   try {
-    // Select the text in the input
-    urlInput.select();
-    urlInput.setSelectionRange(0, 99999); // For mobile devices
-
-    // Copy to clipboard
-    await navigator.clipboard.writeText(urlInput.value);
+    await navigator.clipboard.writeText(text);
 
     // Visual feedback
-    const originalText = copyBtn.textContent;
-    copyBtn.textContent = '✓ Copied!';
-    copyBtn.classList.add('copied');
+    const originalText = button.textContent;
+    button.textContent = '✓ Copied!';
+    button.classList.add('copied');
 
     setTimeout(() => {
-      copyBtn.textContent = originalText;
-      copyBtn.classList.remove('copied');
+      button.textContent = originalText;
+      button.classList.remove('copied');
     }, 2000);
 
+    console.log(`Welcome: Copied to clipboard: ${text}`);
+    return true;
   } catch (error) {
-    console.error('Failed to copy URL:', error);
-
-    // Fallback: try to use the older method
-    try {
-      urlInput.select();
-      document.execCommand('copy');
-
-      copyBtn.textContent = '✓ Copied!';
-      copyBtn.classList.add('copied');
-
-      setTimeout(() => {
-        copyBtn.textContent = 'Copy URL';
-        copyBtn.classList.remove('copied');
-      }, 2000);
-    } catch (fallbackError) {
-      copyBtn.textContent = 'Select & Copy';
-      setTimeout(() => {
-        copyBtn.textContent = 'Copy URL';
-      }, 2000);
-    }
+    console.error('Welcome: Failed to copy:', error);
+    button.textContent = 'Failed';
+    setTimeout(() => {
+      button.textContent = 'Copy';
+    }, 2000);
+    return false;
   }
 }
 
+// ===================================
+// EVENT LISTENERS
+// ===================================
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('Welcome: Page loaded, initializing...');
 
-function finishSetup() {
-  // Mark setup as completed in storage
-  chrome.storage.local.set({
-    welcomeCompleted: true,
-    setupDate: new Date().toISOString()
+  // Step 1: Next button
+  document.getElementById('next-step-1')?.addEventListener('click', () => {
+    goToStep(2);
   });
 
-  // Close the welcome tab
-  window.close();
-}
+  // Step 2: Navigation buttons
+  document.getElementById('prev-step-2')?.addEventListener('click', () => {
+    goToStep(1);
+  });
 
-// Event listeners
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('Welcome page loaded');
+  document.getElementById('next-step-2')?.addEventListener('click', () => {
+    goToStep(3);
+  });
 
-  updateStepVisibility();
-  setupCopyButtons();
+  document.getElementById('recheck-ai')?.addEventListener('click', () => {
+    updateAIStatus();
+  });
 
-  // Navigation buttons
-  document.getElementById('next-btn').addEventListener('click', nextStep);
-  document.getElementById('prev-btn').addEventListener('click', prevStep);
-  document.getElementById('finish-btn').addEventListener('click', finishSetup);
+  // Step 2: Copy flag buttons
+  document.querySelectorAll('.btn-copy-flag').forEach(button => {
+    button.addEventListener('click', (e) => {
+      const flagName = e.target.dataset.flag;
+      copyToClipboard(flagName, e.target);
+    });
+  });
 
-  // New tab and copy URL buttons
-  document.getElementById('open-new-tab').addEventListener('click', openNewTab);
-  document.getElementById('copy-flags-url').addEventListener('click', copyFlagsUrl);
+  // Step 3: Navigation buttons
+  document.getElementById('prev-step-3')?.addEventListener('click', () => {
+    goToStep(2);
+  });
 
-  // AI recheck button
-  document.getElementById('recheck-ai').addEventListener('click', updateAIStatus);
+  document.getElementById('finish-setup')?.addEventListener('click', () => {
+    finishSetup();
+  });
 
   // Keyboard navigation
   document.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowRight' || e.key === 'Enter') {
-      if (currentStep === totalSteps) {
-        finishSetup();
+      if (currentStep < totalSteps) {
+        // Only advance if on step 1, or if AI is ready on step 2
+        if (currentStep === 1) {
+          goToStep(2);
+        } else if (currentStep === 2) {
+          const nextBtn = document.getElementById('next-step-2');
+          if (!nextBtn.classList.contains('hidden')) {
+            goToStep(3);
+          }
+        } else if (currentStep === 3) {
+          finishSetup();
+        }
       } else {
-        nextStep();
+        finishSetup();
       }
     } else if (e.key === 'ArrowLeft') {
-      prevStep();
+      if (currentStep > 1) {
+        goToStep(currentStep - 1);
+      }
     }
   });
+
+  // Load existing settings (if returning to welcome page)
+  loadExistingSettings();
+
+  console.log('Welcome: Initialization complete');
 });
 
-// Handle page visibility changes to recheck AI when user returns
+// ===================================
+// LOAD EXISTING SETTINGS
+// ===================================
+async function loadExistingSettings() {
+  try {
+    const result = await chrome.storage.local.get(['condition', 'allergies']);
+
+    if (result.condition) {
+      const conditionInput = document.getElementById(`condition-${result.condition.toLowerCase().replace(/\//g, '')}`);
+      if (conditionInput) {
+        conditionInput.checked = true;
+        console.log(`Welcome: Pre-selected condition: ${result.condition}`);
+      }
+    } else {
+      // Default to POTS if no condition saved
+      const potsInput = document.getElementById('condition-pots');
+      if (potsInput) {
+        potsInput.checked = true;
+      }
+    }
+
+    if (result.allergies && result.allergies.length > 0) {
+      result.allergies.forEach(allergen => {
+        const allergenInput = document.querySelector(`input[name="allergen"][value="${allergen}"]`);
+        if (allergenInput) {
+          allergenInput.checked = true;
+        }
+      });
+      console.log(`Welcome: Pre-selected allergies: ${result.allergies.join(', ')}`);
+    }
+  } catch (error) {
+    console.error('Welcome: Failed to load existing settings:', error);
+  }
+}
+
+// ===================================
+// PAGE VISIBILITY HANDLING
+// ===================================
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && currentStep === 2) {
-    // Small delay to allow any Chrome restart to complete
+    // Recheck AI when user returns to step 2
     setTimeout(updateAIStatus, 1000);
   }
 });
+
+console.log('Welcome: Script loaded successfully');
