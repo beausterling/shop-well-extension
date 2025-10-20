@@ -204,8 +204,40 @@ export class AmazonParser {
       productCards.forEach((card, index) => {
         try {
           const asin = card.getAttribute('data-asin');
-          const link = card.querySelector('h2 a.a-link-normal');
-          const title = link?.querySelector('span')?.textContent?.trim();
+
+          // Title extraction - Amazon changed structure, title now in h2 > span (not h2 > a > span)
+          const titleSelectors = [
+            'h2 span.a-size-base-plus',
+            'h2 span.a-size-medium',
+            'h2 span',
+            'h2 a span', // Fallback for old structure
+            'h2'
+          ];
+          let title = null;
+          for (const selector of titleSelectors) {
+            const el = card.querySelector(selector);
+            if (el && el.textContent && el.textContent.trim()) {
+              title = el.textContent.trim();
+              break;
+            }
+          }
+
+          // Link extraction - Try multiple locations
+          const linkSelectors = [
+            'h2 a.a-link-normal', // Old structure
+            '.s-product-image-container a', // Image link
+            '.puis-card-container a', // Card container link
+            'a.a-link-normal.s-no-outline', // Alternative link
+            'a[href*="/dp/"]' // Any link with /dp/ in it
+          ];
+          let linkHref = null;
+          for (const selector of linkSelectors) {
+            const linkEl = card.querySelector(selector);
+            if (linkEl && linkEl.href && !linkEl.href.includes('#')) {
+              linkHref = linkEl.href;
+              break;
+            }
+          }
 
           // Price extraction (Amazon has complex price structures)
           const priceWhole = card.querySelector('.a-price .a-price-whole')?.textContent;
@@ -223,17 +255,20 @@ export class AmazonParser {
           const ratingEl = card.querySelector('[aria-label*="out of"]');
           const rating = ratingEl?.getAttribute('aria-label')?.match(/[\d.]+/)?.[0];
 
-          if (asin && title) {
+          // More lenient: only require ASIN (can create URL from it)
+          if (asin) {
             products.push({
               id: asin,
-              title: title,
+              title: title || 'Unknown Product',
               price: price,
               image: image,
-              url: link?.href || `https://www.amazon.com/dp/${asin}`,
+              url: linkHref || `https://www.amazon.com/dp/${asin}`,
               rating: rating,
               position: index,
               source: 'amazon_search'
             });
+          } else {
+            console.warn(`Shop Well: Product card ${index} missing ASIN`);
           }
         } catch (err) {
           console.warn('Shop Well: Failed to extract product card:', err);
@@ -241,6 +276,12 @@ export class AmazonParser {
       });
 
       console.log(`Shop Well: Successfully extracted ${products.length} Amazon products`);
+
+      // Debug logging for troubleshooting
+      if (products.length === 0 && productCards.length > 0) {
+        console.warn('Shop Well: Found product cards but extracted 0 products - DOM selectors may need updating');
+        console.warn('Shop Well: First card HTML sample:', productCards[0]?.outerHTML?.substring(0, 500));
+      }
     } catch (error) {
       console.error('Shop Well: Amazon search extraction failed:', error);
     }
