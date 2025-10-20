@@ -12,3 +12,4 @@ https://developer.chrome.com/docs/ai/summarizer-api
 
 Language Detector API official docs:
 https://developer.chrome.com/docs/ai/language-detection
+

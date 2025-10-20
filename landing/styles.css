@@ -175,6 +175,13 @@ ul {
   transform: scale(1.05);
 }
 
+.logo-text {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--sw-charcoal);
+  margin-left: var(--space-3);
+}
+
 .nav-links {
   display: flex;
   align-items: center;

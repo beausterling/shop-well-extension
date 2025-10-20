@@ -6,6 +6,8 @@
 // ===================================
 let currentStep = 1;
 const totalSteps = 3;
+let aiStatusCache = null; // Cache AI status to avoid re-checking
+let useBasicMode = false; // Track if user chose Basic Mode
 
 // ===================================
 // AI AVAILABILITY DETECTION
@@ -76,7 +78,7 @@ async function checkAIAvailability() {
 // ===================================
 // AI STATUS UPDATE (Step 2)
 // ===================================
-async function updateAIStatus() {
+async function updateAIStatus(showCheckingState = true) {
   console.log('Welcome: Checking AI status...');
 
   const statusCard = document.getElementById('ai-status-card');
@@ -84,18 +86,27 @@ async function updateAIStatus() {
   const statusTitle = document.getElementById('status-title');
   const statusMessage = document.getElementById('status-message');
   const setupInstructions = document.getElementById('setup-instructions');
+  const basicModeBtn = document.getElementById('basic-mode-btn');
   const recheckBtn = document.getElementById('recheck-ai');
-  const nextBtn = document.getElementById('next-step-2');
+  const featureComparison = document.querySelector('.feature-comparison');
+  const primaryAction = document.querySelector('.primary-action');
+  const secondaryAction = document.querySelector('.secondary-action');
 
-  // Show checking state
-  statusCard.className = 'ai-status-card checking';
-  statusIcon.innerHTML = '<div class="spinner"></div>';
-  statusTitle.textContent = 'Checking Chrome AI...';
-  statusMessage.textContent = 'Please wait while we detect AI availability';
-  setupInstructions.classList.add('hidden');
+  // Only show checking state if requested (not when using cached data)
+  if (showCheckingState && !aiStatusCache) {
+    statusCard.className = 'ai-status-card checking';
+    statusIcon.innerHTML = '<div class="spinner"></div>';
+    statusTitle.textContent = 'Checking Chrome AI...';
+    statusMessage.textContent = 'Please wait while we detect AI availability';
+    setupInstructions.classList.add('hidden');
+  }
 
   try {
-    const aiStatus = await checkAIAvailability();
+    // Use cached status if available, otherwise check
+    const aiStatus = aiStatusCache || await checkAIAvailability();
+    if (!aiStatusCache) {
+      aiStatusCache = aiStatus; // Cache for future use
+    }
     console.log('Welcome: AI Status Result:', aiStatus);
 
     if (aiStatus.available && aiStatus.summarizer && aiStatus.prompt) {
@@ -103,49 +114,57 @@ async function updateAIStatus() {
       statusCard.className = 'ai-status-card ready';
       statusIcon.innerHTML = '✅';
       statusTitle.textContent = 'Chrome AI is Ready!';
-      statusMessage.textContent = 'Enhanced wellness analysis is available. Auto-advancing to next step...';
+      statusMessage.textContent = 'Enhanced wellness analysis is available.';
 
-      // Hide instructions, show next button
-      setupInstructions.classList.add('hidden');
-      recheckBtn.classList.add('hidden');
-      nextBtn.classList.remove('hidden');
-
-      // Auto-advance after 2 seconds
-      setTimeout(() => {
-        goToStep(3);
-      }, 2000);
-
-    } else if (aiStatus.available) {
-      // ⚠️ Partial AI availability
-      statusCard.className = 'ai-status-card not-ready';
-      statusIcon.innerHTML = '⚠️';
-      statusTitle.textContent = 'Chrome AI Partially Available';
-      statusMessage.textContent = 'Please complete the setup instructions below.';
-      setupInstructions.classList.remove('hidden');
+      // Hide all AI setup UI elements
+      setupInstructions?.classList.add('hidden');
+      basicModeBtn?.classList.add('hidden');
+      recheckBtn?.classList.add('hidden');
+      featureComparison?.classList.add('hidden');
+      primaryAction?.classList.add('hidden');
+      secondaryAction?.classList.add('hidden');
 
     } else {
-      // ❌ No AI available
+      // ⚠️ AI not fully available - show friendly options
       statusCard.className = 'ai-status-card not-ready';
-      statusIcon.innerHTML = '❌';
-      statusTitle.textContent = 'Chrome AI Not Available';
-      statusMessage.textContent = aiStatus.error || 'Follow the setup instructions below to enable AI features.';
-      setupInstructions.classList.remove('hidden');
+      statusIcon.innerHTML = '🤖';
+      statusTitle.textContent = 'Want Smarter Analysis?';
+      statusMessage.textContent = 'Enable Chrome AI for enhanced product insights, or continue with basic allergen detection.';
+
+      // Show feature comparison and actions
+      featureComparison?.classList.remove('hidden');
+      primaryAction?.classList.remove('hidden');
+      secondaryAction?.classList.remove('hidden');
+      basicModeBtn?.classList.remove('hidden');
+      setupInstructions?.classList.add('hidden'); // Start collapsed
     }
   } catch (error) {
     console.error('Welcome: AI status check failed:', error);
     statusCard.className = 'ai-status-card not-ready';
-    statusIcon.innerHTML = '❌';
-    statusTitle.textContent = 'Status Check Failed';
-    statusMessage.textContent = 'Unable to check AI status. Please try again.';
-    setupInstructions.classList.remove('hidden');
+    statusIcon.innerHTML = '🤖';
+    statusTitle.textContent = 'Want Smarter Analysis?';
+    statusMessage.textContent = 'Enable Chrome AI for enhanced insights, or continue with basic mode.';
+
+    // Show feature comparison and actions
+    featureComparison?.classList.remove('hidden');
+    primaryAction?.classList.remove('hidden');
+    secondaryAction?.classList.remove('hidden');
+    basicModeBtn?.classList.remove('hidden');
+    setupInstructions?.classList.add('hidden');
   }
 }
 
 // ===================================
 // STEP NAVIGATION
 // ===================================
-function goToStep(stepNumber) {
+async function goToStep(stepNumber) {
   if (stepNumber < 1 || stepNumber > totalSteps) return;
+
+  // Smart auto-skip: If going to step 2 and AI is ready, skip to step 3
+  if (stepNumber === 2 && aiStatusCache?.available && aiStatusCache?.summarizer && aiStatusCache?.prompt) {
+    console.log('Welcome: AI is ready, auto-skipping Step 2');
+    stepNumber = 3; // Jump directly to personalization
+  }
 
   // Update current step
   currentStep = stepNumber;
@@ -163,9 +182,9 @@ function goToStep(stepNumber) {
   const progressPercent = (currentStep / totalSteps) * 100;
   progressBar.style.width = `${progressPercent}%`;
 
-  // Trigger AI check when entering step 2
+  // Trigger AI check when entering step 2 (only if not cached)
   if (currentStep === 2) {
-    setTimeout(updateAIStatus, 300);
+    updateAIStatus(!aiStatusCache); // Don't show checking state if cached
   }
 
   // Scroll to top
@@ -189,15 +208,18 @@ async function saveSettings() {
   console.log('Welcome: Saving settings:', { condition, allergies });
 
   try {
-    // Save to Chrome storage
-    await chrome.storage.local.set({
-      condition,
-      allergies,
-      welcomeCompleted: true,
-      setupDate: new Date().toISOString()
-    });
-
-    console.log('Welcome: Settings saved successfully');
+    // Save to Chrome storage (if available)
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      await chrome.storage.local.set({
+        condition,
+        allergies,
+        welcomeCompleted: true,
+        setupDate: new Date().toISOString()
+      });
+      console.log('Welcome: Settings saved successfully');
+    } else {
+      console.warn('Welcome: Chrome storage not available (testing mode)');
+    }
     return true;
   } catch (error) {
     console.error('Welcome: Failed to save settings:', error);
@@ -228,6 +250,42 @@ async function finishSetup() {
   setTimeout(() => {
     window.close();
   }, 3000);
+}
+
+// ===================================
+// TOGGLE INSTRUCTIONS
+// ===================================
+function toggleInstructions() {
+  const setupInstructions = document.getElementById('setup-instructions');
+  const toggleBtn = document.getElementById('toggle-instructions');
+
+  if (setupInstructions.classList.contains('hidden')) {
+    setupInstructions.classList.remove('hidden');
+    setupInstructions.classList.add('expanded');
+    toggleBtn.textContent = '▼ Hide Setup Instructions';
+    console.log('Welcome: Setup instructions expanded');
+  } else {
+    setupInstructions.classList.add('hidden');
+    setupInstructions.classList.remove('expanded');
+    toggleBtn.textContent = '▶ Show Me How to Enable AI';
+    console.log('Welcome: Setup instructions collapsed');
+  }
+}
+
+// ===================================
+// BASIC MODE CONTINUATION
+// ===================================
+function continueWithBasicMode() {
+  console.log('Welcome: User chose Basic Mode');
+  useBasicMode = true;
+
+  // Save basic mode preference (if Chrome API available)
+  if (typeof chrome !== 'undefined' && chrome.storage) {
+    chrome.storage.local.set({ useBasicMode: true });
+  }
+
+  // Continue to personalization
+  goToStep(3);
 }
 
 // ===================================
@@ -262,8 +320,13 @@ async function copyToClipboard(text, button) {
 // ===================================
 // EVENT LISTENERS
 // ===================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   console.log('Welcome: Page loaded, initializing...');
+
+  // Pre-check AI availability on load (for smart auto-skip)
+  console.log('Welcome: Pre-checking AI availability...');
+  aiStatusCache = await checkAIAvailability();
+  console.log('Welcome: AI pre-check complete:', aiStatusCache);
 
   // Step 1: Next button
   document.getElementById('next-step-1')?.addEventListener('click', () => {
@@ -275,12 +338,19 @@ document.addEventListener('DOMContentLoaded', () => {
     goToStep(1);
   });
 
-  document.getElementById('next-step-2')?.addEventListener('click', () => {
-    goToStep(3);
+  document.getElementById('recheck-ai')?.addEventListener('click', () => {
+    aiStatusCache = null; // Clear cache to force recheck
+    updateAIStatus(true);
   });
 
-  document.getElementById('recheck-ai')?.addEventListener('click', () => {
-    updateAIStatus();
+  // Step 2: Toggle instructions
+  document.getElementById('toggle-instructions')?.addEventListener('click', () => {
+    toggleInstructions();
+  });
+
+  // Step 2: Basic Mode button
+  document.getElementById('basic-mode-btn')?.addEventListener('click', () => {
+    continueWithBasicMode();
   });
 
   // Step 2: Copy flag buttons
@@ -304,14 +374,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowRight' || e.key === 'Enter') {
       if (currentStep < totalSteps) {
-        // Only advance if on step 1, or if AI is ready on step 2
+        // Only advance if on step 1, or if appropriate on step 2/3
         if (currentStep === 1) {
           goToStep(2);
         } else if (currentStep === 2) {
-          const nextBtn = document.getElementById('next-step-2');
-          if (!nextBtn.classList.contains('hidden')) {
-            goToStep(3);
-          }
+          // On step 2, Enter triggers Basic Mode continuation
+          continueWithBasicMode();
         } else if (currentStep === 3) {
           finishSetup();
         }
@@ -336,6 +404,17 @@ document.addEventListener('DOMContentLoaded', () => {
 // ===================================
 async function loadExistingSettings() {
   try {
+    // Check if Chrome storage is available
+    if (typeof chrome === 'undefined' || !chrome.storage) {
+      console.warn('Welcome: Chrome storage not available, using defaults');
+      // Default to POTS
+      const potsInput = document.getElementById('condition-pots');
+      if (potsInput) {
+        potsInput.checked = true;
+      }
+      return;
+    }
+
     const result = await chrome.storage.local.get(['condition', 'allergies']);
 
     if (result.condition) {
