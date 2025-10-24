@@ -261,81 +261,6 @@ body {
 }
 
 /* ===================================
-   BENEFITS GRID
-   =================================== */
-.benefits-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: var(--space-6);
-  margin: var(--space-8) 0;
-}
-
-.benefit-card {
-  background: linear-gradient(135deg, var(--sw-white) 0%, var(--sw-green-light) 100%);
-  border: 2px solid var(--sw-taupe-light);
-  border-radius: var(--radius-xl);
-  padding: var(--space-8);
-  text-align: center;
-  transition: all var(--transition);
-  position: relative;
-  overflow: hidden;
-}
-
-.benefit-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, var(--sw-green) 0%, var(--sw-blue) 100%);
-  opacity: 0;
-  transition: opacity var(--transition);
-}
-
-.benefit-card:hover {
-  transform: translateY(-6px);
-  box-shadow: var(--shadow-lg);
-  border-color: var(--sw-green);
-}
-
-.benefit-card:hover::before {
-  opacity: 1;
-}
-
-.benefit-icon {
-  font-size: 56px;
-  margin-bottom: var(--space-5);
-  width: 100px;
-  height: 100px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, var(--sw-green-light) 0%, var(--sw-blue-light) 100%);
-  border-radius: var(--radius-full);
-  box-shadow: var(--shadow-sm);
-  transition: all var(--transition);
-}
-
-.benefit-card:hover .benefit-icon {
-  transform: scale(1.1) rotate(5deg);
-  box-shadow: var(--shadow-md);
-}
-
-.benefit-card h3 {
-  font-size: var(--font-size-2xl);
-  font-weight: 700;
-  color: var(--sw-charcoal);
-  margin-bottom: var(--space-3);
-}
-
-.benefit-card p {
-  font-size: var(--font-size-base);
-  color: var(--sw-taupe);
-  line-height: 1.7;
-}
-
-/* ===================================
    STEP HEADERS (Steps 2 & 3)
    =================================== */
 .step-header {
@@ -1029,10 +954,6 @@ body {
 
   .hero-image {
     max-width: 280px;
-  }
-
-  .benefits-grid {
-    grid-template-columns: 1fr;
   }
 
   .step-title {
