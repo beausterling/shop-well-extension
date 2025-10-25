@@ -25,6 +25,10 @@
 - ✅ **Chrome Built-in AI Integration**: Summarizer + Prompt APIs working
 - ✅ **Side Panel Architecture**: AI accessible in extension context (not content scripts)
 - ✅ **Product Parsers**: Amazon & Walmart data extraction with fallbacks
+  - **Walmart Price Extraction**: Multi-strategy parsing (aria-label → DOM parts → text fallback)
+  - **Fixed Critical Bugs**: Main price ($4.97 vs $497) and unit price (9.6 ¢/fl oz vs 979.6 ¢/fl oz)
+  - **Robust Validation**: Sanity checks and comprehensive error logging
+- ✅ **Progressive Loading UX**: Hide broken data during preview, show "Loading price..." placeholder
 - ✅ **Allergen Detection**: 9 major allergens monitored
 - ✅ **Message Flow**: Content script → Background → Side Panel → AI Analysis
 - ✅ **esbuild Bundling**: ES modules converted to IIFE for browser compatibility
@@ -60,10 +64,10 @@
 
 ### Welcome Page Onboarding (REDESIGNED TWICE - COMPLETED)
 - ✅ **Simplified Flow**: Reduced from 4 steps to 3 steps (Opal-inspired UX)
-  - Step 1: Welcome & Why (hero + 3 benefit cards)
+  - Step 1: Welcome & Why (hero + retailer logos + CTA)
   - Step 2: Choose Your Experience (AI optional, not required)
   - Step 3: Personalize (inline settings - no external redirects)
-- ✅ **Step 2 Major Redesign** (Latest):
+- ✅ **Step 2 Major Redesign**:
   - **Smart Auto-Skip**: AI-ready users bypass Step 2 entirely (Step 1 → Step 3)
   - **User-Friendly UI**: Feature comparison (Basic Mode vs AI-Enhanced)
   - **Clear Escape Hatch**: "Continue with Basic Mode" always visible
@@ -73,7 +77,9 @@
   - **Chrome API Fallbacks**: Graceful handling when testing outside extension context
 - ✅ **Design Excellence**:
   - Warm beige card backgrounds with brown borders (matches brand aesthetic)
-  - Large static hero image (550px) with elegant sheen animation every 7 seconds
+  - **Compacted Layout**: Hero image 350px (down from 550px), reduced spacing throughout
+  - **Retailer Logos**: 240px Amazon & Walmart logos with gentle floating animation (4s cycle)
+  - **Viewport Optimized**: Total height ~600-650px (fits in viewport without scrolling)
   - Progress bar (replacing step circles)
   - Beautiful condition selector cards (POTS, ME/CFS, Celiac)
   - Allergen chips for 9 major allergens
@@ -86,6 +92,7 @@
   - Click-to-copy Chrome flags
   - Mobile-responsive design
   - Inline settings (no redirects)
+  - **"Get Started" button always visible** (no scrolling needed)
 - ✅ **Impact**: Onboarding now ~2 mins with zero technical barriers, 3 user paths (AI auto-skip, Basic Mode, or Advanced AI setup)
 
 ### Development Tools
@@ -131,23 +138,25 @@
 
 ## ⚠️ What Needs Work (NEXT PRIORITIES)
 
-### Priority 1: Testing & Stability
-- End-to-end workflow verification
+### Priority 1: Testing & Validation
+- **Live Product Testing**: Verify price extraction works on real Walmart products
+- **Welcome Page Animations**: Test floating logos across Chrome, Firefox, Safari
+- End-to-end workflow verification (install → onboard → analyze)
 - Multi-product listing badges (search pages) - code complete, needs testing
 - Edge case handling (missing ingredients, unclear product data)
+
+### Priority 2: Final Polish
+- Cross-browser compatibility verification
 - Performance optimization (badge injection speed)
+- Error messaging refinement
+- Mobile responsive testing
 
-### Priority 2: Side Panel UI Polish
-- Improve loading states
-- Better error messaging
-- Enhanced verdict visualization
-- Add "retry" functionality
-
-### Priority 3: Polish for Demo
+### Priority 3: Demo & Launch Preparation
 - Create 3-minute demo video
 - Refine copy for medical compliance
-- Add Chrome Web Store submission materials
+- Chrome Web Store submission materials
 - Documentation cleanup
+- Final screenshots and marketing assets
 
 ---
 
@@ -269,31 +278,71 @@ npm run build
 
 ## 📊 Progress Summary
 
-**Completion**: ~94% complete
+**Completion**: ~96% complete
 - ✅ Core AI functionality working
 - ✅ Design system complete & refined (beige aesthetic)
 - ✅ Landing page complete with branding
-- ✅ Welcome page redesigned TWICE (3-step flow, now with zero-friction AI setup)
+- ✅ Welcome page redesigned TWICE (3-step flow, compacted layout, animated logos)
 - ✅ Onboarding experience exceptional with 3 user paths
-- ⚠️ Side panel UI polish needed
-- ⚠️ End-to-end testing incomplete
+- ✅ **Critical price extraction bugs fixed** (Walmart main price & unit price)
+- ✅ **Progressive loading UX** (hide broken data during preview)
+- ⚠️ End-to-end testing on live products needed
+- ⚠️ Cross-browser animation testing
 
 **Current Branch**: `functional-mvp`
 **Last Major Commits**:
-- Step 2 onboarding redesign (AI now optional, not required)
-- Beige background + brown border aesthetic
-- Hero image enhancements (static, larger, sheen animation)
-**Ready For**: Testing, side panel polish, demo preparation
+- Walmart price extraction overhaul (multi-strategy parsing)
+- Side panel progressive loading (hide price during preview)
+- Welcome page compacted layout + animated retailer logos
+- Added transparent Amazon/Walmart logo assets
+**Ready For**: Live product testing, cross-browser verification, demo preparation
 
 ---
 
-**Last Updated**: October 19, 2025 - Welcome page Step 2 completely redesigned for zero-friction onboarding
-**Today's Achievements**:
-- Smart auto-skip when AI enabled (Step 1 → Step 3)
-- Optional AI setup with "Continue with Basic Mode" escape hatch
-- Feature comparison UI (Basic vs AI-Enhanced)
-- Collapsible technical instructions
-- Beige card backgrounds with brown borders
-- Hero image: static, 550px, elegant sheen animation (7s interval)
+**Last Updated**: October 24, 2025 - Major price extraction fixes, side panel UX improvements, and welcome page polish
 
-**Next Focus**: Testing, side panel polish, demo video preparation
+**Recent Achievements (October 24, 2025)**:
+
+### Walmart Price Extraction Overhaul ✅
+- **Fixed Critical Bug**: Main price now displays correctly ($4.97 instead of $497)
+- **Fixed Unit Price Bug**: Unit price properly formatted (9.6 ¢/fl oz instead of 979.6 ¢/fl oz with malformed decimals)
+- **Multi-Strategy Extraction**:
+  1. Extract unit price FIRST (prevents interference with main price)
+  2. Try aria-label (most reliable)
+  3. Reconstruct from whole/fraction DOM elements
+  4. Fallback to text parsing with validation
+- **Improved Regex**: Changed from `[\d.]+` (too greedy) to `\d+\.?\d*` (matches valid decimals only)
+- **Price Validation**: Added sanity checks (reject prices over $10,000, validate numeric values)
+- **Better Logging**: Comprehensive debug output for troubleshooting
+
+### Side Panel UX Improvements ✅
+- **Progressive Loading**: Hide price during preview mode to avoid showing broken extractions
+- **Loading Placeholder**: Display "Loading price..." in italics during initial analysis
+- **Reveal on Complete**: Only show actual price after full HTML parsing completes
+- **Smart Fallback**: Prefer HTML-parsed unit price over search card data
+- **User Experience**: No more seeing "$497" flash before correcting to "$4.97"
+
+### Welcome Page Polish ✅
+- **Compacted Layout** (~30-40% vertical space reduction):
+  - Hero image: 550px → 350px (saved ~200px)
+  - Container padding: 32px → 16px top/bottom
+  - Step content padding: 48px → 32px
+  - All margins tightened (32px/20px → 20px/16px/12px)
+  - **Total height**: ~922px → ~600-650px (fits in viewport!)
+- **Retailer Logos Added**:
+  - Amazon & Walmart logos (240px tall, 3x original size)
+  - Positioned between description text and "Get Started" button
+  - Transparent backgrounds (updated PNG assets)
+  - **Animated**: Gentle 4s floating motion, 12px horizontal slide
+  - **Alternating Rhythm**: Amazon and Walmart offset by 2 seconds
+  - Hover to pause animation
+  - 48px gap between logos for breathing room
+- **Better Visual Hierarchy**: Logos reinforce "Amazon & Walmart" text mention
+
+### New Assets ✅
+- Amazon logo PNG (transparent background)
+- Walmart logo PNG (transparent background)
+- Integration guide markdown
+- Profile schema documentation
+
+**Next Focus**: Testing updated price extraction on live Walmart products, verify welcome page animations work across browsers
