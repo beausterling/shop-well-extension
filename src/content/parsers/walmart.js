@@ -54,6 +54,7 @@ export class WalmartParser {
         description: this.extractDescription(),
         ingredients: this.extractIngredients(),
         price: this.extractPrice(),
+        pricePerUnit: this.extractPricePerUnit(),
         reviews: this.extractReviews()
       };
 
@@ -169,6 +170,79 @@ export class WalmartParser {
   }
 
   /**
+   * Extract price per unit (e.g., "2.3 ¢/fl oz")
+   * @returns {string}
+   */
+  static extractPricePerUnit() {
+    // Selectors that target the unit price element specifically
+    const unitPriceSelectors = [
+      '[class*="unit-price"]',
+      '[class*="price-per-unit"]',
+      '[aria-label*="per"]',
+      '[data-automation-id*="unit-price"]',
+      '.price-unit',
+      '.unit-cost',
+      // Fallback: look for elements containing ¢/ or $/ patterns
+      '*:has-text("¢/")',
+      '*:has-text("$/")'
+    ];
+
+    // Try each selector to find unit price element
+    for (const selector of unitPriceSelectors) {
+      try {
+        // Skip pseudo-selectors for querySelectorAll
+        if (selector.includes(':has-text')) {
+          continue;
+        }
+
+        const elements = document.querySelectorAll(selector);
+        for (const element of elements) {
+          const text = element.textContent?.trim();
+          if (!text) continue;
+
+          // Check if this element contains a unit price pattern
+          const unitPriceMatch = text.match(/(\d+\.?\d*)\s*[¢c$]\s*\/\s*([\w\s]+)/i);
+          if (unitPriceMatch) {
+            // Format consistently: "X.X ¢/unit"
+            const value = unitPriceMatch[1];
+            const unit = unitPriceMatch[2].trim();
+            const currency = text.includes('$') ? '$' : '¢';
+            const unitPrice = `${value} ${currency}/${unit}`;
+            console.log('Shop Well: Walmart unit price:', unitPrice);
+            return unitPrice;
+          }
+        }
+      } catch (error) {
+        console.warn('Shop Well: Invalid unit price selector:', selector, error);
+      }
+    }
+
+    // Fallback: scan all elements for unit price pattern (more expensive)
+    try {
+      const allElements = document.querySelectorAll('[data-automation-id="product-price"] *');
+      for (const element of allElements) {
+        const text = element.textContent?.trim();
+        if (!text || text.length > 50) continue; // Skip long text blocks
+
+        const unitPriceMatch = text.match(/^(\d+\.?\d*)\s*[¢c$]\s*\/\s*([\w\s]+)$/i);
+        if (unitPriceMatch) {
+          const value = unitPriceMatch[1];
+          const unit = unitPriceMatch[2].trim();
+          const currency = text.includes('$') ? '$' : '¢';
+          const unitPrice = `${value} ${currency}/${unit}`;
+          console.log('Shop Well: Walmart unit price (fallback):', unitPrice);
+          return unitPrice;
+        }
+      }
+    } catch (error) {
+      console.warn('Shop Well: Fallback unit price extraction failed:', error);
+    }
+
+    console.log('Shop Well: Walmart unit price not found');
+    return '';
+  }
+
+  /**
    * Extract sample reviews (for sentiment/themes)
    * @returns {string[]}
    */
@@ -235,19 +309,25 @@ export class WalmartParser {
           if (priceContainer) {
             // DEBUG: Log the price container structure
             console.log('Shop Well: Price container HTML:', priceContainer.outerHTML.substring(0, 500));
-            console.log('Shop Well: Price container text:', priceContainer.textContent?.trim());
 
-            // Get full text for both extractions
-            let fullText = priceContainer.textContent?.trim() || '';
+            // STEP 1: Extract unit price from specific child elements (avoid text concatenation)
+            // Look for elements that contain ONLY the unit price
+            const unitPriceElements = priceContainer.querySelectorAll('*');
+            for (const element of unitPriceElements) {
+              const text = element.textContent?.trim();
+              // Only check leaf nodes (elements with short text, no nested elements)
+              if (!text || text.length > 50 || element.children.length > 0) continue;
 
-            // STEP 1: Extract unit price FIRST (has distinct pattern with ¢/)
-            // This prevents interference with main price extraction
-            const unitPriceMatch = fullText.match(/(\d+\.?\d*)\s*[¢c]\s*\/\s*([\w\s]+)/i);
-            if (unitPriceMatch) {
-              unitPrice = `${unitPriceMatch[1]} ¢/${unitPriceMatch[2].trim()}`;
-              console.log('Shop Well: Extracted unit price:', unitPrice);
-              // Remove unit price from text to isolate main price
-              fullText = fullText.replace(unitPriceMatch[0], '');
+              // Check if this element contains a unit price pattern
+              const unitPriceMatch = text.match(/^(\d+\.?\d*)\s*[¢c$]\s*\/\s*([\w\s]+)$/i);
+              if (unitPriceMatch) {
+                const value = unitPriceMatch[1];
+                const unit = unitPriceMatch[2].trim();
+                const currency = text.includes('$') ? '$' : '¢';
+                unitPrice = `${value} ${currency}/${unit}`;
+                console.log('Shop Well: Extracted unit price:', unitPrice);
+                break; // Found it, stop searching
+              }
             }
 
             // STEP 2: Try to get main price from aria-label (most reliable)
@@ -274,8 +354,9 @@ export class WalmartParser {
               }
             }
 
-            // STEP 4: Fallback to text extraction from cleaned text
-            if (!mainPrice && fullText) {
+            // STEP 4: Fallback to text extraction from container
+            if (!mainPrice) {
+              const fullText = priceContainer.textContent?.trim() || '';
               console.log('Shop Well: Attempting fallback text extraction from:', fullText);
               // Try to match standard currency format first
               const priceWithCents = fullText.match(/\$?\d{1,3}(?:,\d{3})*\.\d{2}/);
