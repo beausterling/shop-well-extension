@@ -636,6 +636,173 @@ function createFallbackVerdict(facts, allergies = []) {
 }
 
 /* =============================================================================
+   HTML PARSING UTILITIES (for cross-page analysis)
+   ============================================================================= */
+
+/**
+ * Fetch product HTML from background worker
+ * @param {string} url - Product URL to fetch
+ * @returns {Promise<string>} HTML content
+ */
+async function fetchProductHTML(url) {
+  console.log('Shop Well: Requesting product HTML from background...');
+
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      { type: 'FETCH_PRODUCT_HTML', url },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else if (!response.ok) {
+          reject(new Error(response.error || 'Fetch failed'));
+        } else {
+          resolve(response.html);
+        }
+      }
+    );
+  });
+}
+
+/**
+ * Parse product HTML to extract full product data
+ * @param {string} html - Raw HTML content
+ * @param {string} url - Product URL (for site detection)
+ * @returns {Object|null} Parsed product data
+ */
+function parseProductHTML(html, url) {
+  try {
+    console.log('Shop Well: Parsing fetched HTML...');
+
+    // Create virtual DOM from HTML string
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    // Detect site from URL
+    const isAmazon = url.includes('amazon.com');
+    const isWalmart = url.includes('walmart.com');
+
+    if (!isAmazon && !isWalmart) {
+      console.warn('Shop Well: Unknown site, cannot parse');
+      return null;
+    }
+
+    // Helper function to get text from selectors (adapted from dom.js)
+    const getText = (selectors) => {
+      const selectorArray = Array.isArray(selectors) ? selectors : [selectors];
+      for (const selector of selectorArray) {
+        const element = doc.querySelector(selector);
+        if (element && element.textContent) {
+          return element.textContent.trim();
+        }
+      }
+      return '';
+    };
+
+    // Helper function to get text array
+    const getTextArray = (selectors, limit = 10) => {
+      const selectorArray = Array.isArray(selectors) ? selectors : [selectors];
+      for (const selector of selectorArray) {
+        const elements = doc.querySelectorAll(selector);
+        if (elements.length > 0) {
+          const texts = Array.from(elements)
+            .map(el => el.textContent?.trim())
+            .filter(text => text && text.length > 3)
+            .slice(0, limit);
+          if (texts.length > 0) return texts;
+        }
+      }
+      return [];
+    };
+
+    // Parse based on site
+    if (isAmazon) {
+      return {
+        site: 'amazon',
+        url: url,
+        title: getText([
+          '#productTitle',
+          'h1.a-size-large',
+          'h1[data-automation-id="product-title"]',
+          'h1'
+        ]),
+        bullets: getTextArray([
+          '#feature-bullets ul li span',
+          '#feature-bullets li',
+          '.a-unordered-list.a-vertical.a-spacing-mini li',
+          '[data-feature-name="featurebullets"] li'
+        ]),
+        description: getText([
+          '#productDescription p',
+          '#productDescription',
+          '#aplus_feature_div',
+          '[data-feature-name="productDescription"]'
+        ]).substring(0, 1000),
+        ingredients: getText([
+          '[data-feature-name="ingredients"]',
+          '#ingredients',
+          '.ingredients',
+          '#detailBullets_feature_div .ingredients'
+        ]),
+        price: getText([
+          '.a-price.a-text-price.a-size-medium.apexPriceToPay .a-offscreen',
+          '#corePrice_feature_div .a-price.a-text-price .a-offscreen',
+          '.a-price-whole',
+          '#priceblock_dealprice',
+          '#priceblock_ourprice',
+          '.a-price .a-offscreen'
+        ]),
+        reviews: getTextArray([
+          '[data-hook="review-body"] span',
+          '.review-text-content span',
+          '.cr-original-review-text'
+        ], 5)
+      };
+    } else if (isWalmart) {
+      return {
+        site: 'walmart',
+        url: url,
+        title: getText([
+          'h1[itemprop="name"]',
+          'h1[data-automation-id="product-title"]',
+          'h1.prod-ProductTitle',
+          'h1'
+        ]),
+        bullets: getTextArray([
+          '[data-testid="product-highlights"] li',
+          '.product-highlights li',
+          '[itemprop="description"] li'
+        ]),
+        description: getText([
+          '[data-testid="product-description"]',
+          '[itemprop="description"]',
+          '.about-product-description'
+        ]).substring(0, 1000),
+        ingredients: getText([
+          '[data-testid="ingredients"]',
+          '.prod-ProductIngredients',
+          '.nutrition-facts .ingredients'
+        ]),
+        price: getText([
+          '[itemprop="price"]',
+          '[data-automation-id="product-price"]',
+          '.price-characteristic'
+        ]),
+        reviews: getTextArray([
+          '[data-testid="review-text"]',
+          '.review-text'
+        ], 5)
+      };
+    }
+
+    return null;
+
+  } catch (error) {
+    console.error('Shop Well: HTML parsing failed:', error);
+    return null;
+  }
+}
+
+/* =============================================================================
    UI STATE MANAGEMENT
    ============================================================================= */
 
@@ -837,6 +1004,12 @@ class SidePanelUI {
       this.elements.loading.classList.remove('hidden');
     }
 
+    // Reset to default loading message
+    const loadingText = this.elements.loading?.querySelector('p');
+    const loadingSubtext = this.elements.loading?.querySelector('small');
+    if (loadingText) loadingText.textContent = 'Analyzing product with Chrome AI...';
+    if (loadingSubtext) loadingSubtext.textContent = 'This may take a few seconds';
+
     // Hide timeout warning initially
     if (this.elements.timeoutWarning) {
       this.elements.timeoutWarning.classList.add('hidden');
@@ -852,6 +1025,27 @@ class SidePanelUI {
 
     this.currentState = 'loading';
     console.log('Shop Well: Showing loading state');
+  }
+
+  showLoadingWithMessage(message, subtext = 'Please wait...') {
+    // Keep loading state visible but update the message
+    if (this.currentState !== 'loading') {
+      this.showLoading();
+    }
+
+    // Update loading message with custom text
+    const loadingText = this.elements.loading?.querySelector('p');
+    const loadingSubtext = this.elements.loading?.querySelector('small');
+
+    if (loadingText) {
+      loadingText.textContent = message;
+    }
+
+    if (loadingSubtext) {
+      loadingSubtext.textContent = subtext;
+    }
+
+    console.log('Shop Well: Updated loading message:', message);
   }
 
   showSetup() {
@@ -885,6 +1079,88 @@ class SidePanelUI {
     console.log('Shop Well: Showing error state:', errorMessage);
   }
 
+  showPreviewWithProgress(productData, progressMessage = '🔍 Analyzing product details...') {
+    // Show analysis view immediately with preview data and progress indicator
+    this.hideAllStates();
+    if (!this.elements.analysis) return;
+
+    this.elements.analysis.classList.remove('hidden');
+
+    // Update product info immediately
+    const productTitle = this.elements.analysis.querySelector('.product-title');
+    if (productTitle) {
+      productTitle.textContent = productData.title || 'Product';
+    }
+
+    const productPrice = this.elements.analysis.querySelector('.product-price');
+    if (productPrice && productData.price) {
+      const mainPrice = productData.price; // e.g., "$2.97"
+      const unitPrice = productData.pricePerUnit; // e.g., "2.3 ¢/fl oz"
+
+      // Format: "$2.97 current price" with unit price below
+      let priceHTML = `
+        <div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;">
+          <span style="font-size: 20px; font-weight: 700; color: var(--sw-green);">${mainPrice}</span>
+          <span style="font-size: 13px; color: var(--sw-taupe); font-weight: 400;">current price</span>
+        </div>
+      `;
+
+      if (unitPrice) {
+        priceHTML += `
+          <span style="font-size: 12px; color: var(--sw-taupe); display: block;">${unitPrice}</span>
+        `;
+      }
+
+      productPrice.innerHTML = priceHTML;
+    }
+
+    const productRating = this.elements.analysis.querySelector('.product-rating');
+    if (productRating && productData.rating) {
+      productRating.textContent = `⭐ ${productData.rating}`;
+    } else if (productRating) {
+      productRating.textContent = '';
+    }
+
+    // Show loading indicator in place of insights
+    const insightsList = this.elements.analysis.querySelector('.insights-list');
+    if (insightsList) {
+      insightsList.innerHTML = `
+        <li style="list-style: none; text-align: center; padding: 20px;">
+          <div class="loading-spinner" style="width: 30px; height: 30px; margin: 0 auto 10px;"></div>
+          <div class="progress-message" style="color: var(--sw-taupe); font-size: 14px;">${progressMessage}</div>
+        </li>
+      `;
+    }
+
+    // Hide verdict badge initially
+    const verdictBadge = this.elements.analysis.querySelector('.verdict-badge');
+    if (verdictBadge) {
+      verdictBadge.style.opacity = '0.3';
+      verdictBadge.textContent = '⏳ Analyzing...';
+    }
+
+    // Hide sections that need full analysis
+    const allergenSection = this.elements.analysis.querySelector('.allergen-alerts');
+    if (allergenSection) allergenSection.classList.add('hidden');
+
+    const caveatSection = this.elements.analysis.querySelector('.important-caveat');
+    if (caveatSection) caveatSection.classList.add('hidden');
+
+    this.currentState = 'analysis';
+    console.log('Shop Well: Showing preview with progress:', progressMessage);
+  }
+
+  updateProgressMessage(message) {
+    // Update just the progress message without re-rendering
+    if (this.currentState !== 'analysis') return;
+
+    const progressMessageEl = this.elements.analysis?.querySelector('.progress-message');
+    if (progressMessageEl) {
+      progressMessageEl.textContent = message;
+      console.log('Shop Well: Updated progress message:', message);
+    }
+  }
+
   showAnalysis(productData, facts, verdict) {
     this.hideAllStates();
     if (!this.elements.analysis) return;
@@ -903,6 +1179,7 @@ class SidePanelUI {
     // Update verdict badge
     const verdictBadge = this.elements.analysis.querySelector('.verdict-badge');
     if (verdictBadge) {
+      verdictBadge.style.opacity = '1'; // Restore full opacity
       verdictBadge.className = `verdict-badge verdict-${verdict.verdict}`;
       const verdictText = {
         'helpful': '✅ Helpful',
@@ -930,7 +1207,24 @@ class SidePanelUI {
 
     const productPrice = this.elements.analysis.querySelector('.product-price');
     if (productPrice && productData.price) {
-      productPrice.textContent = productData.price;
+      const mainPrice = productData.price; // e.g., "$2.97"
+      const unitPrice = productData.pricePerUnit; // e.g., "2.3 ¢/fl oz"
+
+      // Format: "$2.97 current price" with unit price below
+      let priceHTML = `
+        <div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;">
+          <span style="font-size: 20px; font-weight: 700; color: var(--sw-green);">${mainPrice}</span>
+          <span style="font-size: 13px; color: var(--sw-taupe); font-weight: 400;">current price</span>
+        </div>
+      `;
+
+      if (unitPrice) {
+        priceHTML += `
+          <span style="font-size: 12px; color: var(--sw-taupe); display: block;">${unitPrice}</span>
+        `;
+      }
+
+      productPrice.innerHTML = priceHTML;
     }
 
     const productRating = this.elements.analysis.querySelector('.product-rating');
@@ -1109,21 +1403,21 @@ class SidePanelUI {
 
   async analyzeListingProduct(productData) {
     this.currentProductData = productData;
-    this.showLoading();
-
-    console.log('Shop Well: Analyzing listing product...', productData);
+    console.log('Shop Well: Analyzing listing product with progressive loading...', productData);
 
     try {
-      // Re-check AI capabilities (but proceed with fallback if unavailable)
+      // Re-check AI capabilities
       this.aiCapabilities = await checkAIAvailability();
-
-      // Get all allergies
       const allAllergies = [...this.settings.allergies, ...this.settings.customAllergies];
 
-      // Create facts from limited listing data with enhanced allergen detection
+      // ===================================================================
+      // PHASE 1: Show immediate preview with quick allergen check
+      // ===================================================================
+      this.showPreviewWithProgress(productData, '🔍 Checking for allergens...');
+
       const titleLower = (productData.title || '').toLowerCase();
 
-      // Detect allergens in title
+      // Quick allergen detection from title
       const allergenWarnings = [];
       const allergenPatterns = {
         'peanuts': ['peanut', 'groundnut'],
@@ -1146,74 +1440,172 @@ class SidePanelUI {
         }
       }
 
-      const facts = {
+      // Show preview with quick allergen info
+      const previewFacts = {
         title: productData.title,
         price: productData.price || 'Unknown',
-        product_type: 'general',
-        confidence: 'low',
         allergen_warnings: allergenWarnings,
-        dietary_claims: [], // Required by preparePrompts - empty for listing products
-        // Try to infer properties from title
-        gluten_free: /gluten.?free/i.test(titleLower),
-        dairy_free: /dairy.?free/i.test(titleLower),
-        vegan: /vegan/i.test(titleLower),
-        organic: /organic/i.test(titleLower),
-        high_sodium: /electrolyte|sodium|salt/i.test(titleLower),
-        high_sugar: /sugar|sweet|candy|chocolate/i.test(titleLower),
-        source: productData.source || 'listing_page',
-        summary_text: `Limited data from search results. Product: ${productData.title}`
+        confidence: 'preview',
+        summary_text: 'Quick allergen scan from product title...'
       };
 
-      console.log('Shop Well: Created facts from listing data:', facts);
+      // ===================================================================
+      // PHASE 2: Fetch full product HTML
+      // ===================================================================
+      this.updateProgressMessage('🌐 Fetching full product details...');
+      console.log('Shop Well: Fetching product URL:', productData.url);
 
-      // Generate verdict with AI (using title-based analysis)
-      let verdict;
-      let usedAI = false;
+      let html;
+      let fullProductData;
 
-      if (this.aiCapabilities && this.aiCapabilities.prompt) {
-        console.log('Shop Well: Using AI for listing product verdict...');
-        const result = await generateVerdict(
-          facts,
-          this.settings.condition,
-          allAllergies,
-          this.settings.customCondition,
-          this.cachedLanguageModel
-        );
-        verdict = result.verdict;
-        // Cache the language model for future use
-        if (result.languageModel) {
-          this.cachedLanguageModel = result.languageModel;
-          console.log('Shop Well: Language model session cached for reuse');
-        }
-        if (verdict) {
-          usedAI = true;
-        }
+      try {
+        html = await fetchProductHTML(productData.url);
+        console.log('Shop Well: HTML fetched, length:', html.length);
+      } catch (error) {
+        console.warn('Shop Well: Failed to fetch product HTML:', error);
+        // Fall back to title-only analysis
+        html = null;
       }
 
-      if (!verdict) {
-        console.log('Shop Well: Using fallback verdict for listing product...');
-        verdict = createFallbackVerdict(facts, allAllergies);
-      }
+      // ===================================================================
+      // PHASE 3: Parse full product data
+      // ===================================================================
+      if (html) {
+        this.updateProgressMessage('📋 Extracting ingredients and details...');
 
-      // Add note about limited data and analysis type
-      const analysisType = usedAI ? 'AI analysis' : 'Basic pattern matching';
-      const dataNote = `${analysisType} from limited search result data.`;
+        fullProductData = parseProductHTML(html, productData.url);
 
-      if (verdict.caveat) {
-        verdict.caveat = `${dataNote} ${verdict.caveat} Click product for full ingredient analysis.`;
+        if (!fullProductData) {
+          console.warn('Shop Well: HTML parsing failed, using title-only data');
+          fullProductData = productData; // Fallback to search card data
+        } else {
+          console.log('Shop Well: Full product data extracted:', {
+            hasIngredients: !!fullProductData.ingredients,
+            bulletCount: fullProductData.bullets?.length || 0,
+            descriptionLength: fullProductData.description?.length || 0
+          });
+
+          // Merge search card data with parsed data
+          fullProductData = {
+            ...fullProductData,
+            // Preserve search card specific data
+            id: productData.id,
+            image: productData.image,
+            rating: productData.rating,
+            position: productData.position,
+            source: productData.source,
+            pricePerUnit: productData.pricePerUnit // Preserve unit price from search card
+          };
+        }
       } else {
-        verdict.caveat = `${dataNote} Click product for detailed ingredient analysis and full details.`;
+        // Use search card data only
+        fullProductData = productData;
       }
 
-      // Mark confidence as low for all listing analyses
-      facts.confidence = 'low';
+      // ===================================================================
+      // PHASE 4: Run full AI analysis
+      // ===================================================================
+      this.updateProgressMessage('🤖 Analyzing with AI...');
 
-      // Display results
-      this.showAnalysis(productData, facts, verdict);
+      let facts;
+      let verdict;
+
+      // If we have full product data, run complete analysis
+      if (fullProductData.ingredients || (fullProductData.bullets && fullProductData.bullets.length > 0)) {
+        console.log('Shop Well: Running full AI analysis with complete product data');
+
+        // Use summarizer to extract facts
+        if (this.aiCapabilities && this.aiCapabilities.summarizer) {
+          const summaryResult = await summarizeProduct(fullProductData, this.cachedSummarizer);
+          facts = summaryResult.facts;
+          if (summaryResult.summarizer) {
+            this.cachedSummarizer = summaryResult.summarizer;
+          }
+        }
+
+        // Create facts if summarizer didn't work
+        if (!facts) {
+          facts = createFallbackFacts(fullProductData);
+        }
+
+        // Generate verdict with AI
+        if (this.aiCapabilities && this.aiCapabilities.prompt) {
+          const verdictResult = await generateVerdict(
+            facts,
+            this.settings.condition,
+            allAllergies,
+            this.settings.customCondition,
+            this.cachedLanguageModel
+          );
+          verdict = verdictResult.verdict;
+          if (verdictResult.languageModel) {
+            this.cachedLanguageModel = verdictResult.languageModel;
+          }
+        }
+
+        if (!verdict) {
+          verdict = createFallbackVerdict(facts, allAllergies);
+        }
+
+        // Mark that we've had a successful AI call
+        if (facts || verdict) {
+          this.hasSuccessfulAICall = true;
+        }
+
+      } else {
+        // Fallback: Title-only analysis
+        console.log('Shop Well: Using title-only analysis (no full data available)');
+
+        facts = {
+          title: fullProductData.title,
+          price: fullProductData.price || 'Unknown',
+          allergen_warnings: allergenWarnings,
+          dietary_claims: [],
+          gluten_free: /gluten.?free/i.test(titleLower),
+          high_sodium: /electrolyte|sodium|salt/i.test(titleLower),
+          high_sugar: /sugar|sweet|candy|chocolate/i.test(titleLower),
+          confidence: 'low',
+          summary_text: `Analysis from product title only.`
+        };
+
+        if (this.aiCapabilities && this.aiCapabilities.prompt) {
+          const verdictResult = await generateVerdict(
+            facts,
+            this.settings.condition,
+            allAllergies,
+            this.settings.customCondition,
+            this.cachedLanguageModel
+          );
+          verdict = verdictResult.verdict;
+          if (verdictResult.languageModel) {
+            this.cachedLanguageModel = verdictResult.languageModel;
+          }
+        }
+
+        if (!verdict) {
+          verdict = createFallbackVerdict(facts, allAllergies);
+        }
+
+        verdict.caveat = `Limited data available. ${verdict.caveat || 'Visit product page for complete details.'}`;
+      }
+
+      // ===================================================================
+      // PHASE 5: Display final results
+      // ===================================================================
+      this.showAnalysis(fullProductData, facts, verdict);
 
     } catch (error) {
+      this.isAnalyzing = false;
       console.error('Shop Well: Listing product analysis failed:', error);
-      this.showError('Analysis failed. Click product to see full details.');
+
+      if (error instanceof TimeoutError) {
+        this.showError(
+          'Analysis timed out. Chrome AI models may still be downloading. ' +
+          'Check chrome://on-device-internals and restart Chrome if needed.'
+        );
+      } else {
+        this.showError('Analysis failed. Please try again or visit the product page directly.');
+      }
     }
   }
 

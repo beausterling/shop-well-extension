@@ -33,28 +33,43 @@ class ProductExtractor {
   }
 
   detectProductPage() {
+    console.log('Shop Well: detectProductPage() called for URL:', window.location.href);
+
     // Check for Product Detail Page (PDP) first
+    console.log('Shop Well: Checking AmazonParser.isPDP()...');
     if (AmazonParser.isPDP()) {
       this.parser = AmazonParser;
       this.pageType = 'pdp';
+      console.log('Shop Well: Detected Amazon PDP');
       return true;
-    } else if (WalmartParser.isPDP()) {
+    }
+
+    console.log('Shop Well: Checking WalmartParser.isPDP()...');
+    if (WalmartParser.isPDP()) {
       this.parser = WalmartParser;
       this.pageType = 'pdp';
+      console.log('Shop Well: Detected Walmart PDP');
       return true;
     }
 
     // Check for Search/Listing Page
+    console.log('Shop Well: Checking AmazonParser.isSearchPage()...');
     if (AmazonParser.isSearchPage()) {
       this.parser = AmazonParser;
       this.pageType = 'listing';
-      return true;
-    } else if (WalmartParser.isSearchPage()) {
-      this.parser = WalmartParser;
-      this.pageType = 'listing';
+      console.log('Shop Well: Detected Amazon search page');
       return true;
     }
 
+    console.log('Shop Well: Checking WalmartParser.isSearchPage()...');
+    if (WalmartParser.isSearchPage()) {
+      this.parser = WalmartParser;
+      this.pageType = 'listing';
+      console.log('Shop Well: Detected Walmart search page');
+      return true;
+    }
+
+    console.log('Shop Well: No supported page type detected');
     return false;
   }
 

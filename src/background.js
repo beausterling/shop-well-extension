@@ -124,6 +124,29 @@ chrome.action.onClicked.addListener(async (tab) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Shop Well: Message received:', message.type || message.command);
 
+  // Handle cross-origin product HTML fetch for listing analysis
+  if (message.type === 'FETCH_PRODUCT_HTML') {
+    console.log('Shop Well: Fetching product HTML from:', message.url);
+
+    fetch(message.url, { credentials: 'omit' })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.text();
+      })
+      .then(html => {
+        console.log('Shop Well: Product HTML fetched successfully, length:', html.length);
+        sendResponse({ ok: true, html });
+      })
+      .catch(error => {
+        console.error('Shop Well: Product HTML fetch failed:', error);
+        sendResponse({ ok: false, error: String(error) });
+      });
+
+    return true; // Keep message channel open for async response
+  }
+
   // Handle side panel ready signal
   if (message.type === 'sidepanel-ready') {
     console.log('Shop Well: Side panel is ready');

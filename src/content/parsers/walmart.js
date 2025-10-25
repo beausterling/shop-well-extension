@@ -21,7 +21,21 @@ export class WalmartParser {
   static isSearchPage() {
     const pathname = window.location.pathname;
     const search = window.location.search;
-    return pathname.includes('/search') && search.includes('?q=');
+    const hostname = window.location.hostname;
+
+    console.log('Shop Well: WalmartParser.isSearchPage() check:', {
+      hostname,
+      pathname,
+      search,
+      pathnameIncludesSearch: pathname.includes('/search'),
+      searchIncludesQ: search.includes('?q='),
+      fullUrl: window.location.href
+    });
+
+    const isSearch = pathname.includes('/search') && search.includes('?q=');
+    console.log('Shop Well: WalmartParser.isSearchPage() result:', isSearch);
+
+    return isSearch;
   }
 
   /**
@@ -211,10 +225,73 @@ export class WalmartParser {
                        link?.textContent?.trim() ||
                        card.querySelector('[data-automation-id="product-title"]')?.textContent?.trim();
 
-          // Price
-          const priceEl = card.querySelector('[data-automation-id="product-price"]') ||
-                         card.querySelector('.price-main .w_iUH7');
-          const price = priceEl?.textContent?.trim();
+          // Price - extract main price and unit price separately
+          const priceContainer = card.querySelector('[data-automation-id="product-price"]') ||
+                                card.querySelector('.price-main');
+
+          let mainPrice = '';
+          let unitPrice = '';
+
+          if (priceContainer) {
+            // DEBUG: Log the price container structure
+            console.log('Shop Well: Price container HTML:', priceContainer.outerHTML.substring(0, 500));
+            console.log('Shop Well: Price container text:', priceContainer.textContent?.trim());
+
+            // Try to get formatted price from aria-label first (most reliable)
+            const ariaLabel = priceContainer.getAttribute('aria-label');
+            if (ariaLabel && ariaLabel.includes('$')) {
+              console.log('Shop Well: Found aria-label with price:', ariaLabel);
+              const ariaPriceMatch = ariaLabel.match(/\$[\d,]+\.?\d*/);
+              if (ariaPriceMatch) {
+                mainPrice = ariaPriceMatch[0];
+                console.log('Shop Well: Extracted main price from aria-label:', mainPrice);
+              }
+            }
+
+            // If no aria-label, try to reconstruct from separate elements
+            if (!mainPrice) {
+              // Walmart often splits price into whole and fraction parts
+              const wholePart = priceContainer.querySelector('[class*="whole"], [class*="dollar"]');
+              const fractionPart = priceContainer.querySelector('[class*="fraction"], [class*="cent"]');
+
+              if (wholePart && fractionPart) {
+                const whole = wholePart.textContent?.replace(/[^\d]/g, '') || '0';
+                const fraction = fractionPart.textContent?.replace(/[^\d]/g, '') || '00';
+                mainPrice = `$${whole}.${fraction}`;
+                console.log('Shop Well: Reconstructed price from parts:', mainPrice);
+              } else {
+                // Fallback to text extraction
+                let priceText = priceContainer.textContent?.trim() || '';
+                const mainPriceMatch = priceText.match(/\$?[\d,]+\.?\d*/);
+                if (mainPriceMatch) {
+                  mainPrice = mainPriceMatch[0];
+                  if (!mainPrice.startsWith('$')) mainPrice = '$' + mainPrice;
+                  console.log('Shop Well: Extracted main price from text:', mainPrice);
+                }
+              }
+            }
+
+            // Extract unit price from full text
+            let fullText = priceContainer.textContent?.trim() || '';
+            console.log('Shop Well: Full price text for unit extraction:', fullText);
+
+            // Remove the main price value from text (not the $ symbol)
+            const mainPriceValue = mainPrice.replace(/[$,]/g, '');
+            fullText = fullText.replace(mainPriceValue, '');
+            console.log('Shop Well: Text after removing main price:', fullText);
+
+            // Extract unit price from remaining text (e.g., "2.3 ¢/fl oz")
+            const unitPriceMatch = fullText.match(/([\d.]+)\s*[¢c]\s*\/\s*([\w\s]+)/i);
+            if (unitPriceMatch) {
+              unitPrice = `${unitPriceMatch[1]} ¢/${unitPriceMatch[2].trim()}`;
+              console.log('Shop Well: Extracted unit price:', unitPrice);
+            }
+          }
+
+          const price = mainPrice; // Just the main price for backward compatibility
+          const pricePerUnit = unitPrice; // Separate field for unit price
+
+          console.log('Shop Well: Final prices - main:', price, 'unit:', pricePerUnit);
 
           // Image
           const image = card.querySelector('img')?.src;
@@ -231,6 +308,7 @@ export class WalmartParser {
               id: itemId,
               title: title,
               price: price,
+              pricePerUnit: pricePerUnit,
               image: image,
               url: productUrl,
               rating: rating,
