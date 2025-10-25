@@ -268,11 +268,11 @@ body {
   align-items: center;
   justify-content: center;
   gap: var(--space-12);
-  margin: var(--space-8) 0 var(--space-6) 0;
+  margin: 0;
 }
 
 .retailer-logo {
-  height: 240px;
+  height: 200px;
   width: auto;
   opacity: 0.9;
   transition: opacity var(--transition);
