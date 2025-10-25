@@ -180,7 +180,7 @@ body {
    =================================== */
 .hero-section {
   text-align: center;
-  padding: var(--space-4) 0;
+  padding: var(--space-2) 0;
 }
 
 .brand-image-container {
@@ -221,7 +221,7 @@ body {
 }
 
 .hero-image {
-  max-width: 350px;
+  max-width: 450px;
   width: 100%;
   height: auto;
   border-radius: var(--radius-xl);
@@ -253,7 +253,7 @@ body {
 .hero-description {
   font-size: var(--font-size-lg);
   color: var(--sw-taupe);
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-2);
   line-height: 1.6;
   max-width: 600px;
   margin-left: auto;
@@ -880,6 +880,14 @@ body {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none !important;
+}
+
+.btn-icon {
+  height: 36px;
+  width: auto;
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: var(--space-2);
 }
 
 /* ===================================
