@@ -1,0 +1,67 @@
+{
+  "user_id": "example-user-123",
+  "consent_given": true,
+  "profile_version": "1.0",
+  "allergies_sensitivities": [
+    {
+      "id": "peanut_allergy",
+      "name": "Peanut allergy",
+      "severity": "high",
+      "seek_tags": [
+        "allergen_free",
+        "peanut_free",
+        "dedicated_facility"
+      ],
+      "avoid_tags": [
+        "may_contain_peanut",
+        "shared_line"
+      ],
+      "notes": "Carries EpiPen",
+      "last_updated": "2025-10-24T23:57:10.292527"
+    },
+    {
+      "id": "fragrance_sensitivity",
+      "name": "Fragrance sensitivity",
+      "severity": "medium",
+      "seek_tags": [
+        "fragrance_free",
+        "unscented",
+        "low_voc"
+      ],
+      "avoid_tags": [
+        "perfumed",
+        "air_freshener",
+        "aerosol_spray"
+      ],
+      "notes": "Triggers headaches",
+      "last_updated": "2025-10-24T23:57:10.292527"
+    }
+  ],
+  "chronic_conditions": [
+    {
+      "id": "pots_dysautonomia",
+      "name": "POTS / dysautonomia",
+      "severity": "medium",
+      "seek_tags": [
+        "electrolyte_support",
+        "compression_garments"
+      ],
+      "avoid_tags": [
+        "diuretic_tea",
+        "heat_retaining_fabrics"
+      ],
+      "notes": "Salt goal: 8-10g/day; compression 20-30 mmHg",
+      "last_updated": "2025-10-24T23:57:10.292527"
+    }
+  ],
+  "preferences": {
+    "fragrance_free": true,
+    "latex_free": false,
+    "preferred_fabrics": [
+      "cotton",
+      "modal",
+      "tencel"
+    ],
+    "delivery_preference": "contactless"
+  }
+}

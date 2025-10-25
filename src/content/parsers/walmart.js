@@ -237,54 +237,76 @@ export class WalmartParser {
             console.log('Shop Well: Price container HTML:', priceContainer.outerHTML.substring(0, 500));
             console.log('Shop Well: Price container text:', priceContainer.textContent?.trim());
 
-            // Try to get formatted price from aria-label first (most reliable)
+            // Get full text for both extractions
+            let fullText = priceContainer.textContent?.trim() || '';
+
+            // STEP 1: Extract unit price FIRST (has distinct pattern with ¢/)
+            // This prevents interference with main price extraction
+            const unitPriceMatch = fullText.match(/(\d+\.?\d*)\s*[¢c]\s*\/\s*([\w\s]+)/i);
+            if (unitPriceMatch) {
+              unitPrice = `${unitPriceMatch[1]} ¢/${unitPriceMatch[2].trim()}`;
+              console.log('Shop Well: Extracted unit price:', unitPrice);
+              // Remove unit price from text to isolate main price
+              fullText = fullText.replace(unitPriceMatch[0], '');
+            }
+
+            // STEP 2: Try to get main price from aria-label (most reliable)
             const ariaLabel = priceContainer.getAttribute('aria-label');
             if (ariaLabel && ariaLabel.includes('$')) {
               console.log('Shop Well: Found aria-label with price:', ariaLabel);
-              const ariaPriceMatch = ariaLabel.match(/\$[\d,]+\.?\d*/);
+              const ariaPriceMatch = ariaLabel.match(/\$\d{1,3}(?:,\d{3})*\.\d{2}|\$\d+/);
               if (ariaPriceMatch) {
                 mainPrice = ariaPriceMatch[0];
                 console.log('Shop Well: Extracted main price from aria-label:', mainPrice);
               }
             }
 
-            // If no aria-label, try to reconstruct from separate elements
+            // STEP 3: Try to reconstruct from separate whole/fraction elements
             if (!mainPrice) {
-              // Walmart often splits price into whole and fraction parts
               const wholePart = priceContainer.querySelector('[class*="whole"], [class*="dollar"]');
               const fractionPart = priceContainer.querySelector('[class*="fraction"], [class*="cent"]');
 
               if (wholePart && fractionPart) {
                 const whole = wholePart.textContent?.replace(/[^\d]/g, '') || '0';
-                const fraction = fractionPart.textContent?.replace(/[^\d]/g, '') || '00';
-                mainPrice = `$${whole}.${fraction}`;
+                const fraction = fractionPart.textContent?.replace(/[^\d]/g, '').substring(0, 2) || '00';
+                mainPrice = `$${whole}.${fraction.padEnd(2, '0')}`;
                 console.log('Shop Well: Reconstructed price from parts:', mainPrice);
+              }
+            }
+
+            // STEP 4: Fallback to text extraction from cleaned text
+            if (!mainPrice && fullText) {
+              console.log('Shop Well: Attempting fallback text extraction from:', fullText);
+              // Try to match standard currency format first
+              const priceWithCents = fullText.match(/\$?\d{1,3}(?:,\d{3})*\.\d{2}/);
+              if (priceWithCents) {
+                mainPrice = priceWithCents[0];
+                if (!mainPrice.startsWith('$')) mainPrice = '$' + mainPrice;
+                console.log('Shop Well: Extracted price with cents:', mainPrice);
               } else {
-                // Fallback to text extraction
-                let priceText = priceContainer.textContent?.trim() || '';
-                const mainPriceMatch = priceText.match(/\$?[\d,]+\.?\d*/);
-                if (mainPriceMatch) {
-                  mainPrice = mainPriceMatch[0];
-                  if (!mainPrice.startsWith('$')) mainPrice = '$' + mainPrice;
-                  console.log('Shop Well: Extracted main price from text:', mainPrice);
+                // Fallback to any number, but validate it's reasonable
+                const priceMatch = fullText.match(/\$?\d+/);
+                if (priceMatch) {
+                  const numericValue = parseInt(priceMatch[0].replace('$', ''));
+                  // Sanity check: typical grocery/retail items are under $10,000
+                  if (numericValue < 10000) {
+                    mainPrice = priceMatch[0];
+                    if (!mainPrice.startsWith('$')) mainPrice = '$' + mainPrice;
+                    console.log('Shop Well: Extracted integer price:', mainPrice);
+                  } else {
+                    console.warn('Shop Well: Rejected suspicious price value:', priceMatch[0]);
+                  }
                 }
               }
             }
 
-            // Extract unit price from full text
-            let fullText = priceContainer.textContent?.trim() || '';
-            console.log('Shop Well: Full price text for unit extraction:', fullText);
-
-            // Remove the main price value from text (not the $ symbol)
-            const mainPriceValue = mainPrice.replace(/[$,]/g, '');
-            fullText = fullText.replace(mainPriceValue, '');
-            console.log('Shop Well: Text after removing main price:', fullText);
-
-            // Extract unit price from remaining text (e.g., "2.3 ¢/fl oz")
-            const unitPriceMatch = fullText.match(/([\d.]+)\s*[¢c]\s*\/\s*([\w\s]+)/i);
-            if (unitPriceMatch) {
-              unitPrice = `${unitPriceMatch[1]} ¢/${unitPriceMatch[2].trim()}`;
-              console.log('Shop Well: Extracted unit price:', unitPrice);
+            // Validation: warn if price looks suspicious
+            if (mainPrice) {
+              const priceValue = parseFloat(mainPrice.replace(/[$,]/g, ''));
+              if (isNaN(priceValue) || priceValue <= 0) {
+                console.warn('Shop Well: Invalid price extracted:', mainPrice);
+                mainPrice = '';
+              }
             }
           }
 

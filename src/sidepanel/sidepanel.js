@@ -1092,26 +1092,15 @@ class SidePanelUI {
       productTitle.textContent = productData.title || 'Product';
     }
 
+    // HIDE PRICE during preview to avoid showing broken extraction
+    // Price will be shown only after full analysis completes in showAnalysis()
     const productPrice = this.elements.analysis.querySelector('.product-price');
-    if (productPrice && productData.price) {
-      const mainPrice = productData.price; // e.g., "$2.97"
-      const unitPrice = productData.pricePerUnit; // e.g., "2.3 ¢/fl oz"
-
-      // Format: "$2.97 current price" with unit price below
-      let priceHTML = `
+    if (productPrice) {
+      productPrice.innerHTML = `
         <div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;">
-          <span style="font-size: 20px; font-weight: 700; color: var(--sw-green);">${mainPrice}</span>
-          <span style="font-size: 13px; color: var(--sw-taupe); font-weight: 400;">current price</span>
+          <span style="font-size: 14px; color: var(--sw-taupe); font-weight: 400; font-style: italic;">Loading price...</span>
         </div>
       `;
-
-      if (unitPrice) {
-        priceHTML += `
-          <span style="font-size: 12px; color: var(--sw-taupe); display: block;">${unitPrice}</span>
-        `;
-      }
-
-      productPrice.innerHTML = priceHTML;
     }
 
     const productRating = this.elements.analysis.querySelector('.product-rating');
@@ -1494,7 +1483,8 @@ class SidePanelUI {
             rating: productData.rating,
             position: productData.position,
             source: productData.source,
-            pricePerUnit: productData.pricePerUnit // Preserve unit price from search card
+            // Only preserve pricePerUnit if HTML parse didn't provide one
+            pricePerUnit: fullProductData.pricePerUnit || productData.pricePerUnit
           };
         }
       } else {

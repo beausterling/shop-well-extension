@@ -112,7 +112,7 @@ body {
 .onboarding-container {
   max-width: 900px;
   margin: 0 auto;
-  padding: var(--space-8) var(--space-6);
+  padding: var(--space-4) var(--space-6);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -167,12 +167,12 @@ body {
   background: var(--sw-beige);
   border: 3px solid var(--sw-taupe);
   border-radius: var(--radius-2xl);
-  padding: var(--space-12);
+  padding: var(--space-8);
   box-shadow: var(--shadow-xl);
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
+  gap: var(--space-6);
 }
 
 /* ===================================
@@ -180,11 +180,11 @@ body {
    =================================== */
 .hero-section {
   text-align: center;
-  padding: var(--space-8) 0;
+  padding: var(--space-4) 0;
 }
 
 .brand-image-container {
-  margin-bottom: var(--space-8);
+  margin-bottom: var(--space-5);
   position: relative;
   overflow: hidden;
   display: inline-block;
@@ -221,7 +221,7 @@ body {
 }
 
 .hero-image {
-  max-width: 550px;
+  max-width: 350px;
   width: 100%;
   height: auto;
   border-radius: var(--radius-xl);
@@ -239,25 +239,66 @@ body {
   font-weight: 700;
   line-height: 1.2;
   color: var(--sw-green-dark);
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
 }
 
 .hero-subtitle {
   font-size: var(--font-size-2xl);
   font-weight: 500;
   color: var(--sw-charcoal);
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-4);
   line-height: 1.4;
 }
 
 .hero-description {
   font-size: var(--font-size-lg);
   color: var(--sw-taupe);
-  margin-bottom: var(--space-8);
-  line-height: 1.7;
+  margin-bottom: var(--space-5);
+  line-height: 1.6;
   max-width: 600px;
   margin-left: auto;
   margin-right: auto;
+}
+
+/* ===================================
+   SUPPORTED RETAILERS LOGOS
+   =================================== */
+.supported-retailers {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-12);
+  margin: var(--space-8) 0 var(--space-6) 0;
+}
+
+.retailer-logo {
+  height: 240px;
+  width: auto;
+  opacity: 0.9;
+  transition: opacity var(--transition);
+  animation: gentleFloat 4s ease-in-out infinite;
+}
+
+.retailer-logo:nth-child(1) {
+  animation: gentleFloat 4s ease-in-out infinite;
+}
+
+.retailer-logo:nth-child(2) {
+  animation: gentleFloat 4s ease-in-out infinite 2s;
+}
+
+.retailer-logo:hover {
+  opacity: 1;
+  animation-play-state: paused;
+}
+
+@keyframes gentleFloat {
+  0%, 100% {
+    transform: translateX(0px);
+  }
+  50% {
+    transform: translateX(12px);
+  }
 }
 
 /* ===================================
@@ -452,7 +493,7 @@ body {
    =================================== */
 .primary-action {
   text-align: center;
-  margin: var(--space-8) 0 var(--space-4) 0;
+  margin: var(--space-5) 0 var(--space-3) 0;
 }
 
 .action-note {
@@ -790,7 +831,7 @@ body {
   gap: var(--space-4);
   justify-content: center;
   margin-top: auto;
-  padding-top: var(--space-8);
+  padding-top: var(--space-4);
 }
 
 .btn {
