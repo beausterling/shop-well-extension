@@ -48,6 +48,77 @@ function getAPICompatibleLanguage(languageCode) {
 }
 
 /* =============================================================================
+   MARKDOWN UTILITIES
+   ============================================================================= */
+
+/**
+ * Converts simple markdown formatting to HTML.
+ * Supports: **bold**, *italic*, and bullet lists (-, *, •)
+ * @param {string} text - Markdown-formatted text
+ * @returns {string} HTML string
+ */
+function parseMarkdownToHTML(text) {
+  if (!text) return '';
+
+  // Split into paragraphs (double newline)
+  const paragraphs = text.split(/\n\n+/);
+
+  let html = '';
+  let inList = false;
+
+  paragraphs.forEach((para, index) => {
+    const trimmed = para.trim();
+    if (!trimmed) return;
+
+    // Check if this paragraph contains bullet points
+    const lines = trimmed.split('\n');
+    const isBulletList = lines.every(line => /^[\-\*•]\s/.test(line.trim()));
+
+    if (isBulletList) {
+      // Render as <ul>
+      if (!inList) {
+        html += '<ul>';
+        inList = true;
+      }
+      lines.forEach(line => {
+        const bulletText = line.replace(/^[\-\*•]\s+/, '').trim();
+        const formatted = formatInlineMarkdown(bulletText);
+        html += `<li>${formatted}</li>`;
+      });
+    } else {
+      // Close list if we were in one
+      if (inList) {
+        html += '</ul>';
+        inList = false;
+      }
+      // Render as <p>
+      const formatted = formatInlineMarkdown(trimmed);
+      html += `<p>${formatted}</p>`;
+    }
+  });
+
+  // Close any open list
+  if (inList) {
+    html += '</ul>';
+  }
+
+  return html;
+}
+
+/**
+ * Formats inline markdown (bold, italic) to HTML.
+ * @param {string} text - Text with inline markdown
+ * @returns {string} Formatted HTML string
+ */
+function formatInlineMarkdown(text) {
+  // Replace **bold** with <strong>
+  text = text.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
+  // Replace *italic* with <em> (but avoid replacing ** remnants)
+  text = text.replace(/(?<!\*)\*([^\*]+)\*(?!\*)/g, '<em>$1</em>');
+  return text;
+}
+
+/* =============================================================================
    TIMEOUT UTILITIES
    ============================================================================= */
 
@@ -484,11 +555,13 @@ Product facts:
 Return ONLY this JSON structure:
 {
   "verdict": "helpful" | "mixed" | "not_ideal",
-  "bullets": ["point 1", "point 2", "point 3", "point 4", "point 5", "point 6"],
-  "caveat": "important warning or limitation"
+  "insights": "1-3 cohesive paragraphs with markdown formatting",
+  "caveat": "brief important warning (40-50 words max)"
 }
 
-Provide 5-6 detailed bullet points (20-25 words each) with specific, actionable insights. Explain WHY each point matters for the condition.`;
+Write 1-3 cohesive paragraphs (total 100-150 words) that provide personalized insights based specifically on the user's ${actualCondition}${allergies && allergies.length > 0 ? ` and their allergen sensitivities (${allergies.join(', ')})` : ''}. Use **bold** for important ingredients or concerns, *italic* for emphasis, and regular bullet lists when listing multiple items. Focus on WHY this product matters for their specific health profile. Make it conversational and directly relevant to their personal needs.
+
+For the caveat: Write a single concise sentence (40-50 words maximum) highlighting the most critical limitation or warning. Use **bold** for key terms if needed.`;
 
   return { systemPrompt, userPrompt };
 }
@@ -553,24 +626,36 @@ function parseVerdictResponse(response, facts, allergies) {
 function validateVerdict(verdict, facts, allergies) {
   const sanitized = {
     verdict: ['helpful', 'mixed', 'not_ideal'].includes(verdict.verdict) ? verdict.verdict : 'mixed',
-    bullets: Array.isArray(verdict.bullets) ? verdict.bullets.slice(0, 6) : ['Analysis available'],
     caveat: typeof verdict.caveat === 'string' ? verdict.caveat : 'Please verify product details',
     allergen_alert: false
   };
 
-  // Ensure at least 3 bullets
-  while (sanitized.bullets.length < 3) {
-    sanitized.bullets.push('Additional analysis available');
+  // NEW FORMAT: Preserve insights field if present (markdown paragraphs)
+  if (typeof verdict.insights === 'string' && verdict.insights.trim().length > 0) {
+    sanitized.insights = verdict.insights;
+  }
+  // OLD FORMAT: Preserve bullets field if present (backward compatibility)
+  else if (Array.isArray(verdict.bullets) && verdict.bullets.length > 0) {
+    sanitized.bullets = verdict.bullets.slice(0, 6);
+
+    // Ensure at least 3 bullets for old format
+    while (sanitized.bullets.length < 3) {
+      sanitized.bullets.push('Additional analysis available');
+    }
+
+    // Allow longer bullets (up to 150 characters for detailed explanations)
+    sanitized.bullets = sanitized.bullets.map(bullet =>
+      bullet.length > 150 ? bullet.substring(0, 147) + '...' : bullet
+    );
+  }
+  // FALLBACK: Create generic bullets if neither format exists
+  else {
+    sanitized.bullets = ['Analysis available', 'Additional analysis available', 'Please review product details manually'];
   }
 
-  // Allow longer bullets (up to 150 characters for detailed explanations)
-  sanitized.bullets = sanitized.bullets.map(bullet =>
-    bullet.length > 150 ? bullet.substring(0, 147) + '...' : bullet
-  );
-
-  // Allow longer caveats (up to 200 characters)
-  if (sanitized.caveat.length > 200) {
-    sanitized.caveat = sanitized.caveat.substring(0, 197) + '...';
+  // Limit caveat length (up to 300 characters for ~50 words)
+  if (sanitized.caveat.length > 300) {
+    sanitized.caveat = sanitized.caveat.substring(0, 297) + '...';
   }
 
   if (facts.allergen_warnings.length > 0) {
@@ -1222,15 +1307,20 @@ class SidePanelUI {
     }
 
     // Update insights
-    const insightsList = this.elements.analysis.querySelector('.insights-list');
-    if (insightsList) {
-      insightsList.innerHTML = '';
-      if (verdict.bullets && verdict.bullets.length > 0) {
-        verdict.bullets.forEach(bullet => {
-          const li = document.createElement('li');
-          li.textContent = bullet;
-          insightsList.appendChild(li);
-        });
+    const insightsContent = this.elements.analysis.querySelector('.insights-content');
+    if (insightsContent) {
+      if (verdict.insights) {
+        // Parse markdown and render as HTML
+        const htmlContent = parseMarkdownToHTML(verdict.insights);
+        insightsContent.innerHTML = htmlContent;
+      } else if (verdict.bullets && verdict.bullets.length > 0) {
+        // Fallback: Support old bullet format for backward compatibility
+        const fallbackHTML = verdict.bullets
+          .map(bullet => `<p>${bullet}</p>`)
+          .join('');
+        insightsContent.innerHTML = fallbackHTML;
+      } else {
+        insightsContent.innerHTML = '<p>No insights available.</p>';
       }
     }
 
@@ -1254,7 +1344,8 @@ class SidePanelUI {
       caveatSection.classList.remove('hidden');
       const caveatContent = caveatSection.querySelector('.caveat-content');
       if (caveatContent) {
-        caveatContent.textContent = verdict.caveat;
+        // Parse markdown formatting (bold, italic)
+        caveatContent.innerHTML = formatInlineMarkdown(verdict.caveat);
       }
     }
 
@@ -1734,7 +1825,33 @@ Provide a helpful, informative response:`;
 
     const bubble = document.createElement('div');
     bubble.className = `chat-bubble chat-bubble-${type}`;
-    bubble.textContent = message;
+
+    // For AI responses, parse markdown and handle line breaks
+    if (type === 'ai') {
+      // Try to detect and parse JSON responses
+      let processedMessage = message;
+      try {
+        const jsonMatch = message.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          // Extract text content from JSON structure
+          processedMessage = parsed.response || parsed.answer || parsed.text || message;
+        }
+      } catch (e) {
+        // Not JSON or invalid JSON, use original message
+      }
+
+      // Apply markdown formatting (bold, italic)
+      processedMessage = formatInlineMarkdown(processedMessage);
+
+      // Convert line breaks: double newlines -> paragraph break, single newlines -> line break
+      processedMessage = processedMessage.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+
+      bubble.innerHTML = processedMessage;
+    } else {
+      // User messages remain plain text
+      bubble.textContent = message;
+    }
 
     messageDiv.appendChild(bubble);
     this.elements.chatMessages.appendChild(messageDiv);

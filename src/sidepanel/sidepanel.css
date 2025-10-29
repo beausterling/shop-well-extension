@@ -384,34 +384,41 @@ body {
   font-weight: var(--font-weight-bold); /* Bold */
 }
 
-.insights-list {
-  list-style: none;
-  padding: 0;
-}
-
-.insights-list li {
-  padding: var(--space-3);
-  padding-left: 40px;
-  margin-bottom: var(--space-2);
+.insights-content {
+  padding: var(--space-4);
   background: var(--sw-blue-light);
   border-left: 3px solid var(--sw-blue);
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-relaxed);
-  position: relative;
 }
 
-.insights-list li::before {
-  content: '';
-  position: absolute;
-  left: 12px;
-  top: 12px;
-  width: 16px;
-  height: 16px;
-  background-image: url('../assets/navicon2border.png');
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
+.insights-content p {
+  margin: 0 0 var(--space-3) 0;
+}
+
+.insights-content p:last-child {
+  margin-bottom: 0;
+}
+
+.insights-content strong {
+  font-weight: var(--font-weight-bold);
+  color: inherit;
+}
+
+.insights-content em {
+  font-style: italic;
+  color: var(--text-primary);
+}
+
+.insights-content ul {
+  margin: var(--space-2) 0;
+  padding-left: var(--space-4);
+  list-style-type: disc;
+}
+
+.insights-content li {
+  margin-bottom: var(--space-1);
 }
 
 .fallback-insight {
@@ -887,6 +894,21 @@ a:focus-visible {
   color: #3D3D3D; /* Charcoal text (hardcoded) */
   border-bottom-left-radius: var(--radius-sm);
   border-left: 3px solid #6BAF7A; /* Green accent border (hardcoded) */
+}
+
+.chat-bubble-ai br {
+  display: block;
+  margin-bottom: 0.5em;
+  content: "";
+}
+
+.chat-bubble-ai strong {
+  font-weight: 600;
+  color: inherit;
+}
+
+.chat-bubble-ai em {
+  font-style: italic;
 }
 
 .chat-input-container {
