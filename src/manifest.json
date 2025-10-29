@@ -38,5 +38,12 @@
       },
       "description": "Toggle Shop Well panel"
     }
-  }
+  },
+  "web_accessible_resources": [{
+    "resources": ["assets/*"],
+    "matches": [
+      "*://www.amazon.com/*",
+      "*://www.walmart.com/*"
+    ]
+  }]
 }

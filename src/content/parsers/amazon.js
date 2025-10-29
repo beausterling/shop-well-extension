@@ -265,7 +265,8 @@ export class AmazonParser {
               url: linkHref || `https://www.amazon.com/dp/${asin}`,
               rating: rating,
               position: index,
-              source: 'amazon_search'
+              source: 'amazon_search',
+              _cardElement: card  // Store DOM element reference for badge injection
             });
           } else {
             console.warn(`Shop Well: Product card ${index} missing ASIN`);

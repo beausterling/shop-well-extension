@@ -42,7 +42,7 @@ body {
   background: white;
   color: #6BAF7A; /* Leaf Green */
   box-shadow: 0 2px 4px rgba(107, 175, 122, 0.1);
-  border-bottom: 2px solid #E9DFC9; /* Soft Beige divider */
+  border-bottom: 2px solid #776B63; /* Taupe border */
   position: sticky;
   top: 0;
   z-index: 10;
@@ -57,8 +57,9 @@ body {
 }
 
 .shop-well-icon {
-  font-size: 1.5rem;
-  line-height: 1;
+  height: 24px;
+  width: auto;
+  display: block;
 }
 
 .shop-well-title {
@@ -272,9 +273,9 @@ body {
 
 .shop-well-analysis {
   padding: 16px;
-  background: white;
+  background: #E9DFC9; /* Warm beige background (hardcoded to prevent dark mode inversion) */
   border-radius: 12px;
-  border: 1px solid #E9DFC9;
+  border: 3px solid #776B63; /* Brown/taupe border (hardcoded) */
   box-shadow: 0 2px 8px rgba(107, 175, 122, 0.08);
   margin: 16px;
 }
@@ -285,7 +286,7 @@ body {
   justify-content: space-between;
   margin-bottom: var(--space-5);
   padding-bottom: var(--space-4);
-  border-bottom: var(--border);
+  border-bottom: 1px solid #776B63; /* Taupe border */
 }
 
 .verdict-badge {
@@ -332,9 +333,9 @@ body {
 .product-info {
   margin-bottom: 20px;
   padding: 16px;
-  background: linear-gradient(135deg, #FAFAF5 0%, #F5F5EF 100%); /* Subtle warmth */
+  background: white; /* Keep white for readability */
   border-radius: 12px;
-  border-left: 4px solid #6BAF7A; /* Leaf Green accent */
+  border-left: 4px solid #6BAF7A; /* Green left accent (original) */
 }
 
 .product-title {
@@ -371,11 +372,16 @@ body {
 .analysis-content h4 {
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
-  color: var(--sw-charcoal);
+  color: #776B63; /* Dark taupe for headings */
   margin-bottom: var(--space-3);
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.key-insights h4 {
+  font-size: var(--font-size-lg); /* One size bigger */
+  font-weight: var(--font-weight-bold); /* Bold */
 }
 
 .insights-list {
@@ -385,19 +391,27 @@ body {
 
 .insights-list li {
   padding: var(--space-3);
+  padding-left: 40px;
   margin-bottom: var(--space-2);
   background: var(--sw-blue-light);
   border-left: 3px solid var(--sw-blue);
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-relaxed);
+  position: relative;
 }
 
 .insights-list li::before {
-  content: '•';
-  color: var(--sw-blue);
-  font-weight: bold;
-  margin-right: var(--space-2);
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  width: 16px;
+  height: 16px;
+  background-image: url('../assets/navicon2border.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
 }
 
 .fallback-insight {
@@ -456,7 +470,7 @@ body {
   align-items: center;
   justify-content: space-between;
   padding-top: var(--space-4);
-  border-top: var(--border);
+  border-top: 1px solid #776B63; /* Taupe border */
 }
 
 .confidence-indicator {
@@ -467,7 +481,7 @@ body {
 }
 
 .confidence-label {
-  color: var(--sw-taupe);
+  color: #776B63; /* Dark taupe - visible on beige background */
 }
 
 .confidence-value {
@@ -488,7 +502,7 @@ body {
 
 .confidence-low {
   background: var(--sw-taupe-light);
-  color: var(--sw-taupe);
+  color: #3D3D3D; /* Charcoal - better contrast on light background */
 }
 
 /* ====================
@@ -785,7 +799,7 @@ a:focus-visible {
 .chat-section {
   margin-top: var(--space-6);
   padding-top: var(--space-5);
-  border-top: 2px solid var(--sw-beige);
+  border-top: 2px solid #776B63; /* Taupe border for consistency */
 }
 
 .chat-header {
@@ -795,7 +809,7 @@ a:focus-visible {
 .chat-header h4 {
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
-  color: var(--sw-charcoal);
+  color: #776B63; /* Dark taupe for "Ask Questions" heading */
   margin-bottom: var(--space-1);
   display: flex;
   align-items: center;
@@ -804,7 +818,7 @@ a:focus-visible {
 
 .chat-subtitle {
   font-size: var(--font-size-sm);
-  color: var(--sw-taupe);
+  color: #776B63; /* Dark taupe - visible on beige background */
   margin: 0;
 }
 
@@ -813,13 +827,18 @@ a:focus-visible {
   overflow-y: auto;
   margin-bottom: var(--space-4);
   padding: var(--space-3);
-  background: var(--sw-warm-white);
+  background: #FAFAF5; /* Warm white background (hardcoded to prevent dark mode inversion) */
   border-radius: var(--radius-lg);
-  border: 1px solid var(--sw-beige);
+  border: 1px solid #E9DFC9; /* Beige border (hardcoded) */
 }
 
+/* Hide completely when empty - no padding, no border, no height */
 .chat-messages:empty {
   display: none;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
 }
 
 .chat-message {
@@ -858,16 +877,16 @@ a:focus-visible {
 }
 
 .chat-bubble-user {
-  background: var(--sw-blue);
-  color: var(--sw-white);
+  background: #65AEDD; /* Blue background (hardcoded to prevent dark mode inversion) */
+  color: white; /* White text (hardcoded) */
   border-bottom-right-radius: var(--radius-sm);
 }
 
 .chat-bubble-ai {
-  background: var(--sw-green-light);
-  color: var(--sw-charcoal);
+  background: white; /* White background for readability (hardcoded to prevent dark mode inversion) */
+  color: #3D3D3D; /* Charcoal text (hardcoded) */
   border-bottom-left-radius: var(--radius-sm);
-  border-left: 3px solid var(--sw-green);
+  border-left: 3px solid #6BAF7A; /* Green accent border (hardcoded) */
 }
 
 .chat-input-container {
@@ -879,30 +898,30 @@ a:focus-visible {
 .chat-input {
   flex: 1;
   padding: var(--space-3);
-  border: 1px solid var(--sw-beige);
+  border: 2px solid #6BAF7A; /* Green border (hardcoded to prevent dark mode inversion) */
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
   font-family: var(--font-family);
-  color: var(--sw-charcoal);
-  background: var(--sw-white);
+  color: #3D3D3D; /* Charcoal text (hardcoded) */
+  background: white; /* White background (hardcoded to prevent dark mode inversion) */
   transition: all var(--transition-fast);
 }
 
 .chat-input:focus {
   outline: none;
-  border-color: var(--sw-blue);
-  box-shadow: 0 0 0 3px rgba(101, 174, 221, 0.1);
+  border-color: #5A9D68; /* Darker green on focus */
+  box-shadow: 0 0 0 3px rgba(107, 175, 122, 0.2);
 }
 
 .chat-input::placeholder {
-  color: var(--sw-taupe);
+  color: #9A8C82; /* Soft taupe (hardcoded) */
   font-size: var(--font-size-xs);
 }
 
 .chat-send-button {
   padding: var(--space-3);
-  background: var(--sw-blue);
-  color: var(--sw-white);
+  background: #6BAF7A; /* Green background (hardcoded to prevent dark mode inversion) */
+  color: white;
   border: none;
   border-radius: var(--radius-md);
   font-size: var(--font-size-lg);
@@ -916,7 +935,7 @@ a:focus-visible {
 }
 
 .chat-send-button:hover {
-  background: var(--sw-blue-dark);
+  background: #5A9D68; /* Darker green on hover */
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
@@ -926,8 +945,8 @@ a:focus-visible {
 }
 
 .chat-send-button:disabled {
-  background: var(--sw-taupe-light);
-  color: var(--sw-taupe);
+  background: #E5DFD9; /* Light taupe background (hardcoded) */
+  color: #776B63; /* Dark taupe text (hardcoded) */
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
@@ -939,13 +958,13 @@ a:focus-visible {
   gap: var(--space-2);
   padding: var(--space-3);
   margin-top: var(--space-2);
-  background: var(--sw-green-light);
+  background: #E8F5EA; /* Light green background (hardcoded to prevent dark mode inversion) */
   border-radius: var(--radius-md);
-  border-left: 3px solid var(--sw-green);
+  border-left: 3px solid #6BAF7A; /* Green border (hardcoded) */
 }
 
 .chat-loading small {
-  color: var(--sw-taupe);
+  color: #776B63; /* Dark taupe text (hardcoded) */
   font-size: var(--font-size-xs);
 }
 
@@ -957,7 +976,7 @@ a:focus-visible {
 .chat-loading-dots span {
   width: 6px;
   height: 6px;
-  background: var(--sw-green);
+  background: #6BAF7A; /* Green dots (hardcoded to prevent dark mode inversion) */
   border-radius: 50%;
   animation: bounce 1.4s infinite ease-in-out both;
 }

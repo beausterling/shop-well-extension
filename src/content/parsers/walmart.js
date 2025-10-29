@@ -416,7 +416,8 @@ export class WalmartParser {
               url: productUrl,
               rating: rating,
               position: index,
-              source: 'walmart_search'
+              source: 'walmart_search',
+              _cardElement: card  // Store DOM element reference for badge injection
             });
           }
         } catch (err) {
