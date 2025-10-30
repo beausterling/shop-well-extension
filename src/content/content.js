@@ -5,12 +5,28 @@
 import { AmazonParser } from './parsers/amazon.js';
 import { WalmartParser } from './parsers/walmart.js';
 
+// Debounce utility to prevent excessive processing during rapid DOM changes
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
 class ProductExtractor {
   constructor() {
     this.parser = null;
     this.isProductPage = false;
     this.pageType = null; // 'pdp' or 'listing'
     this.listingProducts = []; // Array of products on listing page
+    this.mutationObserver = null; // Observer for dynamic content
+    this.urlPoller = null; // Interval ID for URL polling
+    this.lastUrl = window.location.href; // Track last known URL
   }
 
   init() {
@@ -20,16 +36,102 @@ class ProductExtractor {
     this.isProductPage = this.detectProductPage();
 
     if (this.pageType === 'pdp') {
-      console.log(`Shop Well: Detected ${this.parser.name || 'product'} detail page`);
+      const parserName = this.parser === WalmartParser ? 'Walmart' :
+                         this.parser === AmazonParser ? 'Amazon' : 'unknown';
+      console.log(`Shop Well: Detected ${parserName} detail page`);
       // Set up message listener for PDP
       this.setupMessageListener();
     } else if (this.pageType === 'listing') {
-      console.log(`Shop Well: Detected ${this.parser.name || 'search'} listing page`);
+      const parserName = this.parser === WalmartParser ? 'Walmart' :
+                         this.parser === AmazonParser ? 'Amazon' : 'unknown';
+      console.log(`Shop Well: Detected ${parserName} listing page`);
       // Initialize listing mode with badges
       this.initListingMode();
     } else {
       console.log('Shop Well: Not a supported page type');
     }
+
+    // Set up SPA navigation detection to handle URL changes without page reload
+    this.setupSPANavigation();
+  }
+
+  reinit() {
+    console.log('Shop Well: URL changed, re-detecting page type...');
+
+    // Update last known URL to current (prevents polling from re-triggering)
+    this.lastUrl = window.location.href;
+
+    // Stop existing mutation observer if running
+    if (this.mutationObserver) {
+      this.mutationObserver.disconnect();
+      this.mutationObserver = null;
+    }
+
+    // Clear existing state
+    this.listingProducts = [];
+    this.parser = null;
+    this.isProductPage = false;
+    this.pageType = null;
+
+    // Re-detect page type
+    this.isProductPage = this.detectProductPage();
+
+    if (this.pageType === 'pdp') {
+      const parserName = this.parser === WalmartParser ? 'Walmart' :
+                         this.parser === AmazonParser ? 'Amazon' : 'unknown';
+      console.log(`Shop Well: Re-detected ${parserName} detail page`);
+      // PDP message listener is already set up globally, no need to re-add
+    } else if (this.pageType === 'listing') {
+      const parserName = this.parser === WalmartParser ? 'Walmart' :
+                         this.parser === AmazonParser ? 'Amazon' : 'unknown';
+      console.log(`Shop Well: Re-detected ${parserName} listing page`);
+      // Initialize listing mode with badges
+      this.initListingMode();
+    } else {
+      console.log('Shop Well: Not a supported page type after navigation');
+    }
+  }
+
+  setupSPANavigation() {
+    // Intercept history.pushState to detect SPA navigation (standard SPAs)
+    const originalPushState = history.pushState;
+    const originalReplaceState = history.replaceState;
+
+    history.pushState = (...args) => {
+      originalPushState.apply(history, args);
+      console.log('Shop Well: URL changed (detected via history.pushState)');
+      setTimeout(() => this.reinit(), 100);
+    };
+
+    history.replaceState = (...args) => {
+      originalReplaceState.apply(history, args);
+      console.log('Shop Well: URL changed (detected via history.replaceState)');
+      setTimeout(() => this.reinit(), 100);
+    };
+
+    // Also listen for popstate (back/forward button)
+    window.addEventListener('popstate', () => {
+      console.log('Shop Well: URL changed (detected via popstate)');
+      setTimeout(() => this.reinit(), 100);
+    });
+
+    // URL Polling Fallback for Next.js apps (like Walmart) that don't use standard History API
+    // Clear any existing poller first
+    if (this.urlPoller) {
+      clearInterval(this.urlPoller);
+    }
+
+    // Poll every 500ms to detect URL changes
+    this.urlPoller = setInterval(() => {
+      const currentUrl = window.location.href;
+      if (currentUrl !== this.lastUrl) {
+        console.log('Shop Well: URL changed (detected via polling):', this.lastUrl, '→', currentUrl);
+        this.lastUrl = currentUrl;
+        this.reinit();
+      }
+    }, 500);
+
+    console.log('Shop Well: SPA navigation detection enabled (with 500ms URL polling for Next.js)');
   }
 
   detectProductPage() {
@@ -110,20 +212,137 @@ class ProductExtractor {
     console.log(`Shop Well: Found ${this.listingProducts.length} products on listing page`);
 
     if (this.listingProducts.length === 0) {
-      console.warn('Shop Well: No products found on listing page');
-      return;
+      console.warn('Shop Well: No products found initially - will watch for dynamic loading');
+    } else {
+      // Only inject badges if we have products initially
+      this.injectListingBadges();
+
+      // Setup message listener for badge clicks
+      this.setupListingMessageListener();
     }
 
-    // Import and initialize badge overlay
-    // Note: We'll dynamically inject the overlay UI
-    this.injectListingBadges();
+    // ALWAYS set up MutationObserver to watch for dynamically loaded products
+    // This is critical for SPAs where products load asynchronously
+    this.setupDynamicBadgeInjection();
+  }
 
-    // Setup message listener for badge clicks
-    this.setupListingMessageListener();
+  setupDynamicBadgeInjection() {
+    console.log('Shop Well: Setting up dynamic badge injection...');
+
+    // Walmart-specific retry logic for delayed product loading
+    if (this.listingProducts.length === 0 && this.parser === WalmartParser) {
+      console.log('Shop Well: No Walmart products found initially, scheduling retry in 1 second...');
+      setTimeout(() => {
+        console.log('Shop Well: Retrying Walmart product extraction...');
+        const retryProducts = this.parser.extractSearchProducts();
+
+        if (retryProducts.length > 0) {
+          console.log(`Shop Well: Retry successful! Found ${retryProducts.length} products`);
+          this.listingProducts = retryProducts;
+          this.injectListingBadges();
+          this.setupListingMessageListener();
+        } else {
+          console.warn('Shop Well: Retry failed - still no products found');
+        }
+      }, 1000);
+    }
+
+    // Debounced handler for processing new products
+    const handleNewProducts = debounce(() => {
+      console.log('Shop Well: DOM changed, checking for new products...');
+
+      // Re-extract products from the page
+      const newProducts = this.parser.extractSearchProducts();
+
+      if (newProducts.length > this.listingProducts.length) {
+        console.log(`Shop Well: Found ${newProducts.length - this.listingProducts.length} new products`);
+
+        // Check if this is the first time we're getting products
+        const isFirstProducts = this.listingProducts.length === 0 && newProducts.length > 0;
+
+        this.listingProducts = newProducts;
+        this.injectListingBadges();
+
+        // Set up message listener if this is the first time we have products
+        if (isFirstProducts) {
+          this.setupListingMessageListener();
+        }
+      }
+    }, 300); // Wait 300ms after last DOM change before processing
+
+    // Find the container that holds product cards
+    let searchContainer = null;
+
+    if (this.listingProducts.length > 0) {
+      // If we have products, use the first product card to find the container
+      const firstProductCard = this.listingProducts[0]._cardElement;
+      searchContainer = firstProductCard.parentElement;
+      while (searchContainer && searchContainer !== document.body) {
+        // Look for container with multiple product cards
+        const productCards = searchContainer.querySelectorAll('[data-item-id], [data-component-type="s-search-result"]');
+        if (productCards.length > 1) {
+          break;
+        }
+        searchContainer = searchContainer.parentElement;
+      }
+    } else {
+      // No products yet - observe the main content area
+      // Look for common search result container patterns (Amazon, Walmart, generic)
+      searchContainer = document.querySelector(
+        '[data-testid="search-results"], ' +         // Generic test ID
+        '#searchProductResult, ' +                   // Amazon
+        '#search-result-main-content, ' +            // Walmart search
+        '[class*="search-result"], ' +               // Walmart variations
+        '[class*="SearchResult"], ' +                // Walmart capitalized
+        '[class*="product-list"], ' +                // Generic product list
+        'main, ' +                                   // Generic main element
+        '[role="main"]'                              // ARIA main landmark
+      );
+      console.log('Shop Well: No products yet, observing main content area for dynamic loading');
+    }
+
+    if (!searchContainer || searchContainer === document.body) {
+      console.warn('Shop Well: Could not find search results container for observation, using document.body');
+      searchContainer = document.body;
+    }
+
+    console.log('Shop Well: Observing container for new products:', searchContainer.tagName, searchContainer.className);
+
+    // Create MutationObserver to watch for new product cards
+    this.mutationObserver = new MutationObserver((mutations) => {
+      // Check if any mutations added new product card elements
+      const hasNewProducts = mutations.some(mutation => {
+        return Array.from(mutation.addedNodes).some(node => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            // Check if added node is a product card or contains product cards
+            return node.hasAttribute?.('data-item-id') ||
+                   node.hasAttribute?.('data-component-type') ||
+                   node.querySelector?.('[data-item-id], [data-component-type="s-search-result"]');
+          }
+          return false;
+        });
+      });
+
+      if (hasNewProducts) {
+        handleNewProducts();
+      }
+    });
+
+    // Start observing with configuration
+    this.mutationObserver.observe(searchContainer, {
+      childList: true,      // Watch for added/removed children
+      subtree: true,        // Watch all descendants
+      attributes: false,    // Don't watch attribute changes
+      characterData: false  // Don't watch text content changes
+    });
+
+    console.log('Shop Well: MutationObserver active for dynamic badge injection');
   }
 
   injectListingBadges() {
     console.log('Shop Well: Injecting product badges...');
+
+    let injectedCount = 0;
 
     // We'll create this functionality in listing-overlay.js
     // For now, create a simple badge injector inline
@@ -136,8 +355,17 @@ class ProductExtractor {
           return;
         }
 
+        // Skip if badge already exists on this card
+        if (card.hasAttribute('data-shop-well-badged')) {
+          return;
+        }
+
+        // Mark card as badged to prevent duplicates
+        card.setAttribute('data-shop-well-badged', 'true');
+
         // Make card position relative for absolute badge positioning
-        card.style.setProperty('position', 'relative', 'important');
+        // Using cssText for more reliable !important application
+        card.style.cssText += '; position: relative !important; overflow: visible !important;';
 
         // Create badge element
         const badge = document.createElement('div');
@@ -154,6 +382,27 @@ class ProductExtractor {
 
         // Inject badge into card
         card.appendChild(badge);
+        injectedCount++;
+
+        // Debug: Verify badge visibility (only log first 3 to avoid spam)
+        if (index < 3) {
+          setTimeout(() => {
+            const rect = badge.getBoundingClientRect();
+            const badgeStyle = window.getComputedStyle(badge);
+            const cardStyle = window.getComputedStyle(card);
+
+            console.log(`Shop Well: Badge ${index} visibility check:`, {
+              badgeInDOM: document.body.contains(badge),
+              badgeVisible: rect.width > 0 && rect.height > 0,
+              badgeRect: { w: rect.width, h: rect.height, top: rect.top, left: rect.left },
+              badgePosition: badgeStyle.position,
+              badgeZIndex: badgeStyle.zIndex,
+              badgeDisplay: badgeStyle.display,
+              cardPosition: cardStyle.position,
+              cardOverflow: cardStyle.overflow
+            });
+          }, 100);
+        }
 
       } catch (error) {
         console.error(`Shop Well: Failed to inject badge for product ${product.id}:`, error);
@@ -163,7 +412,7 @@ class ProductExtractor {
     // Inject badge styles
     this.injectBadgeStyles();
 
-    console.log(`Shop Well: Injected ${this.listingProducts.length} badges`);
+    console.log(`Shop Well: Injected ${injectedCount} new badges (${this.listingProducts.length} total products)`);
   }
 
   injectBadgeStyles() {
@@ -175,11 +424,18 @@ class ProductExtractor {
     const style = document.createElement('style');
     style.id = 'shop-well-badge-styles';
     style.textContent = `
+      /* Ensure all badged product cards have proper positioning */
+      [data-item-id][data-shop-well-badged],
+      [data-component-type="s-search-result"][data-shop-well-badged] {
+        position: relative !important;
+        overflow: visible !important;
+      }
+
       .shop-well-badge {
         position: absolute !important;
-        top: 8px;
-        right: 8px;
-        z-index: 999999 !important;
+        top: 8px !important;
+        right: 8px !important;
+        z-index: 2147483647 !important;
         display: block !important;
         visibility: visible !important;
         opacity: 1 !important;
@@ -191,6 +447,7 @@ class ProductExtractor {
         font-size: 15px;
         font-weight: 600;
         cursor: pointer;
+        pointer-events: auto !important;
         box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         transition: all 0.25s ease;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -233,6 +490,17 @@ class ProductExtractor {
 
       .shop-well-badge.analyzed::before {
         content: '🌿';
+      }
+
+      .shop-well-badge.completed {
+        background: white !important;
+        color: #6BAF7A !important;
+        border-color: #6BAF7A !important;
+        cursor: pointer;
+      }
+
+      .shop-well-badge.completed::before {
+        content: '👉';
       }
     `;
     document.head.appendChild(style);
@@ -277,6 +545,29 @@ class ProductExtractor {
           products: this.listingProducts
         });
         return true;
+      }
+
+      if (message.type === 'badge-analysis-complete' && message.productIndex !== undefined) {
+        // Update badge to "completed" state (white bg, green text, 👉 Look!)
+        const badge = document.querySelector(`.shop-well-badge[data-product-index="${message.productIndex}"]`);
+        if (badge) {
+          badge.classList.remove('analyzing');
+          badge.classList.add('completed');
+          badge.textContent = 'Look!';
+          console.log(`Shop Well: Badge ${message.productIndex} marked as completed`);
+        }
+        return false;
+      }
+
+      if (message.type === 'badge-analysis-cancelled' && message.productIndex !== undefined) {
+        // Revert badge to normal state
+        const badge = document.querySelector(`.shop-well-badge[data-product-index="${message.productIndex}"]`);
+        if (badge) {
+          badge.classList.remove('analyzing', 'completed');
+          badge.textContent = 'Analyze';
+          console.log(`Shop Well: Badge ${message.productIndex} reverted to normal state`);
+        }
+        return false;
       }
 
       return false;

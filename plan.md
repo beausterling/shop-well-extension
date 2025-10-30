@@ -138,6 +138,21 @@
 
 ## ⚠️ What Needs Work (NEXT PRIORITIES)
 
+### Priority 0: Active Issues
+- **Chrome AI Language Warning (UNRESOLVED)**: Console warning still appearing:
+  ```
+  No output language was specified in a LanguageModel API request. An output language
+  should be specified to ensure optimal output quality and properly attest to output
+  safety. Please specify a supported output language code: [en, es, ja]
+  Context: welcome/index.html
+  Stack Trace: welcome/index.html:0 (anonymous function)
+  ```
+  - **Status**: Deleted `/src/content/ai/prompt.js` (incorrect API usage) but warning persists
+  - **Source**: Likely coming from welcome page AI availability check, not actual LanguageModel creation
+  - **Investigation Needed**: Trace welcome.js to identify where language spec is missing
+  - **Impact**: Doesn't break functionality but indicates potential code quality issue
+  - **Note**: Sidepanel.js has correct implementation with `expectedOutputs.languages` specified
+
 ### Priority 1: Testing & Validation
 - **Live Product Testing**: Verify price extraction works on real Walmart products
 - **Welcome Page Animations**: Test floating logos across Chrome, Firefox, Safari

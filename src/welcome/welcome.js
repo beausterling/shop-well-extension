@@ -197,6 +197,10 @@ async function goToStep(stepNumber) {
 // SETTINGS SAVE (Step 3)
 // ===================================
 async function saveSettings() {
+  // Get first name (optional)
+  const firstNameInput = document.getElementById('first-name-input');
+  const firstName = firstNameInput ? firstNameInput.value.trim() : '';
+
   // Get selected condition
   const conditionInput = document.querySelector('input[name="condition"]:checked');
   const condition = conditionInput ? conditionInput.value : 'POTS'; // Default to POTS
@@ -205,12 +209,13 @@ async function saveSettings() {
   const allergenInputs = document.querySelectorAll('input[name="allergen"]:checked');
   const allergies = Array.from(allergenInputs).map(input => input.value);
 
-  console.log('Welcome: Saving settings:', { condition, allergies });
+  console.log('Welcome: Saving settings:', { firstName, condition, allergies });
 
   try {
     // Save to Chrome storage (if available)
     if (typeof chrome !== 'undefined' && chrome.storage) {
       await chrome.storage.local.set({
+        firstName,
         condition,
         allergies,
         welcomeCompleted: true,
@@ -415,7 +420,16 @@ async function loadExistingSettings() {
       return;
     }
 
-    const result = await chrome.storage.local.get(['condition', 'allergies']);
+    const result = await chrome.storage.local.get(['firstName', 'condition', 'allergies']);
+
+    // Load first name if available
+    if (result.firstName) {
+      const firstNameInput = document.getElementById('first-name-input');
+      if (firstNameInput) {
+        firstNameInput.value = result.firstName;
+        console.log(`Welcome: Pre-filled name: ${result.firstName}`);
+      }
+    }
 
     if (result.condition) {
       const conditionInput = document.getElementById(`condition-${result.condition.toLowerCase().replace(/\//g, '')}`);

@@ -27,14 +27,29 @@ export class WalmartParser {
       hostname,
       pathname,
       search,
-      pathnameIncludesSearch: pathname.includes('/search'),
-      searchIncludesQ: search.includes('?q='),
       fullUrl: window.location.href
     });
 
-    const isSearch = pathname.includes('/search') && search.includes('?q=');
-    console.log('Shop Well: WalmartParser.isSearchPage() result:', isSearch);
+    // Support multiple Walmart page types with product grids
+    const isSearch = (
+      // Standard search with query: /search?q=protein
+      (pathname.includes('/search') && search.includes('?q=')) ||
 
+      // Search with category: /search?cat_id=123
+      (pathname.includes('/search') && search.includes('cat_id=')) ||
+
+      // Browse/category pages: /browse/food/protein-bars/123_456
+      pathname.includes('/browse/') ||
+
+      // Shop pages: /shop/...
+      pathname.includes('/shop/') ||
+
+      // Any page with query parameter
+      search.includes('?q=') ||
+      search.includes('query=')
+    );
+
+    console.log('Shop Well: WalmartParser.isSearchPage() result:', isSearch);
     return isSearch;
   }
 

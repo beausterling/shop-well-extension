@@ -182,8 +182,12 @@ function setupCopyButtons() {
 async function loadSettings() {
   try {
     const settings = await chrome.storage.local.get([
-      'condition', 'customCondition', 'autoshow', 'allergies', 'customAllergies', 'languagePreference'
+      'firstName', 'condition', 'customCondition', 'autoshow', 'allergies', 'customAllergies', 'languagePreference'
     ]);
+
+    // Load first name
+    const firstName = settings.firstName || '';
+    document.getElementById('first-name').value = firstName;
 
     // Load language preference
     const languagePreference = settings.languagePreference || 'auto';
@@ -221,6 +225,7 @@ async function loadSettings() {
 
 async function saveSettings() {
   try {
+    const firstName = document.getElementById('first-name').value.trim();
     const condition = document.getElementById('condition').value;
     const autoshow = document.getElementById('autoshow').checked;
     const languagePreference = document.getElementById('language-preference').value;
@@ -245,6 +250,7 @@ async function saveSettings() {
     }
 
     await chrome.storage.local.set({
+      firstName,
       condition,
       customCondition,
       autoshow,
@@ -414,6 +420,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Custom condition input handler
   document.getElementById('custom-condition').addEventListener('input', saveSettings);
+
+  // Auto-save when first name changes
+  document.getElementById('first-name').addEventListener('input', saveSettings);
 
   // Auto-save when language preference changes
   document.getElementById('language-preference').addEventListener('change', saveSettings);

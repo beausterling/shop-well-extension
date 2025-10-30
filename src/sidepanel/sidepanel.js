@@ -2,6 +2,34 @@
 // All logic inline for compatibility (will be bundled later)
 
 /* =============================================================================
+   PERSONALIZATION UTILITIES
+   ============================================================================= */
+
+/**
+ * Generates personalized subject pronouns based on user's first name.
+ * @param {string} firstName - User's first name (optional)
+ * @returns {Object} - Personalization object with subject and possessive forms
+ */
+function getPersonalization(firstName) {
+  const hasName = firstName && firstName.trim();
+
+  return {
+    // Use for "someone" or the name: "someone with POTS" → "Sarah with POTS" or "you with POTS"
+    subject: hasName ? firstName.trim() : 'you',
+
+    // Use for "the user's" or name possessive: "the user's POTS" → "Sarah's POTS" or "your POTS"
+    possessive: hasName ? `${firstName.trim()}'s` : 'your',
+
+    // Use for subject in context: "someone" → "Sarah" or "someone"
+    // (used when "you" would be grammatically incorrect)
+    thirdPerson: hasName ? firstName.trim() : 'someone',
+
+    // Check if we're using a name (affects grammar choices)
+    hasName: hasName
+  };
+}
+
+/* =============================================================================
    LANGUAGE UTILITIES
    ============================================================================= */
 
@@ -432,7 +460,7 @@ function createFallbackFacts(productData) {
    AI PROMPT - Generate Wellness Verdict
    ============================================================================= */
 
-async function generateVerdict(facts, condition, allergies = [], customCondition = '', cachedLanguageModel = null) {
+async function generateVerdict(facts, condition, allergies = [], customCondition = '', cachedLanguageModel = null, firstName = '') {
   try {
     console.log('Shop Well: Starting AI verdict generation...');
 
@@ -444,7 +472,7 @@ async function generateVerdict(facts, condition, allergies = [], customCondition
     const language = await getUserLanguage();
     console.log('Shop Well: Using language:', language.code, `(${language.name})`);
 
-    const { systemPrompt, userPrompt } = preparePrompts(facts, condition, allergies, customCondition, language);
+    const { systemPrompt, userPrompt } = preparePrompts(facts, condition, allergies, customCondition, language, firstName);
     console.log('Shop Well: Prompt length:', userPrompt.length);
 
     // Map language to Chrome API-compatible code (only en, es, ja supported)
@@ -507,7 +535,7 @@ async function generateVerdict(facts, condition, allergies = [], customCondition
   }
 }
 
-function preparePrompts(facts, condition, allergies, customCondition, language) {
+function preparePrompts(facts, condition, allergies, customCondition, language, firstName) {
   const languageInstruction = getLanguageInstruction(language.code);
 
   const systemPrompt = `You are a wellness shopping assistant that provides informational guidance only.
@@ -520,6 +548,7 @@ CRITICAL RULES:
 - Output ONLY valid JSON format
 - Be supportive but not prescriptive
 - Provide detailed, actionable insights
+- ALWAYS address the user directly as "you/your" (second person) - never use third person
 
 You help people with chronic conditions make informed shopping decisions based on product features.`;
 
@@ -559,7 +588,9 @@ Return ONLY this JSON structure:
   "caveat": "brief important warning (40-50 words max)"
 }
 
-Write 1-3 cohesive paragraphs (total 100-150 words) that provide personalized insights based specifically on the user's ${actualCondition}${allergies && allergies.length > 0 ? ` and their allergen sensitivities (${allergies.join(', ')})` : ''}. Use **bold** for important ingredients or concerns, *italic* for emphasis, and regular bullet lists when listing multiple items. Focus on WHY this product matters for their specific health profile. Make it conversational and directly relevant to their personal needs.
+Write 1-3 cohesive paragraphs (total 100-150 words) that directly address the user with "you/your" language. Provide personalized insights based on their ${actualCondition}${allergies && allergies.length > 0 ? ` and allergen sensitivities (${allergies.join(', ')})` : ''}. Use **bold** for important ingredients or concerns, *italic* for emphasis, and regular bullet lists when listing multiple items. Focus on WHY this product matters for their specific health profile. Make it conversational as if speaking directly to them.
+
+IMPORTANT: Always use "you/your" (e.g., "Given your POTS...", "this could help you manage...") - NEVER use third person.
 
 For the caveat: Write a single concise sentence (40-50 words maximum) highlighting the most critical limitation or warning. Use **bold** for key terms if needed.`;
 
@@ -932,8 +963,9 @@ class SidePanelUI {
 
     // Load user settings
     this.settings = await chrome.storage.local.get([
-      'condition', 'customCondition', 'allergies', 'customAllergies'
+      'firstName', 'condition', 'customCondition', 'allergies', 'customAllergies'
     ]);
+    this.settings.firstName = this.settings.firstName || '';
     this.settings.condition = this.settings.condition || 'POTS';
     this.settings.customCondition = this.settings.customCondition || '';
     this.settings.allergies = this.settings.allergies || [];
@@ -1092,7 +1124,7 @@ class SidePanelUI {
     // Reset to default loading message
     const loadingText = this.elements.loading?.querySelector('p');
     const loadingSubtext = this.elements.loading?.querySelector('small');
-    if (loadingText) loadingText.textContent = 'Analyzing product with Chrome AI...';
+    if (loadingText) loadingText.textContent = 'Analyzing product...';
     if (loadingSubtext) loadingSubtext.textContent = 'This may take a few seconds';
 
     // Hide timeout warning initially
@@ -1267,10 +1299,12 @@ class SidePanelUI {
     // Update condition info
     const conditionInfo = this.elements.analysis.querySelector('.condition-info');
     if (conditionInfo) {
-      const actualCondition = this.settings.condition === 'custom'
-        ? this.settings.customCondition
-        : this.settings.condition;
-      conditionInfo.textContent = `For ${actualCondition}`;
+      const personalization = getPersonalization(this.settings.firstName);
+      if (personalization.hasName) {
+        conditionInfo.textContent = `For ${personalization.subject}`;
+      } else {
+        conditionInfo.textContent = `For You`;
+      }
     }
 
     // Update product info
@@ -1310,8 +1344,10 @@ class SidePanelUI {
     const insightsContent = this.elements.analysis.querySelector('.insights-content');
     if (insightsContent) {
       if (verdict.insights) {
+        // Normalize single newlines to double newlines for proper paragraph separation
+        const normalizedInsights = verdict.insights.replace(/\n/g, '\n\n');
         // Parse markdown and render as HTML
-        const htmlContent = parseMarkdownToHTML(verdict.insights);
+        const htmlContent = parseMarkdownToHTML(normalizedInsights);
         insightsContent.innerHTML = htmlContent;
       } else if (verdict.bullets && verdict.bullets.length > 0) {
         // Fallback: Support old bullet format for backward compatibility
@@ -1359,6 +1395,18 @@ class SidePanelUI {
 
     this.currentState = 'analysis';
     console.log('Shop Well: Showing analysis state');
+
+    // Notify content script that analysis is complete (update badge to "Look!")
+    if (this.currentProductData && this.currentProductData.position !== undefined) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]) {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            type: 'badge-analysis-complete',
+            productIndex: this.currentProductData.position
+          });
+        }
+      });
+    }
   }
 
   cancelAnalysis() {
@@ -1371,8 +1419,20 @@ class SidePanelUI {
       this.timeoutWarningTimer = null;
     }
 
-    // Show error state with cancellation message
-    this.showError('Analysis cancelled. Press the analyze button to try again.');
+    // Notify content script to revert badge to normal state
+    if (this.currentProductData && this.currentProductData.position !== undefined) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]) {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            type: 'badge-analysis-cancelled',
+            productIndex: this.currentProductData.position
+          });
+        }
+      });
+    }
+
+    // Close the side panel
+    window.close();
   }
 
   async analyzeProduct(productData) {
@@ -1434,7 +1494,8 @@ class SidePanelUI {
           this.settings.condition,
           allAllergies,
           this.settings.customCondition,
-          this.cachedLanguageModel
+          this.cachedLanguageModel,
+          this.settings.firstName
         );
         verdict = result.verdict;
         // Cache the language model for future use
@@ -1491,9 +1552,9 @@ class SidePanelUI {
       const allAllergies = [...this.settings.allergies, ...this.settings.customAllergies];
 
       // ===================================================================
-      // PHASE 1: Show immediate preview with quick allergen check
+      // PHASE 1: Show clean loading state
       // ===================================================================
-      this.showPreviewWithProgress(productData, '🔍 Checking for allergens...');
+      this.showLoading();
 
       const titleLower = (productData.title || '').toLowerCase();
 
@@ -1616,7 +1677,8 @@ class SidePanelUI {
             this.settings.condition,
             allAllergies,
             this.settings.customCondition,
-            this.cachedLanguageModel
+            this.cachedLanguageModel,
+            this.settings.firstName
           );
           verdict = verdictResult.verdict;
           if (verdictResult.languageModel) {
@@ -1655,7 +1717,8 @@ class SidePanelUI {
             this.settings.condition,
             allAllergies,
             this.settings.customCondition,
-            this.cachedLanguageModel
+            this.cachedLanguageModel,
+            this.settings.firstName
           );
           verdict = verdictResult.verdict;
           if (verdictResult.languageModel) {
@@ -1752,6 +1815,7 @@ PRODUCT CONTEXT:
 
 CRITICAL RULES:
 - Answer questions about THIS specific product for someone with ${actualCondition}
+- ALWAYS address the user directly as "you/your" (e.g., "This could help you...", "For your POTS...")
 - Use supportive language like "may", "could", "consider"
 - Never provide medical advice or diagnosis
 - Keep responses under 100 words
@@ -1760,7 +1824,7 @@ CRITICAL RULES:
 
 User question: ${userMessage}
 
-Provide a helpful, informative response:`;
+Provide a helpful, informative response addressing the user directly with "you/your":`;
 
       // Use cached language model or create new one
       let result;

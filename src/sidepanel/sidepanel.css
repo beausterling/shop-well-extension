@@ -38,7 +38,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: 10px 20px;
   background: white;
   color: #6BAF7A; /* Leaf Green */
   box-shadow: 0 2px 4px rgba(107, 175, 122, 0.1);
@@ -51,13 +51,13 @@ body {
 .shop-well-logo {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   font-weight: 600;
-  font-size: 1.25rem;
+  font-size: 1.75rem;
 }
 
 .shop-well-icon {
-  height: 24px;
+  height: 36px;
   width: auto;
   display: block;
 }
