@@ -154,10 +154,12 @@
   - **Note**: Sidepanel.js has correct implementation with `expectedOutputs.languages` specified
 
 ### Priority 1: Testing & Validation
+- ✅ **Multi-product listing badges**: Fully working on Walmart search pages with SPA navigation
+- ✅ **Badge state management**: Tested and functional (analyzing → completed → revert on close)
+- ✅ **Analysis caching**: Instant results on re-click
 - **Live Product Testing**: Verify price extraction works on real Walmart products
 - **Welcome Page Animations**: Test floating logos across Chrome, Firefox, Safari
 - End-to-end workflow verification (install → onboard → analyze)
-- Multi-product listing badges (search pages) - code complete, needs testing
 - Edge case handling (missing ingredients, unclear product data)
 
 ### Priority 2: Final Polish
@@ -293,7 +295,7 @@ npm run build
 
 ## 📊 Progress Summary
 
-**Completion**: ~96% complete
+**Completion**: ~98% complete
 - ✅ Core AI functionality working
 - ✅ Design system complete & refined (beige aesthetic)
 - ✅ Landing page complete with branding
@@ -301,20 +303,68 @@ npm run build
 - ✅ Onboarding experience exceptional with 3 user paths
 - ✅ **Critical price extraction bugs fixed** (Walmart main price & unit price)
 - ✅ **Progressive loading UX** (hide broken data during preview)
+- ✅ **Badge system fully functional** (SPA navigation, caching, state management)
+- ✅ **Search page integration complete** (Walmart search results badges working)
 - ⚠️ End-to-end testing on live products needed
 - ⚠️ Cross-browser animation testing
 
 **Current Branch**: `functional-mvp`
 **Last Major Commits**:
+- Badge system with SPA navigation detection (URL polling for Next.js)
+- Analysis caching with Map (instant re-opens)
+- Badge state management (analyzing → completed → revert on close)
+- Side panel close detection via background script
+- Simplified loading UX + Key Insights formatting
 - Walmart price extraction overhaul (multi-strategy parsing)
 - Side panel progressive loading (hide price during preview)
-- Welcome page compacted layout + animated retailer logos
-- Added transparent Amazon/Walmart logo assets
-**Ready For**: Live product testing, cross-browser verification, demo preparation
+**Ready For**: Chrome Web Store submission, demo video, final polish
 
 ---
 
-**Last Updated**: October 24, 2025 - Major price extraction fixes, side panel UX improvements, and welcome page polish
+**Last Updated**: October 29, 2025 - Badge system fully functional with caching and state management
+
+**Recent Achievements (October 29, 2025)**:
+
+### Badge System Overhaul ✅
+- **SPA Navigation Detection**: Fixed badges not appearing on Walmart search pages
+  - Added URL polling (500ms) to detect Next.js navigation without page reload
+  - History API interception for standard SPAs
+  - MutationObserver for dynamic product loading
+  - Proper cleanup to prevent memory leaks
+- **Badge State Management**:
+  - Normal: "🌿 Analyze" (beige background, brown border)
+  - Analyzing: "⏳ Analyzing..." (yellow/orange gradient)
+  - Completed: "👉 Look!" (white background, green text)
+  - States update based on analysis progress and side panel state
+- **Analysis Caching**:
+  - Map-based cache: productId → {verdict, facts, timestamp}
+  - Instant results when clicking previously analyzed products
+  - Cache persists until page reload/navigation
+  - Prevents wasteful re-analysis
+- **Smart Badge Clicks**:
+  - Completed badge click → Show cached results (instant)
+  - Normal badge click → Check cache first, then analyze if needed
+  - Duplicate click prevention (clicking "👉 Look!" while panel open does nothing)
+- **Side Panel Close Detection**:
+  - Background script tracks open panels
+  - Reverts all "👉 Look!" badges to "🌿 Analyze" when panel closes
+  - Cache remains intact for fast re-opens
+- **Cancel Button**: Now closes side panel immediately
+- **Loading Experience**: Simplified to just "Analyzing product..." (removed "with Chrome AI")
+- **Key Insights Formatting**: Added newline normalization for proper paragraph breaks
+
+### CSS & Positioning Fixes ✅
+- **Badge Visibility**: Fixed CSS positioning with `cssText` for Walmart CSS override
+- **Z-index Maximum**: Set to 2147483647 for proper layering
+- **Card Positioning**: Force `position: relative` with `!important`
+- **Overflow Handling**: Added `overflow: visible` to prevent clipping
+- **CSS Safety Net**: Global rules for all badged cards
+
+### Message Passing Architecture ✅
+- **Content Script ↔ Side Panel**: Bidirectional communication for badge state updates
+- **Background Script**: Hub for message routing and side panel lifecycle management
+- **Completion Messages**: Include full analysis results for caching
+- **Cancel Messages**: Proper cleanup before panel close
 
 **Recent Achievements (October 24, 2025)**:
 

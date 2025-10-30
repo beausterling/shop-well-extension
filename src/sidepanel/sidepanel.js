@@ -1002,6 +1002,16 @@ class SidePanelUI {
       }
     });
 
+    // Notify background that side panel is now open (for close detection)
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]) {
+        chrome.runtime.sendMessage({
+          type: 'sidepanel-opened',
+          tabId: tabs[0].id
+        });
+      }
+    });
+
     // Set up a timer to detect if no analysis request arrives
     this.messageReceivedTimer = setTimeout(() => {
       if (this.currentState === 'welcome' && !this.currentProductData) {
@@ -1088,6 +1098,30 @@ class SidePanelUI {
           this.messageReceivedTimer = null;
         }
         this.analyzeListingProduct(message.productData);
+        sendResponse({ success: true });
+      } else if (message.type === 'show-cached-analysis') {
+        // Show cached analysis results without re-running analysis
+        console.log('Shop Well: Showing cached analysis results');
+
+        // Check if we're already displaying this exact product
+        if (this.currentProductData &&
+            this.currentProductData.id === message.productData.id &&
+            this.currentState === 'analysis') {
+          console.log('Shop Well: Already displaying this product, ignoring duplicate request');
+          sendResponse({ success: true, alreadyDisplayed: true });
+          return true;
+        }
+
+        if (this.messageReceivedTimer) {
+          clearTimeout(this.messageReceivedTimer);
+          this.messageReceivedTimer = null;
+        }
+
+        this.currentProductData = message.productData;
+        const { verdict, facts } = message.cachedResults;
+
+        // Show analysis immediately with cached data
+        this.showAnalysis(verdict, facts, message.productData);
         sendResponse({ success: true });
       }
       return true;
@@ -1396,13 +1430,18 @@ class SidePanelUI {
     this.currentState = 'analysis';
     console.log('Shop Well: Showing analysis state');
 
-    // Notify content script that analysis is complete (update badge to "Look!")
+    // Notify content script that analysis is complete (update badge to "Look!" and cache results)
     if (this.currentProductData && this.currentProductData.position !== undefined) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0]) {
           chrome.tabs.sendMessage(tabs[0].id, {
             type: 'badge-analysis-complete',
-            productIndex: this.currentProductData.position
+            productIndex: this.currentProductData.position,
+            productId: this.currentProductData.id,
+            analysisResults: {
+              verdict: verdict,
+              facts: facts
+            }
           });
         }
       });

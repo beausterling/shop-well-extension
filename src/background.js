@@ -304,6 +304,40 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 });
 
 /* =============================================================================
+   SIDE PANEL CLOSE DETECTION
+   ============================================================================= */
+
+// Track which tabs have the side panel open
+const sidePanelOpenTabs = new Set();
+
+// Monitor when windows are removed (includes side panel closes)
+chrome.windows.onRemoved.addListener(async (windowId) => {
+  console.log('Shop Well: Window closed:', windowId);
+
+  // Notify all tabs that side panel was closed
+  const tabs = await chrome.tabs.query({});
+  tabs.forEach(tab => {
+    if (sidePanelOpenTabs.has(tab.id)) {
+      chrome.tabs.sendMessage(tab.id, {
+        type: 'side-panel-closed'
+      }).catch(() => {
+        // Ignore errors if content script not present
+      });
+      sidePanelOpenTabs.delete(tab.id);
+    }
+  });
+});
+
+// When side panel opens, track it
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'sidepanel-opened' && message.tabId) {
+    sidePanelOpenTabs.add(message.tabId);
+    console.log('Shop Well: Side panel opened for tab:', message.tabId);
+  }
+  return false;
+});
+
+/* =============================================================================
    CONTEXT MENU (OPTIONAL - FOR FUTURE)
    ============================================================================= */
 
