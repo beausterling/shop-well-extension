@@ -80,6 +80,51 @@ function getAPICompatibleLanguage(languageCode) {
    ============================================================================= */
 
 /**
+ * Splits text into paragraphs of approximately 2 sentences each.
+ * This improves readability by adding visual breaks in longer text.
+ * @param {string} text - Input text
+ * @returns {string} Text with paragraph breaks every 2 sentences
+ */
+function splitIntoTwoSentenceParagraphs(text) {
+  if (!text) return '';
+
+  // Split by existing double newlines (preserve intentional paragraph breaks)
+  const existingParagraphs = text.split(/\n\n+/);
+
+  const processedParagraphs = existingParagraphs.map(para => {
+    const trimmed = para.trim();
+    if (!trimmed) return '';
+
+    // Don't split bullet lists or very short paragraphs
+    if (trimmed.startsWith('-') || trimmed.startsWith('*') || trimmed.startsWith('•')) {
+      return trimmed;
+    }
+
+    // Split into sentences using regex
+    // Matches: period/exclamation/question followed by space and capital letter, or end of string
+    const sentences = trimmed.match(/[^.!?]+[.!?]+(?=\s+[A-Z]|$)/g);
+
+    if (!sentences || sentences.length <= 2) {
+      // Short paragraph, keep as-is
+      return trimmed;
+    }
+
+    // Group sentences into pairs
+    const pairs = [];
+    for (let i = 0; i < sentences.length; i += 2) {
+      const pair = sentences.slice(i, i + 2).join(' ').trim();
+      pairs.push(pair);
+    }
+
+    // Join pairs with double newlines
+    return pairs.join('\n\n');
+  });
+
+  // Join all processed paragraphs with double newlines
+  return processedParagraphs.filter(p => p).join('\n\n');
+}
+
+/**
  * Converts simple markdown formatting to HTML.
  * Supports: **bold**, *italic*, and bullet lists (-, *, •)
  * @param {string} text - Markdown-formatted text
@@ -584,13 +629,16 @@ Product facts:
 Return ONLY this JSON structure:
 {
   "verdict": "helpful" | "mixed" | "not_ideal",
-  "insights": "1-3 cohesive paragraphs with markdown formatting",
+  "insights": "multiple short paragraphs (2 sentences each) with markdown formatting",
   "caveat": "brief important warning (40-50 words max)"
 }
 
-Write 1-3 cohesive paragraphs (total 100-150 words) that directly address the user with "you/your" language. Provide personalized insights based on their ${actualCondition}${allergies && allergies.length > 0 ? ` and allergen sensitivities (${allergies.join(', ')})` : ''}. Use **bold** for important ingredients or concerns, *italic* for emphasis, and regular bullet lists when listing multiple items. Focus on WHY this product matters for their specific health profile. Make it conversational as if speaking directly to them.
+Write 100-150 words total in short paragraphs of EXACTLY 2 sentences each, with a blank line between each paragraph. Directly address the user with "you/your" language. Provide personalized insights based on their ${actualCondition}${allergies && allergies.length > 0 ? ` and allergen sensitivities (${allergies.join(', ')})` : ''}. Use **bold** for important ingredients or concerns, *italic* for emphasis, and regular bullet lists when listing multiple items. Focus on WHY this product matters for their specific health profile. Make it conversational as if speaking directly to them.
 
-IMPORTANT: Always use "you/your" (e.g., "Given your POTS...", "this could help you manage...") - NEVER use third person.
+IMPORTANT:
+- Always use "you/your" (e.g., "Given your POTS...", "this could help you manage...") - NEVER use third person
+- Keep paragraphs to EXACTLY 2 sentences each for readability
+- Separate each 2-sentence paragraph with a blank line
 
 For the caveat: Write a single concise sentence (40-50 words maximum) highlighting the most critical limitation or warning. Use **bold** for key terms if needed.`;
 
@@ -978,6 +1026,18 @@ class SidePanelUI {
     // Setup event listeners
     this.setupEventListeners();
 
+    // Detect side panel close and clear badge states
+    window.addEventListener('beforeunload', () => {
+      console.log('Shop Well: Side panel closing, clearing badge states...');
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]) {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            type: 'clear-all-active-badges'
+          });
+        }
+      });
+    });
+
     // Update settings link with extension ID
     const settingsLink = document.getElementById('settingsLink');
     if (settingsLink) {
@@ -1098,30 +1158,6 @@ class SidePanelUI {
           this.messageReceivedTimer = null;
         }
         this.analyzeListingProduct(message.productData);
-        sendResponse({ success: true });
-      } else if (message.type === 'show-cached-analysis') {
-        // Show cached analysis results without re-running analysis
-        console.log('Shop Well: Showing cached analysis results');
-
-        // Check if we're already displaying this exact product
-        if (this.currentProductData &&
-            this.currentProductData.id === message.productData.id &&
-            this.currentState === 'analysis') {
-          console.log('Shop Well: Already displaying this product, ignoring duplicate request');
-          sendResponse({ success: true, alreadyDisplayed: true });
-          return true;
-        }
-
-        if (this.messageReceivedTimer) {
-          clearTimeout(this.messageReceivedTimer);
-          this.messageReceivedTimer = null;
-        }
-
-        this.currentProductData = message.productData;
-        const { verdict, facts } = message.cachedResults;
-
-        // Show analysis immediately with cached data
-        this.showAnalysis(verdict, facts, message.productData);
         sendResponse({ success: true });
       }
       return true;
@@ -1378,10 +1414,10 @@ class SidePanelUI {
     const insightsContent = this.elements.analysis.querySelector('.insights-content');
     if (insightsContent) {
       if (verdict.insights) {
-        // Normalize single newlines to double newlines for proper paragraph separation
-        const normalizedInsights = verdict.insights.replace(/\n/g, '\n\n');
+        // Apply sentence splitting to ensure 2-sentence paragraphs
+        const splitInsights = splitIntoTwoSentenceParagraphs(verdict.insights);
         // Parse markdown and render as HTML
-        const htmlContent = parseMarkdownToHTML(normalizedInsights);
+        const htmlContent = parseMarkdownToHTML(splitInsights);
         insightsContent.innerHTML = htmlContent;
       } else if (verdict.bullets && verdict.bullets.length > 0) {
         // Fallback: Support old bullet format for backward compatibility
@@ -1480,6 +1516,15 @@ class SidePanelUI {
     this.showLoading();
 
     console.log('Shop Well: Starting product analysis...', productData);
+
+    // Clear all other "Look!" badges before analyzing new product
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]) {
+        chrome.tabs.sendMessage(tabs[0].id, {
+          type: 'clear-all-active-badges'
+        });
+      }
+    });
 
     try {
       // Re-check AI capabilities
@@ -1584,6 +1629,15 @@ class SidePanelUI {
   async analyzeListingProduct(productData) {
     this.currentProductData = productData;
     console.log('Shop Well: Analyzing listing product with progressive loading...', productData);
+
+    // Clear all other "Look!" badges before analyzing new product
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]) {
+        chrome.tabs.sendMessage(tabs[0].id, {
+          type: 'clear-all-active-badges'
+        });
+      }
+    });
 
     try {
       // Re-check AI capabilities

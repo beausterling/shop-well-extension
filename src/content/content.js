@@ -27,7 +27,6 @@ class ProductExtractor {
     this.mutationObserver = null; // Observer for dynamic content
     this.urlPoller = null; // Interval ID for URL polling
     this.lastUrl = window.location.href; // Track last known URL
-    this.analysisCache = new Map(); // Cache analysis results: productId → {verdict, facts, timestamp}
   }
 
   init() {
@@ -512,44 +511,8 @@ class ProductExtractor {
 
     const badge = document.querySelector(`.shop-well-badge[data-product-index="${product.position}"]`);
 
-    // Check if badge is already in "completed" state (has cached results)
-    if (badge && badge.classList.contains('completed')) {
-      console.log('Shop Well: Badge already completed, checking cache...');
-      const cachedResults = this.analysisCache.get(product.id);
-
-      if (cachedResults) {
-        console.log('Shop Well: Found cached results, sending to side panel');
-        // Send cached results to side panel
-        chrome.runtime.sendMessage({
-          type: 'show-cached-analysis',
-          productData: product,
-          cachedResults: cachedResults
-        });
-        return;
-      }
-    }
-
-    // Check if we have cached results even if badge is not in completed state
-    const cachedResults = this.analysisCache.get(product.id);
-    if (cachedResults) {
-      console.log('Shop Well: Found cached results for product, sending to side panel');
-      // Update badge to analyzing state temporarily
-      if (badge) {
-        badge.classList.add('analyzing');
-        badge.textContent = 'Analyzing...';
-      }
-
-      // Send cached results
-      chrome.runtime.sendMessage({
-        type: 'show-cached-analysis',
-        productData: product,
-        cachedResults: cachedResults
-      });
-      return;
-    }
-
-    // No cache, run fresh analysis
-    console.log('Shop Well: No cache found, running fresh analysis');
+    // Always run fresh analysis (no caching)
+    console.log('Shop Well: Starting fresh analysis');
     if (badge) {
       badge.classList.add('analyzing');
       badge.textContent = 'Analyzing...';
@@ -587,16 +550,6 @@ class ProductExtractor {
       }
 
       if (message.type === 'badge-analysis-complete' && message.productIndex !== undefined) {
-        // Cache the analysis results
-        if (message.productId && message.analysisResults) {
-          this.analysisCache.set(message.productId, {
-            verdict: message.analysisResults.verdict,
-            facts: message.analysisResults.facts,
-            timestamp: Date.now()
-          });
-          console.log(`Shop Well: Cached analysis for product ${message.productId}`);
-        }
-
         // Update badge to "completed" state (white bg, green text, 👉 Look!)
         const badge = document.querySelector(`.shop-well-badge[data-product-index="${message.productIndex}"]`);
         if (badge) {
@@ -627,6 +580,18 @@ class ProductExtractor {
           badge.classList.remove('completed');
           badge.textContent = 'Analyze';
         });
+        return false;
+      }
+
+      if (message.type === 'clear-all-active-badges') {
+        // Clear "Look!" state from all badges (used when starting new analysis or closing side panel)
+        console.log('Shop Well: Clearing all active badge states');
+        const completedBadges = document.querySelectorAll('.shop-well-badge.completed');
+        completedBadges.forEach(badge => {
+          badge.classList.remove('completed');
+          badge.textContent = 'Analyze';
+        });
+        // Note: Analysis cache remains intact for instant re-display
         return false;
       }
 
