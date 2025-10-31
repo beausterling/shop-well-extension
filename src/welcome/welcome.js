@@ -567,15 +567,8 @@ async function finishSetup() {
     }
   }
 
-  // Save settings
-  const success = await saveSettings();
-
-  if (!success) {
-    alert('Failed to save settings. Please try again.');
-    return;
-  }
-
-  console.log('Welcome: Settings saved, showing celebration screen...');
+  // IMMEDIATELY show loading screen (before async operations)
+  console.log('Welcome: Navigating to celebration loading screen...');
 
   // Hide all onboarding steps
   const onboardingSteps = document.querySelectorAll('.onboarding-step');
@@ -583,31 +576,38 @@ async function finishSetup() {
     step.style.display = 'none';
   });
 
-  // Show celebration in loading state
+  // Show celebration in loading state RIGHT NOW
   const celebration = document.getElementById('celebration');
   const loadingState = document.getElementById('celebration-loading');
   const successState = document.getElementById('celebration-success');
 
-  // Force celebration to display
   celebration.style.display = 'flex';
   celebration.classList.remove('hidden');
   celebration.classList.add('active');
   loadingState.classList.remove('hidden');
   successState.classList.add('hidden');
 
-  console.log('Welcome: Celebration loading state visible');
+  console.log('Welcome: Loading screen visible, starting async save operations...');
 
-  // Wait a moment for visual effect, then trigger confetti and show success
+  // NOW save settings while user sees the loading spinner
+  const success = await saveSettings();
+
+  if (!success) {
+    alert('Failed to save settings. Please try again.');
+    return;
+  }
+
+  console.log('Welcome: Settings saved successfully, showing success screen with confetti...');
+
+  // Small delay to ensure loading screen was visible for at least a moment
   setTimeout(() => {
-    console.log('Welcome: Transitioning to success state with confetti...');
-
     // Trigger confetti explosion
     triggerConfetti();
 
     // Switch to success state
     loadingState.classList.add('hidden');
     successState.classList.remove('hidden');
-  }, 1500); // 1.5 second delay to show loading state
+  }, 500); // 0.5 second minimum display time for loading state
 }
 
 // ===================================
