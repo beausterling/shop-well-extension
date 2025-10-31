@@ -282,29 +282,32 @@ async function saveSettings() {
       console.log('Welcome: User did not opt in to data sharing');
     }
 
-    // STEP 3: Generate personalized health profile (non-blocking)
-    try {
-      console.log('Welcome: Generating personalized health profile...');
-      const healthProfile = await generateHealthProfile(conditions, customConditions, allergies, customAllergies);
+    // STEP 3: Generate personalized health profile (TRULY non-blocking - fire and forget)
+    console.log('Welcome: Starting background health profile generation...');
+    generateHealthProfile(conditions, customConditions, allergies, customAllergies)
+      .then(healthProfile => {
+        if (healthProfile && chrome.storage) {
+          return chrome.storage.local.set({
+            healthProfile: {
+              conditions,
+              customConditions,
+              allergies,
+              customAllergies,
+              profile: healthProfile,
+              generatedAt: new Date().toISOString()
+            }
+          });
+        }
+      })
+      .then(() => {
+        console.log('Welcome: Health profile generated and saved in background');
+      })
+      .catch(profileError => {
+        // Profile generation failure should not block onboarding
+        console.warn('Welcome: Background profile generation failed (non-critical):', profileError);
+      });
 
-      if (healthProfile && chrome.storage) {
-        await chrome.storage.local.set({
-          healthProfile: {
-            conditions,
-            customConditions,
-            allergies,
-            customAllergies,
-            profile: healthProfile,
-            generatedAt: new Date().toISOString()
-          }
-        });
-        console.log('Welcome: Health profile generated and saved successfully');
-      }
-    } catch (profileError) {
-      // Profile generation failure should not block onboarding
-      console.warn('Welcome: Health profile generation failed (non-critical):', profileError);
-    }
-
+    // Return immediately without waiting for profile generation!
     return true;
   } catch (error) {
     console.error('Welcome: Failed to save settings:', error);

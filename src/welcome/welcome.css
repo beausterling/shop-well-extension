@@ -1127,7 +1127,8 @@ body {
   text-align: center;
   max-width: 500px;
   padding: var(--space-12);
-  background: white;
+  background: var(--sw-beige);
+  border: 3px solid var(--sw-taupe);
   border-radius: var(--radius-2xl);
   box-shadow: var(--shadow-xl);
   animation: celebrationPop 0.5s ease-out;
@@ -1174,7 +1175,7 @@ body {
 }
 
 .celebration-note {
-  background: var(--sw-beige);
+  background: white;
   border: 2px solid var(--sw-taupe);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
