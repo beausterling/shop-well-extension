@@ -337,26 +337,31 @@ button.secondary:hover,
   justify-content: space-between;
   align-items: center;
   padding: var(--space-2) var(--space-3);
-  background: var(--sw-beige);
-  border: var(--border);
-  border-radius: var(--radius-sm);
+  background: var(--sw-green);
+  border: 1px solid var(--sw-green);
+  border-radius: var(--radius-full);
   margin-bottom: var(--space-2);
+  color: white;
+  font-weight: 600;
+  font-size: var(--font-size-sm);
 }
 
 .remove-button {
-  background: var(--sw-terracotta);
-  color: var(--sw-white);
-  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: var(--radius-sm);
   padding: var(--space-1) var(--space-2);
   cursor: pointer;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
-  transition: background-color var(--transition-normal);
+  transition: all var(--transition-normal);
 }
 
 .remove-button:hover {
-  background: var(--sw-terracotta-dark);
+  background: var(--sw-terracotta-light);
+  border-color: var(--sw-terracotta-light);
+  color: var(--sw-charcoal);
 }
 
 .hidden {
@@ -480,8 +485,8 @@ button.secondary:hover,
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  background: var(--sw-blue-light);
-  border: 1px solid var(--sw-blue);
+  background: var(--sw-green-light);
+  border: 1px solid var(--sw-green);
   border-radius: var(--radius-full);
   font-size: var(--font-size-sm);
   color: var(--sw-charcoal);

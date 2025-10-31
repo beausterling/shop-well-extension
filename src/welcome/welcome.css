@@ -920,8 +920,8 @@ body {
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  background: var(--sw-blue-light);
-  border: 2px solid var(--sw-blue);
+  background: var(--sw-green-light);
+  border: 2px solid var(--sw-green);
   border-radius: var(--radius-full);
   font-size: var(--font-size-sm);
   font-weight: 600;
@@ -956,6 +956,23 @@ body {
 .custom-chip button:hover {
   color: var(--sw-terracotta);
   transform: scale(1.2);
+}
+
+/* Custom allergen chips - match selected allergen styling */
+#custom-allergens-list .custom-chip {
+  background: var(--sw-green);
+  border-color: var(--sw-green);
+  color: white;
+}
+
+#custom-allergens-list .custom-chip button {
+  color: white;
+  opacity: 0.9;
+}
+
+#custom-allergens-list .custom-chip button:hover {
+  color: var(--sw-terracotta-light);
+  opacity: 1;
 }
 
 /* ===================================

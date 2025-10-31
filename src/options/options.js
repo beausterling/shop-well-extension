@@ -308,6 +308,18 @@ function showStatus(message, type = 'success') {
   }, 3000);
 }
 
+// Helper function to capitalize first letter of each word
+function capitalizeWords(text) {
+  return text
+    .split(' ')
+    .map(word => {
+      if (!word) return word; // Handle empty strings
+      // Only capitalize first letter, preserve rest of the characters
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
+}
+
 // Custom condition management
 function displayCustomConditions(customConditions) {
   const container = document.getElementById('custom-conditions-list');
@@ -332,7 +344,7 @@ function displayCustomConditions(customConditions) {
 
 function addCustomCondition() {
   const input = document.getElementById('custom-condition');
-  const condition = input.value.trim();
+  const condition = capitalizeWords(input.value.trim());
 
   if (!condition) {
     showStatus('Please enter a condition name', 'error');
@@ -377,7 +389,7 @@ function addCustomCondition() {
 // Custom allergen management
 function addCustomAllergen() {
   const input = document.getElementById('custom-allergen-input');
-  const allergen = input.value.trim().toLowerCase();
+  const allergen = capitalizeWords(input.value.trim());
 
   if (!allergen) {
     showStatus('Please enter an allergen name', 'error');
