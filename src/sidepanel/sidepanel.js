@@ -505,9 +505,10 @@ function createFallbackFacts(productData) {
    AI PROMPT - Generate Wellness Verdict
    ============================================================================= */
 
-async function generateVerdict(facts, condition, allergies = [], customCondition = '', cachedLanguageModel = null, firstName = '') {
+async function generateVerdict(facts, conditions, allergies = [], cachedLanguageModel = null, firstName = '') {
   try {
     console.log('Shop Well: Starting AI verdict generation...');
+    console.log('Shop Well: Analyzing for conditions:', conditions);
 
     if (typeof LanguageModel === 'undefined') {
       console.warn('Shop Well: Prompt API not available');
@@ -517,7 +518,7 @@ async function generateVerdict(facts, condition, allergies = [], customCondition
     const language = await getUserLanguage();
     console.log('Shop Well: Using language:', language.code, `(${language.name})`);
 
-    const { systemPrompt, userPrompt } = preparePrompts(facts, condition, allergies, customCondition, language, firstName);
+    const { systemPrompt, userPrompt } = preparePrompts(facts, conditions, allergies, language, firstName);
     console.log('Shop Well: Prompt length:', userPrompt.length);
 
     // Map language to Chrome API-compatible code (only en, es, ja supported)
@@ -580,8 +581,12 @@ async function generateVerdict(facts, condition, allergies = [], customCondition
   }
 }
 
-function preparePrompts(facts, condition, allergies, customCondition, language, firstName) {
+function preparePrompts(facts, conditions, allergies, language, firstName) {
   const languageInstruction = getLanguageInstruction(language.code);
+
+  // Handle conditions array
+  const conditionsArray = Array.isArray(conditions) ? conditions : [conditions];
+  const conditionsList = conditionsArray.length > 0 ? conditionsArray.join(', ') : 'general wellness';
 
   const systemPrompt = `You are a wellness shopping assistant that provides informational guidance only.
 
@@ -597,19 +602,14 @@ CRITICAL RULES:
 
 You help people with chronic conditions make informed shopping decisions based on product features.`;
 
-  const actualCondition = condition === 'custom' ? customCondition : condition;
-  const isCustomCondition = condition === 'custom';
-
   const allergenList = allergies.length > 0
     ? `User allergies to check: ${allergies.join(', ')}`
     : 'No specific allergies to check';
 
-  const conditionGuidance = isCustomCondition
-    ? `Custom condition: ${customCondition}. Provide general wellness and comfort analysis.`
-    : getConditionSpecificGuidance(condition);
+  const conditionGuidance = getConditionSpecificGuidance(conditionsArray);
 
   const userPrompt = `
-Analyze this product for someone with: ${actualCondition}
+Analyze this product for someone with: ${conditionsList}
 
 ${conditionGuidance}
 
@@ -633,11 +633,11 @@ Return ONLY this JSON structure:
   "caveat": "brief important warning (40-50 words max)"
 }
 
-Write 100-150 words total in short paragraphs of EXACTLY 2 sentences each, with a blank line between each paragraph. Directly address the user with "you/your" language. Provide personalized insights based on their ${actualCondition}${allergies && allergies.length > 0 ? ` and allergen sensitivities (${allergies.join(', ')})` : ''}. Use **bold** for important ingredients or concerns, *italic* for emphasis, and regular bullet lists when listing multiple items. Focus on WHY this product matters for their specific health profile. Make it conversational as if speaking directly to them.
+Write 100-150 words total in short paragraphs of EXACTLY 2 sentences each, with a blank line between each paragraph. Directly address the user with "you/your" language. Provide personalized insights based on their ${conditionsList}${allergies && allergies.length > 0 ? ` and allergen sensitivities (${allergies.join(', ')})` : ''}. Use **bold** for important ingredients or concerns, *italic* for emphasis, and regular bullet lists when listing multiple items. Focus on WHY this product matters for their specific health profile. Make it conversational as if speaking directly to them.
 
 IMPORTANT:
-- Always use "you/your" (e.g., "Given your POTS...", "this could help you manage...") - NEVER use third person
-- Keep paragraphs to EXACTLY 2 sentences each for readability
+- Always use "you/your" (e.g., "Given your ${conditionsList}...", "this could help you manage...") - NEVER use third person
+${conditionsArray.length > 1 ? `- Consider ALL conditions (${conditionsList}) when providing insights\n` : ''}- Keep paragraphs to EXACTLY 2 sentences each for readability
 - Separate each 2-sentence paragraph with a blank line
 
 For the caveat: Write a single concise sentence (40-50 words maximum) highlighting the most critical limitation or warning. Use **bold** for key terms if needed.`;
@@ -645,7 +645,14 @@ For the caveat: Write a single concise sentence (40-50 words maximum) highlighti
   return { systemPrompt, userPrompt };
 }
 
-function getConditionSpecificGuidance(condition) {
+function getConditionSpecificGuidance(conditions) {
+  // Handle single condition (backward compatibility) or array
+  const conditionsArray = Array.isArray(conditions) ? conditions : [conditions];
+
+  if (conditionsArray.length === 0) {
+    return 'Provide general wellness and comfort analysis with specific reasoning for each point.';
+  }
+
   const guidance = {
     'POTS': `POTS (Postural Orthostatic Tachycardia Syndrome) considerations:
 - Blood volume management: Higher sodium content (electrolytes, salt) may help maintain blood volume and reduce symptoms
@@ -672,7 +679,12 @@ function getConditionSpecificGuidance(condition) {
 - Explain WHY each ingredient matters for intestinal healing and immune response`
   };
 
-  return guidance[condition] || 'Provide general wellness and comfort analysis with specific reasoning for each point.';
+  // Build combined guidance for all conditions
+  const guidanceTexts = conditionsArray.map(condition => {
+    return guidance[condition] || `${condition} considerations: Evaluate how this product may impact ${condition} symptoms and management. Explain specific benefits or concerns.`;
+  });
+
+  return guidanceTexts.join('\n\n');
 }
 
 function parseVerdictResponse(response, facts, allergies) {
@@ -1011,13 +1023,31 @@ class SidePanelUI {
 
     // Load user settings
     this.settings = await chrome.storage.local.get([
-      'firstName', 'condition', 'customCondition', 'allergies', 'customAllergies'
+      'firstName', 'email',
+      'condition', 'conditions', 'customConditions',
+      'allergies', 'customAllergies'
     ]);
     this.settings.firstName = this.settings.firstName || '';
-    this.settings.condition = this.settings.condition || 'POTS';
-    this.settings.customCondition = this.settings.customCondition || '';
+    this.settings.email = this.settings.email || '';
+
+    // === BACKWARD COMPATIBILITY: Migrate old single condition to array ===
+    if (!this.settings.conditions && this.settings.condition) {
+      this.settings.conditions = [this.settings.condition];
+      console.log('Side Panel: Migrated old condition to array:', this.settings.condition);
+    }
+    this.settings.conditions = this.settings.conditions || [];
+    this.settings.customConditions = this.settings.customConditions || [];
+
+    // Combine all conditions into single array for analysis
+    this.settings.allConditions = [
+      ...this.settings.conditions,
+      ...this.settings.customConditions
+    ];
+
     this.settings.allergies = this.settings.allergies || [];
     this.settings.customAllergies = this.settings.customAllergies || [];
+
+    console.log('Side Panel: Loaded conditions:', this.settings.allConditions);
 
     // Check AI availability
     this.aiCapabilities = await checkAIAvailability();
@@ -1575,9 +1605,8 @@ class SidePanelUI {
         console.log('Shop Well: Using AI for verdict generation...');
         const result = await generateVerdict(
           facts,
-          this.settings.condition,
+          this.settings.allConditions,
           allAllergies,
-          this.settings.customCondition,
           this.cachedLanguageModel,
           this.settings.firstName
         );
@@ -1767,9 +1796,8 @@ class SidePanelUI {
         if (this.aiCapabilities && this.aiCapabilities.prompt) {
           const verdictResult = await generateVerdict(
             facts,
-            this.settings.condition,
+            this.settings.allConditions,
             allAllergies,
-            this.settings.customCondition,
             this.cachedLanguageModel,
             this.settings.firstName
           );
@@ -1807,9 +1835,8 @@ class SidePanelUI {
         if (this.aiCapabilities && this.aiCapabilities.prompt) {
           const verdictResult = await generateVerdict(
             facts,
-            this.settings.condition,
+            this.settings.allConditions,
             allAllergies,
-            this.settings.customCondition,
             this.cachedLanguageModel,
             this.settings.firstName
           );
@@ -1893,11 +1920,9 @@ class SidePanelUI {
     try {
       // Prepare chat context with product info
       const language = await getUserLanguage();
-      const actualCondition = this.settings.condition === 'custom'
-        ? this.settings.customCondition
-        : this.settings.condition;
+      const conditionsList = this.settings.allConditions.join(', ') || 'general wellness';
 
-      const contextPrompt = `You are a wellness shopping assistant helping someone with ${actualCondition}.
+      const contextPrompt = `You are a wellness shopping assistant helping someone with ${conditionsList}.
 
 PRODUCT CONTEXT:
 - Product: ${this.currentProductData.title || 'Unknown'}
@@ -1907,7 +1932,7 @@ PRODUCT CONTEXT:
 - Allergen warnings: ${this.currentFacts.allergen_warnings?.join(', ') || 'none'}
 
 CRITICAL RULES:
-- Answer questions about THIS specific product for someone with ${actualCondition}
+- Answer questions about THIS specific product for someone with ${conditionsList}
 - ALWAYS address the user directly as "you/your" (e.g., "This could help you...", "For your POTS...")
 - Use supportive language like "may", "could", "consider"
 - Never provide medical advice or diagnosis

@@ -183,37 +183,53 @@
           <div class="form-section">
             <label class="form-label">What is your name? (Optional)</label>
             <input type="text" id="first-name-input" class="name-input" placeholder="Your first name" maxlength="30" autocomplete="given-name">
-            <p class="form-helper">We'll personalize your wellness insights. Leave blank for generic recommendations.</p>
           </div>
-
           <!-- Condition Selection -->
           <div class="form-section">
-            <label class="form-label">What brings you here?</label>
+            <label class="form-label">What brings you here? (Select all that apply)</label>
             <div class="condition-selector">
               <div class="condition-option" data-condition="POTS">
-                <input type="radio" name="condition" id="condition-pots" value="POTS">
+                <input type="checkbox" name="condition" id="condition-pots" value="POTS">
                 <label for="condition-pots">
                   <span class="condition-icon">💚</span>
-                  <span class="condition-name">POTS</span>
-                  <span class="condition-desc">Postural Orthostatic Tachycardia Syndrome</span>
+                  <div>
+                    <span class="condition-name">POTS</span>
+                    <span class="condition-desc">Postural Orthostatic Tachycardia Syndrome</span>
+                  </div>
                 </label>
               </div>
               <div class="condition-option" data-condition="ME/CFS">
-                <input type="radio" name="condition" id="condition-mecfs" value="ME/CFS">
+                <input type="checkbox" name="condition" id="condition-mecfs" value="ME/CFS">
                 <label for="condition-mecfs">
                   <span class="condition-icon">💙</span>
-                  <span class="condition-name">ME/CFS</span>
-                  <span class="condition-desc">Myalgic Encephalomyelitis / Chronic Fatigue Syndrome</span>
+                  <div>
+                    <span class="condition-name">ME/CFS</span>
+                    <span class="condition-desc">Myalgic Encephalomyelitis / Chronic Fatigue Syndrome</span>
+                  </div>
                 </label>
               </div>
               <div class="condition-option" data-condition="Celiac Disease">
-                <input type="radio" name="condition" id="condition-celiac" value="Celiac Disease">
+                <input type="checkbox" name="condition" id="condition-celiac" value="Celiac Disease">
                 <label for="condition-celiac">
                   <span class="condition-icon">🌾</span>
-                  <span class="condition-name">Celiac Disease</span>
-                  <span class="condition-desc">Gluten sensitivity & autoimmune response</span>
+                  <div>
+                    <span class="condition-name">Celiac Disease</span>
+                    <span class="condition-desc">Gluten sensitivity & autoimmune response</span>
+                  </div>
                 </label>
               </div>
+            </div>
+
+            <!-- Custom Condition Input -->
+            <div class="custom-input-section">
+              <button type="button" class="add-custom-button" id="add-condition-btn">
+                ➕ Add Custom Condition
+              </button>
+              <div class="custom-input-group hidden" id="custom-condition-input-group">
+                <input type="text" id="custom-condition-input" placeholder="Enter condition (e.g., Fibromyalgia, IBS, Diabetes)" maxlength="50">
+                <button type="button" id="add-condition-submit">Add</button>
+              </div>
+              <div class="custom-chips" id="custom-conditions-list"></div>
             </div>
           </div>
 
@@ -258,6 +274,18 @@
                 <input type="checkbox" name="allergen" value="sesame">
                 <span>🌻 Sesame</span>
               </label>
+            </div>
+
+            <!-- Custom Allergen Input -->
+            <div class="custom-input-section">
+              <button type="button" class="add-custom-button" id="add-allergen-btn">
+                ➕ Add Custom Allergen
+              </button>
+              <div class="custom-input-group hidden" id="custom-allergen-input-group">
+                <input type="text" id="custom-allergen-input" placeholder="Enter allergen (e.g., Coconut, Sulfites, Corn)" maxlength="50">
+                <button type="button" id="add-allergen-submit">Add</button>
+              </div>
+              <div class="custom-chips" id="custom-allergens-list"></div>
             </div>
           </div>
 

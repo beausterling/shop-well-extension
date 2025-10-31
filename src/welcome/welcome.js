@@ -194,6 +194,12 @@ async function goToStep(stepNumber) {
 }
 
 // ===================================
+// STATE - Custom Conditions & Allergens
+// ===================================
+let customConditions = []; // Array of custom condition strings
+let customAllergies = []; // Array of custom allergen strings
+
+// ===================================
 // SETTINGS SAVE (Step 3)
 // ===================================
 async function saveSettings() {
@@ -205,15 +211,22 @@ async function saveSettings() {
   const emailInput = document.getElementById('email-input');
   const email = emailInput ? emailInput.value.trim() : '';
 
-  // Get selected condition
-  const conditionInput = document.querySelector('input[name="condition"]:checked');
-  const condition = conditionInput ? conditionInput.value : 'POTS'; // Default to POTS
+  // Get selected conditions (multiple checkboxes)
+  const conditionInputs = document.querySelectorAll('input[name="condition"]:checked');
+  const conditions = Array.from(conditionInputs).map(input => input.value);
 
   // Get selected allergens
   const allergenInputs = document.querySelectorAll('input[name="allergen"]:checked');
   const allergies = Array.from(allergenInputs).map(input => input.value);
 
-  console.log('Welcome: Saving settings:', { firstName, email, condition, allergies });
+  console.log('Welcome: Saving settings:', {
+    firstName,
+    email,
+    conditions,
+    customConditions,
+    allergies,
+    customAllergies
+  });
 
   try {
     // Save to Chrome storage (if available)
@@ -221,8 +234,10 @@ async function saveSettings() {
       await chrome.storage.local.set({
         firstName,
         email,
-        condition,
-        allergies,
+        conditions,           // Array of standard conditions
+        customConditions,     // Array of custom conditions
+        allergies,           // Array of standard allergens
+        customAllergies,     // Array of custom allergens
         welcomeCompleted: true,
         setupDate: new Date().toISOString()
       });
@@ -317,6 +332,122 @@ function continueWithBasicMode() {
 }
 
 // ===================================
+// CUSTOM CONDITION MANAGEMENT
+// ===================================
+function addCustomCondition() {
+  const input = document.getElementById('custom-condition-input');
+  const conditionText = input.value.trim();
+
+  if (!conditionText) {
+    alert('Please enter a condition name.');
+    return;
+  }
+
+  // Check for duplicates
+  if (customConditions.includes(conditionText)) {
+    alert('This condition has already been added.');
+    input.value = '';
+    return;
+  }
+
+  // Add to array
+  customConditions.push(conditionText);
+
+  // Create chip element
+  const chipsList = document.getElementById('custom-conditions-list');
+  const chip = document.createElement('div');
+  chip.className = 'custom-chip';
+  chip.innerHTML = `
+    ${conditionText}
+    <button type="button" data-condition="${conditionText}" aria-label="Remove ${conditionText}">×</button>
+  `;
+
+  // Add remove listener
+  chip.querySelector('button').addEventListener('click', (e) => {
+    removeCustomCondition(e.target.dataset.condition);
+  });
+
+  chipsList.appendChild(chip);
+  input.value = '';
+
+  console.log('Welcome: Added custom condition:', conditionText);
+}
+
+function removeCustomCondition(conditionText) {
+  // Remove from array
+  customConditions = customConditions.filter(c => c !== conditionText);
+
+  // Remove chip from DOM
+  const chipsList = document.getElementById('custom-conditions-list');
+  const chips = chipsList.querySelectorAll('.custom-chip');
+  chips.forEach(chip => {
+    if (chip.textContent.trim().startsWith(conditionText)) {
+      chip.remove();
+    }
+  });
+
+  console.log('Welcome: Removed custom condition:', conditionText);
+}
+
+// ===================================
+// CUSTOM ALLERGEN MANAGEMENT
+// ===================================
+function addCustomAllergen() {
+  const input = document.getElementById('custom-allergen-input');
+  const allergenText = input.value.trim();
+
+  if (!allergenText) {
+    alert('Please enter an allergen name.');
+    return;
+  }
+
+  // Check for duplicates
+  if (customAllergies.includes(allergenText)) {
+    alert('This allergen has already been added.');
+    input.value = '';
+    return;
+  }
+
+  // Add to array
+  customAllergies.push(allergenText);
+
+  // Create chip element
+  const chipsList = document.getElementById('custom-allergens-list');
+  const chip = document.createElement('div');
+  chip.className = 'custom-chip';
+  chip.innerHTML = `
+    ${allergenText}
+    <button type="button" data-allergen="${allergenText}" aria-label="Remove ${allergenText}">×</button>
+  `;
+
+  // Add remove listener
+  chip.querySelector('button').addEventListener('click', (e) => {
+    removeCustomAllergen(e.target.dataset.allergen);
+  });
+
+  chipsList.appendChild(chip);
+  input.value = '';
+
+  console.log('Welcome: Added custom allergen:', allergenText);
+}
+
+function removeCustomAllergen(allergenText) {
+  // Remove from array
+  customAllergies = customAllergies.filter(a => a !== allergenText);
+
+  // Remove chip from DOM
+  const chipsList = document.getElementById('custom-allergens-list');
+  const chips = chipsList.querySelectorAll('.custom-chip');
+  chips.forEach(chip => {
+    if (chip.textContent.trim().startsWith(allergenText)) {
+      chip.remove();
+    }
+  });
+
+  console.log('Welcome: Removed custom allergen:', allergenText);
+}
+
+// ===================================
 // COPY TO CLIPBOARD
 // ===================================
 async function copyToClipboard(text, button) {
@@ -398,6 +529,46 @@ document.addEventListener('DOMContentLoaded', async () => {
     finishSetup();
   });
 
+  // Step 3: Custom condition input
+  document.getElementById('add-condition-btn')?.addEventListener('click', () => {
+    const inputGroup = document.getElementById('custom-condition-input-group');
+    inputGroup.classList.toggle('hidden');
+    if (!inputGroup.classList.contains('hidden')) {
+      document.getElementById('custom-condition-input')?.focus();
+    }
+  });
+
+  document.getElementById('add-condition-submit')?.addEventListener('click', () => {
+    addCustomCondition();
+  });
+
+  document.getElementById('custom-condition-input')?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addCustomCondition();
+    }
+  });
+
+  // Step 3: Custom allergen input
+  document.getElementById('add-allergen-btn')?.addEventListener('click', () => {
+    const inputGroup = document.getElementById('custom-allergen-input-group');
+    inputGroup.classList.toggle('hidden');
+    if (!inputGroup.classList.contains('hidden')) {
+      document.getElementById('custom-allergen-input')?.focus();
+    }
+  });
+
+  document.getElementById('add-allergen-submit')?.addEventListener('click', () => {
+    addCustomAllergen();
+  });
+
+  document.getElementById('custom-allergen-input')?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addCustomAllergen();
+    }
+  });
+
   // Keyboard navigation
   document.addEventListener('keydown', (e) => {
     // Ignore Enter key when user is typing in name input field
@@ -442,15 +613,14 @@ async function loadExistingSettings() {
     // Check if Chrome storage is available
     if (typeof chrome === 'undefined' || !chrome.storage) {
       console.warn('Welcome: Chrome storage not available, using defaults');
-      // Default to POTS
-      const potsInput = document.getElementById('condition-pots');
-      if (potsInput) {
-        potsInput.checked = true;
-      }
       return;
     }
 
-    const result = await chrome.storage.local.get(['firstName', 'email', 'condition', 'allergies']);
+    const result = await chrome.storage.local.get([
+      'firstName', 'email',
+      'condition', 'conditions', 'customConditions',
+      'allergies', 'customAllergies'
+    ]);
 
     // Load first name if available
     if (result.firstName) {
@@ -470,20 +640,45 @@ async function loadExistingSettings() {
       }
     }
 
-    if (result.condition) {
-      const conditionInput = document.getElementById(`condition-${result.condition.toLowerCase().replace(/\//g, '')}`);
-      if (conditionInput) {
-        conditionInput.checked = true;
-        console.log(`Welcome: Pre-selected condition: ${result.condition}`);
-      }
-    } else {
-      // Default to POTS if no condition saved
-      const potsInput = document.getElementById('condition-pots');
-      if (potsInput) {
-        potsInput.checked = true;
-      }
+    // === BACKWARD COMPATIBILITY: Migrate old single condition to array ===
+    let conditionsToLoad = result.conditions || [];
+    if (!conditionsToLoad.length && result.condition) {
+      conditionsToLoad = [result.condition];
+      console.log('Welcome: Migrated old condition to array:', result.condition);
     }
 
+    // Load standard conditions (checkboxes)
+    if (conditionsToLoad.length > 0) {
+      conditionsToLoad.forEach(condition => {
+        const conditionInput = document.getElementById(`condition-${condition.toLowerCase().replace(/\//g, '')}`);
+        if (conditionInput) {
+          conditionInput.checked = true;
+        }
+      });
+      console.log(`Welcome: Pre-selected conditions: ${conditionsToLoad.join(', ')}`);
+    }
+
+    // Load custom conditions
+    if (result.customConditions && result.customConditions.length > 0) {
+      customConditions = [...result.customConditions]; // Copy to global state
+      const chipsList = document.getElementById('custom-conditions-list');
+
+      result.customConditions.forEach(conditionText => {
+        const chip = document.createElement('div');
+        chip.className = 'custom-chip';
+        chip.innerHTML = `
+          ${conditionText}
+          <button type="button" data-condition="${conditionText}" aria-label="Remove ${conditionText}">×</button>
+        `;
+        chip.querySelector('button').addEventListener('click', (e) => {
+          removeCustomCondition(e.target.dataset.condition);
+        });
+        chipsList.appendChild(chip);
+      });
+      console.log(`Welcome: Pre-loaded custom conditions: ${result.customConditions.join(', ')}`);
+    }
+
+    // Load standard allergies (checkboxes)
     if (result.allergies && result.allergies.length > 0) {
       result.allergies.forEach(allergen => {
         const allergenInput = document.querySelector(`input[name="allergen"][value="${allergen}"]`);
@@ -492,6 +687,26 @@ async function loadExistingSettings() {
         }
       });
       console.log(`Welcome: Pre-selected allergies: ${result.allergies.join(', ')}`);
+    }
+
+    // Load custom allergens
+    if (result.customAllergies && result.customAllergies.length > 0) {
+      customAllergies = [...result.customAllergies]; // Copy to global state
+      const chipsList = document.getElementById('custom-allergens-list');
+
+      result.customAllergies.forEach(allergenText => {
+        const chip = document.createElement('div');
+        chip.className = 'custom-chip';
+        chip.innerHTML = `
+          ${allergenText}
+          <button type="button" data-allergen="${allergenText}" aria-label="Remove ${allergenText}">×</button>
+        `;
+        chip.querySelector('button').addEventListener('click', (e) => {
+          removeCustomAllergen(e.target.dataset.allergen);
+        });
+        chipsList.appendChild(chip);
+      });
+      console.log(`Welcome: Pre-loaded custom allergens: ${result.customAllergies.join(', ')}`);
     }
   } catch (error) {
     console.error('Welcome: Failed to load existing settings:', error);

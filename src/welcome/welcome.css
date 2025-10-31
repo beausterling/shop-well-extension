@@ -725,11 +725,11 @@ body {
 .condition-option label {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-5);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   background: white;
   border: 2px solid var(--sw-taupe-light);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition);
 }
@@ -740,16 +740,16 @@ body {
   transform: translateX(4px);
 }
 
-.condition-option input[type="radio"]:checked + label {
+.condition-option input[type="checkbox"]:checked + label {
   border-color: var(--sw-green);
   background: var(--sw-green-light);
   box-shadow: var(--shadow-md);
 }
 
 .condition-icon {
-  font-size: 32px;
-  width: 60px;
-  height: 60px;
+  font-size: 24px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -758,23 +758,24 @@ body {
   flex-shrink: 0;
 }
 
-.condition-option input[type="radio"]:checked + label .condition-icon {
+.condition-option input[type="checkbox"]:checked + label .condition-icon {
   background: white;
   box-shadow: var(--shadow-sm);
 }
 
 .condition-name {
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-lg);
   font-weight: 700;
   color: var(--sw-charcoal);
   display: block;
-  margin-bottom: var(--space-1);
+  margin-bottom: 2px;
 }
 
 .condition-desc {
-  font-size: var(--font-size-sm);
+  font-size: 13px;
   color: var(--sw-taupe);
   display: block;
+  line-height: 1.4;
 }
 
 /* ===================================
@@ -822,6 +823,142 @@ body {
   border-color: var(--sw-green);
   color: white;
   box-shadow: var(--shadow-md);
+}
+
+/* ===================================
+   CUSTOM INPUT SECTIONS
+   =================================== */
+.custom-input-section {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--sw-taupe-light);
+}
+
+.add-custom-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: white;
+  border: 2px dashed var(--sw-taupe-light);
+  border-radius: var(--radius-md);
+  color: var(--sw-taupe);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.add-custom-button:hover {
+  border-color: var(--sw-green);
+  color: var(--sw-green);
+  background: var(--sw-green-light);
+}
+
+.custom-input-group {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.custom-input-group input {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family);
+  color: var(--sw-charcoal);
+  background: white;
+  border: 2px solid var(--sw-taupe-light);
+  border-radius: var(--radius-md);
+  transition: all var(--transition);
+}
+
+.custom-input-group input:focus {
+  outline: none;
+  border-color: var(--sw-green);
+  box-shadow: 0 0 0 3px rgba(107, 175, 122, 0.15);
+}
+
+.custom-input-group button {
+  padding: var(--space-2) var(--space-4);
+  background: var(--sw-green);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.custom-input-group button:hover {
+  background: var(--sw-green-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Custom chips display */
+.custom-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.custom-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--sw-blue-light);
+  border: 2px solid var(--sw-blue);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--sw-charcoal);
+  animation: chipAppear 0.3s ease-out;
+}
+
+@keyframes chipAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.custom-chip button {
+  background: none;
+  border: none;
+  color: var(--sw-charcoal);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  margin-left: var(--space-1);
+  transition: all var(--transition);
+}
+
+.custom-chip button:hover {
+  color: var(--sw-terracotta);
+  transform: scale(1.2);
 }
 
 /* ===================================
