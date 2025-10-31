@@ -80,15 +80,78 @@ export function cleanText(text) {
  * @returns {string} - Extracted price string or empty string
  */
 export function extractPrice(selectors, root = document) {
-  const priceText = getText(selectors, root);
+  const selectorArray = Array.isArray(selectors) ? selectors : [selectors];
 
-  if (!priceText) {
-    return '';
+  console.log('Shop Well: Attempting to extract price with', selectorArray.length, 'selectors');
+
+  // Try each selector in order
+  for (const selector of selectorArray) {
+    try {
+      const element = root.querySelector(selector);
+      if (!element) {
+        console.log(`Shop Well: Selector "${selector}" - no element found`);
+        continue;
+      }
+
+      const priceText = element.textContent.trim();
+      if (!priceText) {
+        console.log(`Shop Well: Selector "${selector}" - empty text`);
+        continue;
+      }
+
+      console.log(`Shop Well: Selector "${selector}" found text: "${priceText}"`);
+
+      // Check parent element for unit price indicators
+      const parentElement = element.parentElement;
+      const parentClass = parentElement?.className || '';
+      const parentText = parentElement?.textContent || '';
+
+      if (parentClass.includes('unit') || parentClass.includes('per-unit') ||
+          parentText.toLowerCase().includes('per ') || parentText.toLowerCase().includes('/oz') ||
+          parentText.toLowerCase().includes('/count')) {
+        console.log(`Shop Well: Skipping - parent suggests unit price (class: "${parentClass}")`);
+        continue;
+      }
+
+      // Skip if this looks like a unit price (contains "/" or "per")
+      // e.g., "($0.17/ounce)", "$1.50/count", "2.3 ¢ per fl oz"
+      if (priceText.includes('/') || priceText.toLowerCase().includes('per')) {
+        console.log(`Shop Well: Skipping - contains unit price indicator: "${priceText}"`);
+        continue;
+      }
+
+      // Extract price pattern like $12.99, $1,299.99, etc.
+      const priceMatch = priceText.match(/\$[\d,]+\.?\d*/);
+      if (!priceMatch) {
+        console.log(`Shop Well: Skipping - no price pattern found in "${priceText}"`);
+        continue;
+      }
+
+      const extractedPrice = priceMatch[0];
+      console.log(`Shop Well: Extracted price: "${extractedPrice}"`);
+
+      // Parse price value to check if it's suspiciously low (likely unit price)
+      const priceValue = parseFloat(extractedPrice.replace(/[$,]/g, ''));
+
+      // Skip prices under $0.99 - likely unit prices (e.g., "$0.23" per ounce)
+      // Exception: if it's the LAST selector (broadest fallback), we might accept it
+      const isLastSelector = selector === selectorArray[selectorArray.length - 1];
+      if (priceValue < 0.99 && !isLastSelector) {
+        console.log(`Shop Well: Skipping - price too low (${extractedPrice}), likely unit price`);
+        continue;
+      }
+
+      console.log(`Shop Well: ✓ Valid main price found: "${extractedPrice}" from selector: ${selector}`);
+      return extractedPrice;
+
+    } catch (error) {
+      console.warn(`Shop Well: Error with selector "${selector}":`, error);
+      continue;
+    }
   }
 
-  // Look for price patterns like $12.99, $1,299.99, etc.
-  const priceMatch = priceText.match(/\$[\d,]+\.?\d*/);
-  return priceMatch ? priceMatch[0] : priceText;
+  console.log('Shop Well: No valid price found after trying all selectors');
+  return '';
 }
 
 /**

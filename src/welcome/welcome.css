@@ -1184,6 +1184,81 @@ body {
 }
 
 /* ===================================
+   CELEBRATION STATES (Loading & Success)
+   =================================== */
+.celebration-state {
+  width: 100%;
+  animation: fadeInSlide 0.5s ease-out;
+}
+
+.celebration-state.hidden {
+  display: none;
+}
+
+/* Loading State */
+.celebration-loading {
+  text-align: center;
+  padding: var(--space-8) 0;
+}
+
+.celebration-spinner {
+  margin-bottom: var(--space-8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.spinner-large {
+  width: 80px;
+  height: 80px;
+  border: 6px solid var(--sw-green-light);
+  border-top: 6px solid var(--sw-green);
+  border-radius: var(--radius-full);
+  animation: spin 1.2s linear infinite;
+}
+
+.celebration-loading-title {
+  font-size: var(--font-size-4xl);
+  font-weight: 700;
+  color: var(--sw-green-dark);
+  margin-bottom: var(--space-4);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.celebration-loading-subtitle {
+  font-size: var(--font-size-lg);
+  color: var(--sw-taupe);
+  line-height: 1.6;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* Success State */
+.celebration-success {
+  text-align: center;
+}
+
+.celebration-actions {
+  display: flex;
+  gap: var(--space-4);
+  justify-content: center;
+  margin-top: var(--space-6);
+  flex-wrap: wrap;
+}
+
+.celebration-actions .btn {
+  min-width: 180px;
+  justify-content: center;
+}
+
+/* ===================================
    RESPONSIVE DESIGN
    =================================== */
 @media (max-width: 768px) {

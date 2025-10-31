@@ -139,19 +139,36 @@ export class AmazonParser {
    * @returns {string}
    */
   static extractPrice() {
+    // Ultra-specific selectors targeting ONLY the main product price display
+    // Ordered from most specific to most general
     const priceSelectors = [
+      // Apex price (current standard, 2023-2024)
+      '#apex_desktop .a-price.apexPriceToPay .a-offscreen',
+      '#apex_offerDisplay_desktop .a-price.apexPriceToPay .a-offscreen',
       '.a-price.a-text-price.a-size-medium.apexPriceToPay .a-offscreen',
-      '#corePrice_feature_div .a-price.a-text-price .a-offscreen',
-      '.a-price-whole',
+      '.a-price.apexPriceToPay .a-offscreen',
+
+      // Core price display containers
+      '#corePriceDisplay_desktop_feature_div .a-price:not([data-a-color="secondary"]) .a-offscreen',
+      '#corePrice_desktop .a-price:not([data-a-color="secondary"]) .a-offscreen',
+      '#corePrice_feature_div .a-price:not([data-a-color="secondary"]) .a-offscreen',
+
+      // Deal/Sale price (specific container)
       '#priceblock_dealprice',
       '#priceblock_ourprice',
-      '.a-price .a-offscreen',
+
+      // Buybox price
+      '#price_inside_buybox',
+
+      // General price fallbacks with filters
+      // Note: These are broad and extractPrice() will apply low-price filter
+      '.a-price-whole',
       '[data-testid="price"]',
-      '.a-price-current'
+      '.a-price .a-offscreen'  // Most broad - will be filtered aggressively
     ];
 
     const price = extractPrice(priceSelectors);
-    console.log('Shop Well: Amazon price:', price);
+    console.log('Shop Well: Amazon final extracted price:', price);
     return price;
   }
 
@@ -240,12 +257,42 @@ export class AmazonParser {
           }
 
           // Price extraction (Amazon has complex price structures)
-          const priceWhole = card.querySelector('.a-price .a-price-whole')?.textContent;
-          const priceFraction = card.querySelector('.a-price .a-price-fraction')?.textContent;
-          const priceSymbol = card.querySelector('.a-price .a-price-symbol')?.textContent || '$';
+          // Try multiple strategies to get the MAIN price (not unit price)
           let price = null;
-          if (priceWhole) {
-            price = `${priceSymbol}${priceWhole}${priceFraction || ''}`.trim();
+
+          // Strategy 1: Use .a-offscreen which contains the full price text (most reliable)
+          const offscreenPrice = card.querySelector('.a-price:not([data-a-strike="true"]) .a-offscreen')?.textContent?.trim();
+          if (offscreenPrice && !offscreenPrice.includes('/') && !offscreenPrice.toLowerCase().includes('per')) {
+            // Parse the price value to check if it's reasonable
+            const priceMatch = offscreenPrice.match(/\$[\d,]+\.?\d*/);
+            if (priceMatch) {
+              const priceValue = parseFloat(priceMatch[0].replace(/[$,]/g, ''));
+              // Skip suspiciously low prices (likely unit prices like $0.02)
+              if (priceValue >= 0.99 || priceValue === 0) {
+                price = priceMatch[0];
+                console.log(`Shop Well: Search card price (offscreen): ${price}`);
+              } else {
+                console.log(`Shop Well: Rejected low price from offscreen: ${priceMatch[0]} (likely unit price)`);
+              }
+            }
+          }
+
+          // Strategy 2: Fallback to constructing from parts if Strategy 1 failed
+          if (!price) {
+            const priceWhole = card.querySelector('.a-price:not([data-a-strike="true"]) .a-price-whole')?.textContent;
+            const priceFraction = card.querySelector('.a-price:not([data-a-strike="true"]) .a-price-fraction')?.textContent;
+            const priceSymbol = card.querySelector('.a-price:not([data-a-strike="true"]) .a-price-symbol')?.textContent || '$';
+            if (priceWhole) {
+              const constructedPrice = `${priceSymbol}${priceWhole}${priceFraction || ''}`.trim();
+              const priceValue = parseFloat(priceWhole.replace(/,/g, ''));
+              // Skip suspiciously low prices
+              if (priceValue >= 0.99 || priceValue === 0) {
+                price = constructedPrice;
+                console.log(`Shop Well: Search card price (constructed): ${price}`);
+              } else {
+                console.log(`Shop Well: Rejected low price from parts: ${constructedPrice} (likely unit price)`);
+              }
+            }
           }
 
           // Image

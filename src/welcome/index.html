@@ -368,11 +368,31 @@
     <!-- Success Celebration (hidden, shown after completion) -->
     <div class="celebration hidden" id="celebration">
       <div class="celebration-content">
-        <div class="celebration-icon">🎉</div>
-        <h2>You're All Set!</h2>
-        <p>Shop Well is ready to help you make safer shopping decisions.</p>
-        <div class="celebration-note">
-          Visit any Amazon or Walmart product page and click the Shop Well extension icon to get started!
+        <!-- Loading State -->
+        <div class="celebration-state celebration-loading" id="celebration-loading">
+          <div class="celebration-spinner">
+            <div class="spinner-large"></div>
+          </div>
+          <h2 class="celebration-loading-title">Building your health profile...</h2>
+          <p class="celebration-loading-subtitle">Creating personalized wellness insights just for you</p>
+        </div>
+
+        <!-- Success State -->
+        <div class="celebration-state celebration-success hidden" id="celebration-success">
+          <div class="celebration-icon">🎉</div>
+          <h2>You're All Set!</h2>
+          <p>Shop Well is ready to help you make safer shopping decisions.</p>
+          <div class="celebration-note">
+            <p>You can adjust your health profile anytime by clicking the Shop Well extension icon in your toolbar, or click below:</p>
+          </div>
+          <div class="celebration-actions">
+            <button class="btn btn-primary" id="configure-settings-btn">
+              ⚙️ Configure Settings
+            </button>
+            <button class="btn btn-secondary" id="close-welcome-btn">
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>

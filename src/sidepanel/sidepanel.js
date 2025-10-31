@@ -505,7 +505,7 @@ function createFallbackFacts(productData) {
    AI PROMPT - Generate Wellness Verdict
    ============================================================================= */
 
-async function generateVerdict(facts, conditions, allergies = [], cachedLanguageModel = null, firstName = '') {
+async function generateVerdict(facts, conditions, allergies = [], cachedLanguageModel = null, firstName = '', productData = null) {
   try {
     console.log('Shop Well: Starting AI verdict generation...');
     console.log('Shop Well: Analyzing for conditions:', conditions);
@@ -518,6 +518,10 @@ async function generateVerdict(facts, conditions, allergies = [], cachedLanguage
     const language = await getUserLanguage();
     console.log('Shop Well: Using language:', language.code, `(${language.name})`);
 
+    // Detect product category for contextual analysis
+    const productCategory = productData ? detectProductCategory(productData, facts) : 'general';
+    console.log('Shop Well: Detected product category:', productCategory);
+
     // Retrieve stored health profile if available
     let healthProfile = null;
     try {
@@ -525,6 +529,9 @@ async function generateVerdict(facts, conditions, allergies = [], cachedLanguage
       healthProfile = result.healthProfile?.profile || null;
       if (healthProfile) {
         console.log('Shop Well: Using stored health profile');
+        // Filter profile to only relevant aspects for this product category
+        healthProfile = filterHealthProfileByCategory(healthProfile, productCategory, conditions, allergies);
+        console.log('Shop Well: Filtered profile for', productCategory, 'category');
       } else {
         console.log('Shop Well: No health profile found, using legacy guidance');
       }
@@ -532,7 +539,7 @@ async function generateVerdict(facts, conditions, allergies = [], cachedLanguage
       console.warn('Shop Well: Failed to load health profile:', error);
     }
 
-    const { systemPrompt, userPrompt } = preparePrompts(facts, conditions, allergies, language, firstName, healthProfile);
+    const { systemPrompt, userPrompt } = preparePrompts(facts, conditions, allergies, language, firstName, healthProfile, productCategory);
     console.log('Shop Well: Prompt length:', userPrompt.length);
 
     // Map language to Chrome API-compatible code (only en, es, ja supported)
@@ -593,6 +600,123 @@ async function generateVerdict(facts, conditions, allergies = [], cachedLanguage
     }
     return { verdict: null, languageModel: cachedLanguageModel };
   }
+}
+
+/**
+ * Detects the product category based on title, facts, and content.
+ * This determines which health aspects are relevant for analysis.
+ *
+ * @param {Object} productData - Product information (title, bullets, etc.)
+ * @param {Object} facts - Extracted product facts
+ * @returns {string} - Product category
+ */
+function detectProductCategory(productData, facts) {
+  const titleLower = (productData.title || '').toLowerCase();
+  const bulletsText = (productData.bullets || []).join(' ').toLowerCase();
+  const hasIngredients = !!(productData.ingredients && productData.ingredients.length > 0);
+
+  // Food & Supplements - highest priority for ingredient-based products
+  if (hasIngredients || facts.gluten_free || facts.high_sugar || facts.high_sodium) {
+    // Distinguish supplements from regular food
+    if (titleLower.match(/\b(vitamin|supplement|probiotic|mineral|omega|capsule|tablet|softgel)\b/)) {
+      return 'supplement';
+    }
+    return 'food';
+  }
+
+  // Check title patterns for non-food categories
+  if (titleLower.match(/\b(vitamin|supplement|probiotic|mineral|omega|capsule|tablet|pill|softgel)\b/)) {
+    return 'supplement';
+  }
+
+  if (titleLower.match(/\b(cereal|snack|food|drink|beverage|meal|bar|shake|protein|powder|juice|water|tea|coffee|sauce|seasoning)\b/)) {
+    return 'food';
+  }
+
+  // Mobility & Assistive Devices
+  if (titleLower.match(/\b(cane|walker|wheelchair|mobility|grab bar|handrail|seat|stool|cushion|lift|ramp|reacher|gripper)\b/) ||
+      facts.ergonomic_design || facts.lightweight) {
+    return 'mobility';
+  }
+
+  // Clothing & Compression Garments
+  if (facts.compression_garment ||
+      titleLower.match(/\b(sock|stocking|sleeve|shirt|garment|clothing|compression|brace|wrap|band|support|belt)\b/)) {
+    return 'clothing';
+  }
+
+  // Household Products
+  if (titleLower.match(/\b(cleaner|cleaning|soap|detergent|spray|wipe|disinfect|laundry|dish|surface|floor)\b/)) {
+    return 'household';
+  }
+
+  // Personal Care
+  if (titleLower.match(/\b(shampoo|conditioner|lotion|cream|cosmetic|perfume|cologne|deodorant|hygiene|skincare|moisturizer|sunscreen|toothpaste)\b/)) {
+    return 'personal-care';
+  }
+
+  // Medical Equipment
+  if (titleLower.match(/\b(monitor|device|equipment|medical|pill organizer|thermometer|blood pressure|glucose|oximeter|nebulizer|inhaler)\b/)) {
+    return 'medical-equipment';
+  }
+
+  // Default to general if no specific category detected
+  return 'general';
+}
+
+/**
+ * Filters health profile to only include aspects relevant to the product category.
+ * This prevents irrelevant health advice (e.g., ergonomics for food items).
+ *
+ * @param {string} healthProfile - Full health profile text
+ * @param {string} category - Product category
+ * @param {Array} conditions - User's conditions
+ * @param {Array} allergies - User's allergies
+ * @returns {string} - Filtered health profile focusing on relevant aspects
+ */
+function filterHealthProfileByCategory(healthProfile, category, conditions = [], allergies = []) {
+  // Category-to-health-aspect relevance mapping
+  const relevanceMap = {
+    food: ['dietary', 'ingredient', 'nutrition', 'sodium', 'sugar', 'gluten', 'allergen', 'food', 'eating', 'digest'],
+    supplement: ['dietary', 'ingredient', 'nutrition', 'vitamin', 'mineral', 'supplement', 'interaction', 'allergen'],
+    mobility: ['physical', 'mobility', 'movement', 'ergonomic', 'lightweight', 'ease of use', 'energy', 'fatigue', 'pain', 'joint', 'muscle'],
+    clothing: ['physical', 'compression', 'support', 'circulation', 'temperature', 'comfort', 'mobility', 'skin'],
+    household: ['chemical', 'fragrance', 'scent', 'sensitive', 'irritant', 'allergen', 'ease of use', 'physical'],
+    'personal-care': ['skin', 'fragrance', 'scent', 'chemical', 'sensitive', 'allergen', 'irritant', 'ingredient'],
+    'medical-equipment': ['physical', 'ease of use', 'cognitive', 'mobility', 'symptom', 'monitoring', 'ergonomic'],
+    general: null // null means include everything
+  };
+
+  const relevantTerms = relevanceMap[category];
+
+  // If general category, return full profile
+  if (!relevantTerms) {
+    return healthProfile;
+  }
+
+  // Split profile into sentences/sections
+  const sentences = healthProfile.split(/[.!?]+/).filter(s => s.trim().length > 0);
+
+  // Filter sentences that contain relevant terms
+  const relevantSentences = sentences.filter(sentence => {
+    const sentenceLower = sentence.toLowerCase();
+    return relevantTerms.some(term => sentenceLower.includes(term));
+  });
+
+  // If filtered profile is too short, add category-specific context
+  let filteredProfile = relevantSentences.join('. ') + '.';
+
+  // Add explicit filtering instruction
+  const categoryLabel = category.replace('-', ' ');
+  const header = `**Relevant for ${categoryLabel} products:**\n\n`;
+
+  // Ensure we have meaningful content
+  if (filteredProfile.length < 100) {
+    // Profile was too filtered, provide minimal context
+    filteredProfile = `For ${categoryLabel} products, focus on: ${relevantTerms.slice(0, 5).join(', ')}.`;
+  }
+
+  return header + filteredProfile;
 }
 
 /**
@@ -706,12 +830,25 @@ function generateFallbackProfile(allConditions, allAllergies) {
   return profile;
 }
 
-function preparePrompts(facts, conditions, allergies, language, firstName, healthProfile) {
+function preparePrompts(facts, conditions, allergies, language, firstName, healthProfile, productCategory = 'general') {
   const languageInstruction = getLanguageInstruction(language.code);
 
   // Handle conditions array
   const conditionsArray = Array.isArray(conditions) ? conditions : [conditions];
   const conditionsList = conditionsArray.length > 0 ? conditionsArray.join(', ') : 'general wellness';
+
+  // Category-specific focus instructions
+  const categoryLabels = {
+    food: 'food/beverage product',
+    supplement: 'dietary supplement',
+    mobility: 'mobility/assistive device',
+    clothing: 'clothing/compression garment',
+    household: 'household product',
+    'personal-care': 'personal care product',
+    'medical-equipment': 'medical equipment',
+    general: 'general product'
+  };
+  const categoryLabel = categoryLabels[productCategory] || 'general product';
 
   const systemPrompt = `You are a wellness shopping assistant that provides informational guidance only.
 
@@ -724,6 +861,8 @@ CRITICAL RULES:
 - Be supportive but not prescriptive
 - Provide detailed, actionable insights
 - ALWAYS address the user directly as "you/your" (second person) - never use third person
+- FOCUS ONLY on health aspects relevant to ${categoryLabel} products
+- DO NOT discuss unrelated health concerns (e.g., no ergonomics for food items)
 
 You help people with chronic conditions make informed shopping decisions based on product features.`;
 
@@ -735,9 +874,11 @@ You help people with chronic conditions make informed shopping decisions based o
   const profileGuidance = healthProfile || getConditionSpecificGuidance(conditionsArray);
 
   const userPrompt = `
-Analyze this product for someone with: ${conditionsList}
+PRODUCT CATEGORY: ${categoryLabel}
 
-USER HEALTH PROFILE:
+Analyze this ${categoryLabel} for someone with: ${conditionsList}
+
+USER HEALTH PROFILE (filtered for ${categoryLabel} products):
 ${profileGuidance}
 
 ${allergenList}
@@ -1777,7 +1918,8 @@ class SidePanelUI {
           this.settings.allConditions,
           allAllergies,
           this.cachedLanguageModel,
-          this.settings.firstName
+          this.settings.firstName,
+          productData
         );
         verdict = result.verdict;
         // Cache the language model for future use
@@ -1968,7 +2110,8 @@ class SidePanelUI {
             this.settings.allConditions,
             allAllergies,
             this.cachedLanguageModel,
-            this.settings.firstName
+            this.settings.firstName,
+            fullProductData
           );
           verdict = verdictResult.verdict;
           if (verdictResult.languageModel) {
@@ -2007,7 +2150,8 @@ class SidePanelUI {
             this.settings.allConditions,
             allAllergies,
             this.cachedLanguageModel,
-            this.settings.firstName
+            this.settings.firstName,
+            fullProductData
           );
           verdict = verdictResult.verdict;
           if (verdictResult.languageModel) {

@@ -449,6 +449,106 @@ function generateFallbackProfile(allConditions, allAllergies) {
 }
 
 // ===================================
+// CONFETTI ANIMATION (Vanilla JS)
+// ===================================
+function triggerConfetti() {
+  console.log('Welcome: Triggering confetti animation...');
+
+  // Create canvas
+  const canvas = document.createElement('canvas');
+  canvas.style.position = 'fixed';
+  canvas.style.top = '0';
+  canvas.style.left = '0';
+  canvas.style.width = '100%';
+  canvas.style.height = '100%';
+  canvas.style.pointerEvents = 'none';
+  canvas.style.zIndex = '3000';
+  document.body.appendChild(canvas);
+
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  // Brand colors matching Shop Well design
+  const colors = ['#6BAF7A', '#65AEDD', '#D38B6D', '#F2C94C'];
+
+  // Confetti particle class
+  class Particle {
+    constructor() {
+      this.x = Math.random() * canvas.width;
+      this.y = canvas.height + 10;
+      this.velocityY = -(Math.random() * 15 + 15); // Shoot upward
+      this.velocityX = (Math.random() - 0.5) * 10; // Random horizontal
+      this.size = Math.random() * 8 + 4;
+      this.color = colors[Math.floor(Math.random() * colors.length)];
+      this.rotation = Math.random() * 360;
+      this.rotationSpeed = (Math.random() - 0.5) * 10;
+      this.gravity = 0.5;
+      this.opacity = 1;
+    }
+
+    update() {
+      this.velocityY += this.gravity;
+      this.x += this.velocityX;
+      this.y += this.velocityY;
+      this.rotation += this.rotationSpeed;
+
+      // Fade out near the end
+      if (this.y > canvas.height - 100) {
+        this.opacity -= 0.02;
+      }
+    }
+
+    draw() {
+      ctx.save();
+      ctx.globalAlpha = this.opacity;
+      ctx.translate(this.x, this.y);
+      ctx.rotate((this.rotation * Math.PI) / 180);
+      ctx.fillStyle = this.color;
+      ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+      ctx.restore();
+    }
+
+    isOffScreen() {
+      return this.y > canvas.height + 10 || this.opacity <= 0;
+    }
+  }
+
+  // Create particles
+  const particles = [];
+  for (let i = 0; i < 150; i++) {
+    particles.push(new Particle());
+  }
+
+  // Animation loop
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    particles.forEach((particle, index) => {
+      particle.update();
+      particle.draw();
+
+      // Remove off-screen particles
+      if (particle.isOffScreen()) {
+        particles.splice(index, 1);
+      }
+    });
+
+    // Continue animation if particles remain
+    if (particles.length > 0) {
+      requestAnimationFrame(animate);
+    } else {
+      // Clean up canvas when done
+      document.body.removeChild(canvas);
+      console.log('Welcome: Confetti animation complete');
+    }
+  }
+
+  // Start animation
+  animate();
+}
+
+// ===================================
 // FINISH SETUP
 // ===================================
 async function finishSetup() {
@@ -475,15 +575,39 @@ async function finishSetup() {
     return;
   }
 
-  // Show celebration
+  console.log('Welcome: Settings saved, showing celebration screen...');
+
+  // Hide all onboarding steps
+  const onboardingSteps = document.querySelectorAll('.onboarding-step');
+  onboardingSteps.forEach(step => {
+    step.style.display = 'none';
+  });
+
+  // Show celebration in loading state
   const celebration = document.getElementById('celebration');
+  const loadingState = document.getElementById('celebration-loading');
+  const successState = document.getElementById('celebration-success');
+
+  // Force celebration to display
+  celebration.style.display = 'flex';
   celebration.classList.remove('hidden');
   celebration.classList.add('active');
+  loadingState.classList.remove('hidden');
+  successState.classList.add('hidden');
 
-  // Close after 3 seconds
+  console.log('Welcome: Celebration loading state visible');
+
+  // Wait a moment for visual effect, then trigger confetti and show success
   setTimeout(() => {
-    window.close();
-  }, 3000);
+    console.log('Welcome: Transitioning to success state with confetti...');
+
+    // Trigger confetti explosion
+    triggerConfetti();
+
+    // Switch to success state
+    loadingState.classList.add('hidden');
+    successState.classList.remove('hidden');
+  }, 1500); // 1.5 second delay to show loading state
 }
 
 // ===================================
@@ -819,6 +943,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         goToStep(currentStep - 1);
       }
     }
+  });
+
+  // Celebration: Configure Settings button
+  document.getElementById('configure-settings-btn')?.addEventListener('click', () => {
+    console.log('Welcome: Opening options page');
+    if (chrome.runtime && chrome.runtime.openOptionsPage) {
+      chrome.runtime.openOptionsPage();
+    } else {
+      // Fallback for testing environments
+      window.open('/src/options/index.html', '_blank');
+    }
+  });
+
+  // Celebration: Close button
+  document.getElementById('close-welcome-btn')?.addEventListener('click', () => {
+    console.log('Welcome: Closing welcome page');
+    window.close();
   });
 
   // Load existing settings (if returning to welcome page)
