@@ -159,6 +159,87 @@ body {
 }
 
 /* ====================
+   PROFILE BUILDING STATE
+   ==================== */
+
+.shop-well-profile-building {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #E9DFC9;
+  box-shadow: 0 2px 8px rgba(107, 175, 122, 0.08);
+  margin: 16px;
+}
+
+.profile-building-icon {
+  font-size: 64px;
+  margin-bottom: var(--space-4);
+  font-family: var(--emoji-font-family);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+.shop-well-profile-building h2 {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: #6BAF7A; /* Leaf Green */
+  margin-bottom: var(--space-3);
+}
+
+.profile-building-message {
+  color: #3D3D3D; /* Charcoal */
+  font-size: var(--font-size-md);
+  margin-bottom: var(--space-2);
+  max-width: 320px;
+}
+
+.profile-building-time {
+  color: #9A8C82; /* Soft Taupe */
+  font-size: var(--font-size-sm);
+  display: block;
+  margin-bottom: var(--space-6);
+}
+
+.profile-building-progress {
+  margin: var(--space-5) 0;
+}
+
+.profile-building-note {
+  background: #E8F5EA; /* Light green background */
+  border-left: 3px solid #6BAF7A; /* Leaf Green */
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-top: var(--space-6);
+  max-width: 360px;
+  text-align: left;
+}
+
+.profile-building-note p {
+  color: #3D3D3D; /* Charcoal */
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  margin-bottom: var(--space-2);
+}
+
+.profile-building-note p:last-child {
+  margin-bottom: 0;
+}
+
+.profile-building-note strong {
+  font-weight: var(--font-weight-semibold);
+  color: #6BAF7A; /* Leaf Green */
+}
+
+/* ====================
    SETUP INSTRUCTIONS STATE
    ==================== */
 
@@ -294,10 +375,10 @@ body {
   margin-bottom: var(--space-5);
 }
 
-.health-verdicts h4 {
+.analysis-content .health-verdicts h4 {
   font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--sw-charcoal);
+  font-weight: var(--font-weight-bold);
+  color: #776B63;  /* Match Key Insights taupe color */
   margin-bottom: var(--space-3);
 }
 
@@ -320,28 +401,28 @@ body {
 
 .verdict-item.verdict-good {
   border-color: #6BAF7A; /* Leaf Green */
-  background: rgba(107, 175, 122, 0.08);
+  background: white;
 }
 
 .verdict-item.verdict-warning {
   border-color: #F2C94C; /* Golden Honey */
-  background: rgba(242, 201, 76, 0.08);
+  background: white;
 }
 
 .verdict-item.verdict-bad {
   border-color: #FF8674; /* Warm coral */
-  background: rgba(255, 134, 116, 0.08);
+  background: white;
 }
 
 .verdict-item.verdict-inconclusive {
   border-color: #9A8C82; /* Soft Taupe */
-  background: rgba(233, 223, 201, 0.08);
+  background: white;
 }
 
 .verdict-name {
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-medium);
-  color: var(--sw-charcoal);
+  color: #3D3D3D;  /* Exact charcoal hex - matches product-title */
 }
 
 .verdict-badge-inline {
@@ -374,7 +455,7 @@ body {
 
 .condition-info {
   font-size: var(--font-size-sm);
-  color: var(--sw-taupe);
+  color: #776B63; /* Dark brown/taupe (hardcoded to prevent dark mode inversion) */
   font-weight: var(--font-weight-medium);
 }
 
@@ -431,6 +512,7 @@ body {
 .key-insights h4 {
   font-size: var(--font-size-lg); /* One size bigger */
   font-weight: var(--font-weight-bold); /* Bold */
+  color: #776B63;  /* Explicit taupe to match other headings */
 }
 
 .insights-content {

@@ -231,6 +231,18 @@ async function loadSettings() {
     const customAllergies = settings.customAllergies || [];
     displayCustomAllergies(customAllergies);
 
+    // Migration: Initialize profileStatus for existing users
+    const profileData = await chrome.storage.local.get(['profileStatus', 'healthProfile']);
+    if (!profileData.profileStatus && profileData.healthProfile && profileData.healthProfile.profile) {
+      console.log('Options: Migrating existing healthProfile to profileStatus');
+      await chrome.storage.local.set({
+        profileStatus: {
+          status: 'complete',
+          completedAt: profileData.healthProfile.generatedAt || new Date().toISOString()
+        }
+      });
+    }
+
   } catch (error) {
     console.error('Error loading settings:', error);
     showStatus('Error loading settings', 'error');
@@ -274,6 +286,22 @@ async function saveSettings() {
     // Regenerate health profile when conditions or allergies change
     try {
       console.log('Options: Regenerating health profile...');
+
+      // Show profile building spinner
+      showProfileBuilding(true);
+
+      // Set profile status to 'building'
+      await chrome.storage.local.set({
+        profileStatus: {
+          status: 'building',
+          startedAt: new Date().toISOString()
+        }
+      });
+
+      // Track start time to ensure minimum display duration
+      const MIN_DISPLAY_TIME = 2000; // 2 seconds
+      const startTime = Date.now();
+
       const healthProfile = await generateHealthProfile(conditions, customConditions, allergies, customAllergies);
 
       if (healthProfile) {
@@ -285,13 +313,38 @@ async function saveSettings() {
             customAllergies,
             profile: healthProfile,
             generatedAt: new Date().toISOString()
+          },
+          profileStatus: {
+            status: 'complete',
+            startedAt: new Date().toISOString(),
+            completedAt: new Date().toISOString()
           }
         });
         console.log('Options: Health profile regenerated successfully');
       }
+
+      // Ensure spinner shows for minimum time (so user can see it)
+      const elapsed = Date.now() - startTime;
+      if (elapsed < MIN_DISPLAY_TIME) {
+        await new Promise(resolve => setTimeout(resolve, MIN_DISPLAY_TIME - elapsed));
+      }
+
+      // Hide profile building spinner
+      showProfileBuilding(false);
     } catch (profileError) {
-      // Profile regeneration failure is non-critical
-      console.warn('Options: Health profile regeneration failed (non-critical):', profileError);
+      // Profile regeneration failure - set error status
+      console.warn('Options: Health profile regeneration failed:', profileError);
+
+      await chrome.storage.local.set({
+        profileStatus: {
+          status: 'error',
+          startedAt: new Date().toISOString(),
+          error: profileError.message || 'Profile generation failed'
+        }
+      });
+
+      // Hide profile building spinner
+      showProfileBuilding(false);
     }
 
     const totalConditions = conditions.length + customConditions.length;
@@ -438,6 +491,21 @@ function showStatus(message, type = 'success') {
   setTimeout(() => {
     statusElement.style.display = 'none';
   }, 3000);
+}
+
+/**
+ * Shows or hides the profile building status indicator
+ * @param {boolean} show - Whether to show or hide the indicator
+ */
+function showProfileBuilding(show) {
+  const profileBuildingElement = document.getElementById('profile-building-status');
+  if (profileBuildingElement) {
+    if (show) {
+      profileBuildingElement.classList.remove('hidden');
+    } else {
+      profileBuildingElement.classList.add('hidden');
+    }
+  }
 }
 
 // Helper function to capitalize first letter of each word

@@ -58,9 +58,9 @@ function getVerdictLabel(verdict) {
     'good': 'Good',
     'warning': 'Warning',
     'bad': 'Bad',
-    'inconclusive': 'Inconclusive'
+    'inconclusive': 'N/A'
   };
-  return labelMap[verdict] || 'Inconclusive';
+  return labelMap[verdict] || 'N/A';
 }
 
 /* =============================================================================
@@ -619,6 +619,20 @@ async function generateVerdict(facts, conditions, allergies = [], cachedLanguage
       'Verdict generation'
     );
     console.log('Shop Well: Raw AI response:', response);
+    console.log('Shop Well: Response type:', typeof response);
+    console.log('Shop Well: Response length:', response?.length || 0);
+
+    // Validate AI response
+    if (!response || typeof response !== 'string' || response.trim().length === 0) {
+      console.error('Shop Well: AI returned invalid/empty response');
+      console.log('Shop Well: Session state:', session ? 'exists' : 'null');
+      console.log('Shop Well: Falling back to basic verdict generation');
+
+      // Fall back to basic verdict
+      const verdict = createFallbackVerdict(facts, allergies, conditions);
+      console.log('Shop Well: Generated fallback verdict:', verdict);
+      return { verdict, languageModel: session };
+    }
 
     const verdict = parseVerdictResponse(response, facts, allergies, conditions);
     console.log('Shop Well: Generated verdict:', verdict);
@@ -929,6 +943,15 @@ Product facts:
 - Dietary claims: ${facts.dietary_claims.join(', ') || 'none'}
 
 Return ONLY this JSON structure (evaluate ALL user conditions and allergies listed above):
+
+⚠️ CRITICAL FORMATTING RULES:
+- Return ONLY the JSON object below with NO additional text
+- DO NOT add explanations, notes, or commentary outside the JSON
+- DO NOT wrap in markdown code blocks or backticks
+- START your response with the opening { character
+- END your response with the closing } character
+- Ensure all quotes and commas are valid JSON syntax
+
 {
   "conditions": [
     ${conditionsArray.map(c => `{"name": "${c}", "verdict": "good|warning|bad|inconclusive", "brief_reason": "..."}`).join(',\n    ')}
@@ -1053,21 +1076,59 @@ function generateEnhancedCustomGuidance(condition) {
 function parseVerdictResponse(response, facts, allergies, conditions = []) {
   let verdict;
 
+  // Log raw response for debugging (truncated)
+  console.log('Shop Well: Parsing AI response (length:', response.length, 'chars)');
+  console.log('Shop Well: Response preview:', response.substring(0, 200));
+
+  // Strategy 1: Try parsing entire response as JSON (AI might return pure JSON)
   try {
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      verdict = JSON.parse(jsonMatch[0]);
-    } else {
-      throw new Error('No JSON found in response');
-    }
-  } catch (error) {
-    console.warn('Shop Well: Failed to parse AI response, using fallback');
-    verdict = createFallbackVerdict(facts, allergies, conditions);
+    verdict = JSON.parse(response.trim());
+    console.log('Shop Well: ✓ Parsed using Strategy 1 (raw JSON)');
+    return validateVerdict(verdict, facts, allergies, conditions);
+  } catch (e) {
+    console.log('Shop Well: Strategy 1 failed:', e.message);
   }
 
-  verdict = validateVerdict(verdict, facts, allergies, conditions);
+  // Strategy 2: Look for JSON in markdown code block (```json ... ```)
+  const codeBlockMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
+  if (codeBlockMatch) {
+    try {
+      verdict = JSON.parse(codeBlockMatch[1]);
+      console.log('Shop Well: ✓ Parsed using Strategy 2 (code block)');
+      return validateVerdict(verdict, facts, allergies, conditions);
+    } catch (e) {
+      console.log('Shop Well: Strategy 2 failed:', e.message);
+    }
+  }
 
-  return verdict;
+  // Strategy 3: Find first complete JSON object by counting balanced braces
+  const startIdx = response.indexOf('{');
+  if (startIdx !== -1) {
+    let depth = 0;
+    for (let i = startIdx; i < response.length; i++) {
+      if (response[i] === '{') depth++;
+      if (response[i] === '}') depth--;
+      if (depth === 0) {
+        try {
+          const jsonString = response.substring(startIdx, i + 1);
+          verdict = JSON.parse(jsonString);
+          console.log('Shop Well: ✓ Parsed using Strategy 3 (balanced braces)');
+          return validateVerdict(verdict, facts, allergies, conditions);
+        } catch (e) {
+          console.log('Shop Well: Strategy 3 failed:', e.message);
+        }
+        break;
+      }
+    }
+  }
+
+  // All strategies failed - use fallback
+  console.error('Shop Well: ✗ All JSON parsing strategies failed');
+  console.error('AI response (first 500 chars):', response.substring(0, 500));
+  console.error('AI response (last 200 chars):', response.substring(response.length - 200));
+
+  verdict = createFallbackVerdict(facts, allergies, conditions);
+  return validateVerdict(verdict, facts, allergies, conditions);
 }
 
 function validateVerdict(verdict, facts, allergies, conditions = []) {
@@ -1399,8 +1460,14 @@ class SidePanelUI {
     this.chatHistory = [];
     this.currentFacts = null; // Store facts from analysis for chat context
 
+    // Profile building state
+    this.profilePollingInterval = null;
+    this.profilePollingStartTime = null;
+    this.pendingProductData = null; // Store product data to analyze after profile completes
+
     this.elements = {
       loading: document.querySelector('.shop-well-loading'),
+      profileBuilding: document.querySelector('.shop-well-profile-building'),
       setup: document.querySelector('.shop-well-setup'),
       analysis: document.querySelector('.shop-well-analysis'),
       error: document.querySelector('.shop-well-error'),
@@ -1602,6 +1669,7 @@ class SidePanelUI {
     // Only hide main state containers, not child elements like chat input
     const stateContainers = [
       this.elements.loading,
+      this.elements.profileBuilding,
       this.elements.setup,
       this.elements.analysis,
       this.elements.error,
@@ -1670,6 +1738,118 @@ class SidePanelUI {
     }
     this.currentState = 'setup';
     console.log('Shop Well: Showing setup state');
+  }
+
+  showProfileBuilding() {
+    this.hideAllStates();
+    if (this.elements.profileBuilding) {
+      this.elements.profileBuilding.classList.remove('hidden');
+    }
+    this.currentState = 'profileBuilding';
+    console.log('Shop Well: Showing profile building state');
+
+    // Start polling for profile completion
+    this.startProfilePolling();
+  }
+
+  /**
+   * Check the current health profile status
+   * @returns {Promise<Object>} Profile status object
+   */
+  async checkProfileStatus() {
+    try {
+      const result = await chrome.storage.local.get(['profileStatus', 'healthProfile']);
+      const profileStatus = result.profileStatus;
+      const healthProfile = result.healthProfile;
+
+      // If profileStatus exists, use it
+      if (profileStatus && profileStatus.status) {
+        return profileStatus;
+      }
+
+      // Migration: Check if old healthProfile exists (backward compatibility)
+      if (healthProfile && healthProfile.profile) {
+        console.log('Shop Well: Found existing healthProfile without profileStatus - migrating to complete status');
+
+        // Auto-create profileStatus for existing users
+        const migratedStatus = {
+          status: 'complete',
+          completedAt: healthProfile.generatedAt || new Date().toISOString()
+        };
+
+        // Save the migrated status
+        await chrome.storage.local.set({ profileStatus: migratedStatus });
+
+        return migratedStatus;
+      }
+
+      // No profile exists at all - truly not started
+      return { status: 'not-started' };
+    } catch (error) {
+      console.error('Shop Well: Error checking profile status:', error);
+      return { status: 'error', error: error.message };
+    }
+  }
+
+  /**
+   * Start polling for health profile completion
+   */
+  startProfilePolling() {
+    console.log('Shop Well: Starting profile completion polling');
+
+    // Clear any existing polling interval
+    if (this.profilePollingInterval) {
+      clearInterval(this.profilePollingInterval);
+    }
+
+    this.profilePollingStartTime = Date.now();
+    const MAX_POLLING_TIME = 120000; // 2 minutes
+
+    this.profilePollingInterval = setInterval(async () => {
+      const profileCheck = await this.checkProfileStatus();
+      const elapsedTime = Date.now() - this.profilePollingStartTime;
+
+      console.log('Shop Well: Polling profile status:', profileCheck.status);
+
+      if (profileCheck.status === 'complete') {
+        console.log('Shop Well: Profile completed! Continuing with analysis...');
+
+        // Stop polling
+        clearInterval(this.profilePollingInterval);
+        this.profilePollingInterval = null;
+
+        // If we have pending product data, analyze it now
+        if (this.pendingProductData) {
+          const productData = this.pendingProductData;
+          this.pendingProductData = null;
+
+          // Determine which analysis method to use based on product source
+          if (productData.source && productData.source.includes('search')) {
+            this.analyzeListingProduct(productData);
+          } else {
+            this.analyzeProduct(productData);
+          }
+        }
+
+      } else if (profileCheck.status === 'error') {
+        console.error('Shop Well: Profile generation failed during polling');
+
+        // Stop polling
+        clearInterval(this.profilePollingInterval);
+        this.profilePollingInterval = null;
+
+        this.showError('Health profile generation failed. Please visit the Settings page to regenerate your profile.');
+
+      } else if (elapsedTime >= MAX_POLLING_TIME) {
+        console.error('Shop Well: Profile polling timeout after 2 minutes');
+
+        // Stop polling
+        clearInterval(this.profilePollingInterval);
+        this.profilePollingInterval = null;
+
+        this.showError('Profile generation is taking longer than expected. Please check the Settings page or try again later.');
+      }
+    }, 2000); // Poll every 2 seconds
   }
 
   showWelcome() {
@@ -1797,7 +1977,7 @@ class SidePanelUI {
     if (allergiesList && verdict.allergies && verdict.allergies.length > 0) {
       allergiesList.innerHTML = verdict.allergies.map(a => `
         <div class="verdict-item verdict-${a.verdict}">
-          <span class="verdict-name">${a.name}</span>
+          <span class="verdict-name">${a.name.charAt(0).toUpperCase() + a.name.slice(1)}</span>
           <span class="verdict-badge-inline">${getVerdictEmoji(a.verdict)} ${getVerdictLabel(a.verdict)}</span>
         </div>
       `).join('');
@@ -1921,12 +2101,12 @@ class SidePanelUI {
     }
 
     // Notify content script to revert badge to normal state
-    if (this.currentProductData && this.currentProductData.position !== undefined) {
+    if (this.currentProductData && this.currentProductData.id) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0]) {
           chrome.tabs.sendMessage(tabs[0].id, {
             type: 'badge-analysis-cancelled',
-            productIndex: this.currentProductData.position
+            productId: this.currentProductData.id
           });
         }
       });
@@ -1937,11 +2117,28 @@ class SidePanelUI {
   }
 
   async analyzeProduct(productData) {
+    console.log('Shop Well: Starting product analysis...', productData);
+
+    // Check profile status before starting analysis
+    const profileCheck = await this.checkProfileStatus();
+
+    if (profileCheck.status === 'building' || profileCheck.status === 'not-started') {
+      console.log('Shop Well: Health profile is still building or not started, waiting...');
+      this.pendingProductData = productData;
+      this.showProfileBuilding();
+      return;
+    } else if (profileCheck.status === 'error') {
+      console.log('Shop Well: Health profile generation failed');
+      this.showError('Health profile generation failed. Please visit the Settings page to regenerate your profile.');
+      return;
+    }
+
+    // Profile is complete, proceed with analysis
     this.currentProductData = productData;
     this.isAnalyzing = true;
     this.showLoading();
 
-    console.log('Shop Well: Starting product analysis...', productData);
+    console.log('Shop Well: Profile ready, continuing with analysis...');
 
     // Clear all other "Look!" badges before analyzing new product
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -2053,8 +2250,25 @@ class SidePanelUI {
   }
 
   async analyzeListingProduct(productData) {
-    this.currentProductData = productData;
     console.log('Shop Well: Analyzing listing product with progressive loading...', productData);
+
+    // Check profile status before starting analysis
+    const profileCheck = await this.checkProfileStatus();
+
+    if (profileCheck.status === 'building' || profileCheck.status === 'not-started') {
+      console.log('Shop Well: Health profile is still building or not started, waiting...');
+      this.pendingProductData = productData;
+      this.showProfileBuilding();
+      return;
+    } else if (profileCheck.status === 'error') {
+      console.log('Shop Well: Health profile generation failed');
+      this.showError('Health profile generation failed. Please visit the Settings page to regenerate your profile.');
+      return;
+    }
+
+    // Profile is complete, proceed with analysis
+    this.currentProductData = productData;
+    console.log('Shop Well: Profile ready, continuing with analysis...');
 
     // Clear all other "Look!" badges before analyzing new product
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {

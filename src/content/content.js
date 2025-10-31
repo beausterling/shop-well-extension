@@ -380,14 +380,15 @@ class ProductExtractor {
         // Create badge element
         const badge = document.createElement('div');
         badge.className = 'shop-well-badge';
-        badge.setAttribute('data-product-index', product.position);
+        badge.setAttribute('data-product-asin', product.id);
         badge.textContent = 'Analyze';
 
-        // Add click handler
+        // Add click handler - store ASIN instead of full product object
+        // This ensures we always use the current product data even if the array is updated
         badge.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          this.handleBadgeClick(product);
+          this.handleBadgeClick(product.id);
         });
 
         // Inject badge into card
@@ -516,10 +517,19 @@ class ProductExtractor {
     document.head.appendChild(style);
   }
 
-  handleBadgeClick(product) {
-    console.log('Shop Well: Badge clicked for product:', product.id);
+  handleBadgeClick(productId) {
+    console.log('Shop Well: Badge clicked for product ASIN:', productId);
 
-    const badge = document.querySelector(`.shop-well-badge[data-product-index="${product.position}"]`);
+    // Look up the current product data by ASIN from the listingProducts array
+    // This ensures we always use the most up-to-date product data
+    const product = this.listingProducts.find(p => p.id === productId);
+
+    if (!product) {
+      console.error('Shop Well: Product not found in current listing:', productId);
+      return;
+    }
+
+    const badge = document.querySelector(`.shop-well-badge[data-product-asin="${productId}"]`);
 
     // Always run fresh analysis (no caching)
     console.log('Shop Well: Starting fresh analysis');
@@ -582,25 +592,27 @@ class ProductExtractor {
         return true;
       }
 
-      if (message.type === 'badge-analysis-complete' && message.productIndex !== undefined) {
+      if (message.type === 'badge-analysis-complete' && message.productId !== undefined) {
         // Update badge to "completed" state (white bg, green text, 👉 Look!)
-        const badge = document.querySelector(`.shop-well-badge[data-product-index="${message.productIndex}"]`);
+        const badge = document.querySelector(`.shop-well-badge[data-product-asin="${message.productId}"]`);
         if (badge) {
           badge.classList.remove('analyzing');
           badge.classList.add('completed');
           badge.textContent = 'Look!';
-          console.log(`Shop Well: Badge ${message.productIndex} marked as completed`);
+          console.log(`Shop Well: Badge for product ${message.productId} marked as completed`);
+        } else {
+          console.warn(`Shop Well: Could not find badge for product ${message.productId}`);
         }
         return false;
       }
 
-      if (message.type === 'badge-analysis-cancelled' && message.productIndex !== undefined) {
+      if (message.type === 'badge-analysis-cancelled' && message.productId !== undefined) {
         // Revert badge to normal state
-        const badge = document.querySelector(`.shop-well-badge[data-product-index="${message.productIndex}"]`);
+        const badge = document.querySelector(`.shop-well-badge[data-product-asin="${message.productId}"]`);
         if (badge) {
           badge.classList.remove('analyzing', 'completed');
           badge.textContent = 'Analyze';
-          console.log(`Shop Well: Badge ${message.productIndex} reverted to normal state`);
+          console.log(`Shop Well: Badge for product ${message.productId} reverted to normal state`);
         }
         return false;
       }
