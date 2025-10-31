@@ -119,9 +119,10 @@ body {
 }
 
 /* ===================================
-   PROGRESS BAR
+   PROGRESS BAR (HIDDEN - CODE PRESERVED)
    =================================== */
 .progress-bar-container {
+  display: none; /* Hidden but code preserved for future use */
   position: fixed;
   top: 0;
   left: 0;
@@ -310,7 +311,7 @@ body {
 }
 
 .step-number {
-  display: inline-block;
+  display: none; /* Hidden but code preserved for future use */
   background: var(--sw-blue-light);
   color: var(--sw-blue-dark);
   padding: var(--space-2) var(--space-4);
@@ -837,7 +838,8 @@ body {
 /* ===================================
    FORM INPUTS
    =================================== */
-.name-input {
+.name-input,
+.email-input {
   width: 100%;
   padding: 12px 16px;
   font-size: var(--font-size-base);
@@ -846,19 +848,37 @@ body {
   background: white;
   border: 2px solid #776B63; /* Taupe border to match site design */
   border-radius: var(--radius-md);
-  transition: all var(--transition-fast);
+  transition: all var(--transition);
   box-sizing: border-box;
 }
 
-.name-input:focus {
+.name-input:focus,
+.email-input:focus {
   outline: none;
   border-color: #6BAF7A; /* Green on focus to match interactive elements */
   box-shadow: 0 0 0 3px rgba(107, 175, 122, 0.15);
 }
 
-.name-input::placeholder {
+.name-input::placeholder,
+.email-input::placeholder {
   color: #9A8C82; /* Soft taupe for placeholder text */
   font-size: var(--font-size-sm);
+}
+
+/* Required indicator (red asterisk) */
+.required-indicator {
+  color: #D38B6D; /* Terracotta to match brand colors */
+  font-weight: 700;
+  margin-left: var(--space-1);
+}
+
+/* Email validation states */
+.email-input:invalid:not(:placeholder-shown) {
+  border-color: #D38B6D; /* Terracotta for invalid state */
+}
+
+.email-input:valid {
+  border-color: #6BAF7A; /* Green for valid state */
 }
 
 /* ===================================
@@ -880,12 +900,13 @@ body {
 }
 
 .btn-primary {
-  background: #65AEDD; /* Solid blue to match analysis screen buttons */
+  background: linear-gradient(135deg, var(--sw-green) 0%, var(--sw-blue) 100%);
   color: white;
   box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:hover {
+  background: linear-gradient(135deg, var(--sw-green-dark) 0%, var(--sw-blue-dark) 100%);
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }

@@ -201,6 +201,10 @@ async function saveSettings() {
   const firstNameInput = document.getElementById('first-name-input');
   const firstName = firstNameInput ? firstNameInput.value.trim() : '';
 
+  // Get email (required)
+  const emailInput = document.getElementById('email-input');
+  const email = emailInput ? emailInput.value.trim() : '';
+
   // Get selected condition
   const conditionInput = document.querySelector('input[name="condition"]:checked');
   const condition = conditionInput ? conditionInput.value : 'POTS'; // Default to POTS
@@ -209,13 +213,14 @@ async function saveSettings() {
   const allergenInputs = document.querySelectorAll('input[name="allergen"]:checked');
   const allergies = Array.from(allergenInputs).map(input => input.value);
 
-  console.log('Welcome: Saving settings:', { firstName, condition, allergies });
+  console.log('Welcome: Saving settings:', { firstName, email, condition, allergies });
 
   try {
     // Save to Chrome storage (if available)
     if (typeof chrome !== 'undefined' && chrome.storage) {
       await chrome.storage.local.set({
         firstName,
+        email,
         condition,
         allergies,
         welcomeCompleted: true,
@@ -237,6 +242,24 @@ async function saveSettings() {
 // ===================================
 async function finishSetup() {
   console.log('Welcome: Finishing setup...');
+
+  // Validate email is provided
+  const emailInput = document.getElementById('email-input');
+  const email = emailInput ? emailInput.value.trim() : '';
+
+  if (!email) {
+    alert('Please enter your email address to continue.');
+    emailInput?.focus();
+    return;
+  }
+
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    alert('Please enter a valid email address.');
+    emailInput?.focus();
+    return;
+  }
 
   // Save settings
   const success = await saveSettings();
@@ -427,7 +450,7 @@ async function loadExistingSettings() {
       return;
     }
 
-    const result = await chrome.storage.local.get(['firstName', 'condition', 'allergies']);
+    const result = await chrome.storage.local.get(['firstName', 'email', 'condition', 'allergies']);
 
     // Load first name if available
     if (result.firstName) {
@@ -435,6 +458,15 @@ async function loadExistingSettings() {
       if (firstNameInput) {
         firstNameInput.value = result.firstName;
         console.log(`Welcome: Pre-filled name: ${result.firstName}`);
+      }
+    }
+
+    // Load email if available
+    if (result.email) {
+      const emailInput = document.getElementById('email-input');
+      if (emailInput) {
+        emailInput.value = result.email;
+        console.log(`Welcome: Pre-filled email: ${result.email}`);
       }
     }
 
