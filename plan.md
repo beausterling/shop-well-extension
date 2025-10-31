@@ -19,8 +19,16 @@
 - ✅ Input field styling professional and polished
 - ✅ Enter key behavior fixed (doesn't skip steps)
 - ✅ New `/undo` command with git stash for safer workflow
+- ✅ **Email field added** to onboarding with validation
+- ✅ **Gradient buttons restored** (green-to-blue diagonal)
+- ✅ **Multi-condition selection** implemented (checkboxes replace radio)
+- ✅ **Custom condition/allergen inputs** with removable chips
+- ✅ **Compact condition cards** (smaller padding, fonts, icons)
+- ✅ **Array-based storage** (conditions[], customConditions[], allergies[], customAllergies[])
+- ✅ **AI multi-condition analysis** (analyzes ALL selected conditions together)
+- ✅ **Backward compatibility** (auto-migrates old single-condition data)
 
-**Current State**: Extension is feature-complete and polished. Focus on validation and ensuring demo-ready quality.
+**Current State**: Extension is feature-complete with advanced personalization. Multi-condition support allows users with complex health profiles to get comprehensive analysis.
 
 ---
 
@@ -47,6 +55,11 @@
 
 ### Extension Core Functionality
 - ✅ **Chrome Built-in AI Integration**: Summarizer + Prompt APIs working
+- ✅ **Multi-Condition AI Analysis**: AI now analyzes ALL selected conditions simultaneously
+  - Combines guidance for multiple conditions (e.g., "POTS, ME/CFS, Fibromyalgia")
+  - Prompts include considerations for each condition
+  - Custom conditions get generic wellness analysis
+  - Backward compatible (auto-migrates old single-condition data)
 - ✅ **Side Panel Architecture**: AI accessible in extension context (not content scripts)
 - ✅ **Product Parsers**: Amazon & Walmart data extraction with fallbacks
   - **Walmart Price Extraction**: Multi-strategy parsing (aria-label → DOM parts → text fallback)
@@ -86,11 +99,21 @@
   - Mobile-first responsive design
 - ✅ **Committed & Pushed**: All files in GitHub, ready to deploy
 
-### Welcome Page Onboarding (REDESIGNED TWICE - COMPLETED)
+### Welcome Page Onboarding (REDESIGNED TWICE + MULTI-CONDITION - COMPLETED)
 - ✅ **Simplified Flow**: Reduced from 4 steps to 3 steps (Opal-inspired UX)
   - Step 1: Welcome & Why (hero + retailer logos + CTA)
   - Step 2: Choose Your Experience (AI optional, not required)
   - Step 3: Personalize (inline settings - no external redirects)
+- ✅ **Multi-Condition Selection System** (NEW):
+  - **Checkboxes instead of radio buttons**: Select multiple conditions (POTS, ME/CFS, Celiac)
+  - **Custom condition input**: "➕ Add Custom Condition" button with text field
+  - **Custom allergen input**: "➕ Add Custom Allergen" button with text field
+  - **Removable chips**: Custom entries display as blue chips with × buttons
+  - **Compact cards**: Reduced padding (20px→12px), icons (60px→48px), fonts (20px→18px)
+  - **Array-based storage**: conditions[], customConditions[], allergies[], customAllergies[]
+  - **Smart animations**: Slide-down inputs, chip appearance effects, smooth transitions
+  - **Email field**: Required email input with format validation
+  - **Gradient buttons**: Restored green-to-blue diagonal gradient for CTAs
 - ✅ **Step 2 Major Redesign**:
   - **Smart Auto-Skip**: AI-ready users bypass Step 2 entirely (Step 1 → Step 3)
   - **User-Friendly UI**: Feature comparison (Basic Mode vs AI-Enhanced)
@@ -181,10 +204,20 @@
 - ✅ **Multi-product listing badges**: Fully working on Walmart search pages with SPA navigation
 - ✅ **Badge state management**: Tested and functional (analyzing → completed → revert on close)
 - ✅ **Analysis caching**: Instant results on re-click
+- **Multi-condition system testing**: Verify AI analyzes multiple conditions correctly
+- **Custom condition/allergen workflow**: Test chip add/remove, storage, retrieval
+- **Email validation**: Ensure onboarding blocks without valid email
 - **Live Product Testing**: Verify price extraction works on real Walmart products
 - **Welcome Page Animations**: Test floating logos across Chrome, Firefox, Safari
 - End-to-end workflow verification (install → onboard → analyze)
 - Edge case handling (missing ingredients, unclear product data)
+
+### Priority 1.5: Options Page Update (NOT YET IMPLEMENTED)
+- ⚠️ **Options page still uses old single-condition dropdown**
+- **Needed**: Update options/index.html to match welcome page multi-select pattern
+- **Needed**: Update options/options.js to handle conditions arrays
+- **Needed**: Add custom condition/allergen inputs to options page
+- **Impact**: Low (welcome page is primary onboarding path)
 
 ### Priority 2: Final Polish
 - Cross-browser compatibility verification
@@ -319,33 +352,102 @@ npm run build
 
 ## 📊 Progress Summary
 
-**Completion**: ~98% complete
+**Completion**: ~99% complete
 - ✅ Core AI functionality working
 - ✅ Design system complete & refined (beige aesthetic)
 - ✅ Landing page complete with branding
 - ✅ Welcome page redesigned TWICE (3-step flow, compacted layout, animated logos)
+- ✅ **Multi-condition selection system** (checkboxes, custom inputs, chips)
+- ✅ **Email collection** integrated into onboarding
+- ✅ **AI multi-condition analysis** (analyzes all selected conditions together)
 - ✅ Onboarding experience exceptional with 3 user paths
 - ✅ **Critical price extraction bugs fixed** (Walmart main price & unit price)
 - ✅ **Progressive loading UX** (hide broken data during preview)
 - ✅ **Badge system fully functional** (SPA navigation, caching, state management)
 - ✅ **Search page integration complete** (Walmart search results badges working)
+- ⚠️ Options page needs multi-condition update (low priority)
 - ⚠️ End-to-end testing on live products needed
 - ⚠️ Cross-browser animation testing
 
 **Current Branch**: `functional-mvp`
 **Last Major Commits**:
+- Multi-condition selection and custom entry system (481 insertions, 76 deletions)
+- Onboarding UX improvements (email field, gradient buttons)
 - Badge system with SPA navigation detection (URL polling for Next.js)
 - Analysis caching with Map (instant re-opens)
 - Badge state management (analyzing → completed → revert on close)
 - Side panel close detection via background script
 - Simplified loading UX + Key Insights formatting
 - Walmart price extraction overhaul (multi-strategy parsing)
-- Side panel progressive loading (hide price during preview)
 **Ready For**: Chrome Web Store submission, demo video, final polish
 
 ---
 
-**Last Updated**: October 29, 2025 - Badge system fully functional with caching and state management
+**Last Updated**: October 30, 2025 - Multi-condition system with custom entries complete
+
+**Recent Achievements (October 30, 2025)**:
+
+### Multi-Condition Selection System ✅
+- **Checkbox-Based Selection**: Changed from single radio button to multi-select checkboxes
+  - Users can now select multiple conditions: POTS, ME/CFS, Celiac Disease
+  - All selected conditions analyzed together by AI
+- **Custom Condition Input**: "➕ Add Custom Condition" button reveals text field
+  - Users can add any condition not in the list (e.g., Fibromyalgia, IBS, Diabetes)
+  - Conditions display as removable chips with × buttons
+  - Blue chip styling with smooth appearance animations
+- **Custom Allergen Input**: "➕ Add Custom Allergen" button reveals text field
+  - Users can add any allergen not in the 9 standard options
+  - Custom allergens persist and display as chips
+  - Prevents duplicate entries
+- **Compact Card Design**: Reduced condition card sizes for cleaner UI
+  - Padding: 20px → 12px
+  - Icons: 60px → 48px
+  - Font sizes: 20px → 18px (names), 14px → 13px (descriptions)
+  - Cards maintain icons and descriptions for visual richness
+- **Array-Based Storage Schema**:
+  ```javascript
+  {
+    conditions: ['POTS', 'ME/CFS'],           // Standard conditions
+    customConditions: ['Fibromyalgia'],       // User-added conditions
+    allergies: ['peanuts', 'milk'],          // Standard allergens
+    customAllergies: ['coconut', 'sulfites'] // User-added allergens
+  }
+  ```
+- **Backward Compatibility**: Automatically migrates old single-condition data
+  - Old: `condition: 'POTS'` → New: `conditions: ['POTS']`
+  - Zero data loss for existing users
+
+### AI Analysis Enhancement ✅
+- **Multi-Condition Prompts**: AI receives combined guidance for all conditions
+  - Example: "Analyze for someone with POTS, ME/CFS, and Fibromyalgia"
+  - Each condition's specific considerations included
+  - Custom conditions get generic wellness analysis
+- **Updated Functions**:
+  - `getConditionSpecificGuidance()`: Now handles arrays, combines guidance text
+  - `preparePrompts()`: Joins conditions into readable list for prompts
+  - `generateVerdict()`: Passes all conditions to AI simultaneously
+- **Chat Context**: Updated to reference all user's conditions
+
+### Onboarding Polish ✅
+- **Email Field**: Required email input added to Step 3
+  - Format validation with regex
+  - Blocks onboarding completion if invalid/empty
+  - Stored in Chrome storage for future use
+- **Gradient Buttons**: Restored green-to-blue diagonal gradient
+  - Primary buttons use `linear-gradient(135deg, green, blue)`
+  - Hover state darkens both colors
+- **UI Cleanup**: Removed redundant helper text from name input
+
+### Technical Implementation ✅
+- **Chip Management**: 4 new functions for add/remove operations
+  - `addCustomCondition()` / `removeCustomCondition()`
+  - `addCustomAllergen()` / `removeCustomAllergen()`
+- **Event Listeners**: Button clicks and Enter key support
+- **Animations**: Slide-down inputs, chip appearance effects
+- **Storage**: Pre-loads existing custom entries on page load
+- **Validation**: Prevents duplicate chips, validates email format
+
+**Impact**: Users with complex health profiles (multiple conditions) now get comprehensive AI analysis tailored to ALL their needs. Custom entries enable unlimited personalization.
 
 **Recent Achievements (October 29, 2025)**:
 
