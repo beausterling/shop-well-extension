@@ -289,38 +289,87 @@ body {
   border-bottom: 1px solid #776B63; /* Taupe border */
 }
 
-.verdict-badge {
-  font-size: 1.125rem;
-  font-weight: 600;
-  padding: 10px 20px;
-  border-radius: 12px;
-  display: inline-block;
-  margin-bottom: 16px;
+/* Health Verdicts Sections (Conditions & Allergies) */
+.health-verdicts {
+  margin-bottom: var(--space-5);
+}
+
+.health-verdicts h4 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--sw-charcoal);
+  margin-bottom: var(--space-3);
+}
+
+.verdict-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.verdict-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  background: white;
+  border-radius: var(--radius-md);
+  border: 2px solid;
   transition: all 0.2s ease;
 }
 
-.verdict-helpful {
-  background: #6BAF7A; /* Leaf Green */
+.verdict-item.verdict-good {
+  border-color: #6BAF7A; /* Leaf Green */
+  background: rgba(107, 175, 122, 0.08);
+}
+
+.verdict-item.verdict-warning {
+  border-color: #F2C94C; /* Golden Honey */
+  background: rgba(242, 201, 76, 0.08);
+}
+
+.verdict-item.verdict-bad {
+  border-color: #FF8674; /* Warm coral */
+  background: rgba(255, 134, 116, 0.08);
+}
+
+.verdict-item.verdict-inconclusive {
+  border-color: #9A8C82; /* Soft Taupe */
+  background: rgba(233, 223, 201, 0.08);
+}
+
+.verdict-name {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  color: var(--sw-charcoal);
+}
+
+.verdict-badge-inline {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.verdict-good .verdict-badge-inline {
+  background: #6BAF7A;
   color: white;
-  box-shadow: 0 2px 6px rgba(107, 175, 122, 0.3);
 }
 
-.verdict-mixed {
-  background: #F2C94C; /* Golden Honey */
-  color: #3D3D3D; /* Charcoal for contrast */
-  box-shadow: 0 2px 6px rgba(242, 201, 76, 0.3);
+.verdict-warning .verdict-badge-inline {
+  background: #F2C94C;
+  color: var(--sw-charcoal);
 }
 
-.verdict-not_ideal {
-  background: #FF8674; /* Warm coral */
+.verdict-bad .verdict-badge-inline {
+  background: #FF8674;
   color: white;
-  box-shadow: 0 2px 6px rgba(255, 134, 116, 0.3);
 }
 
-.verdict-unknown {
-  background: #E9DFC9; /* Soft Beige */
-  color: #9A8C82; /* Soft Taupe */
-  box-shadow: 0 2px 6px rgba(233, 223, 201, 0.3);
+.verdict-inconclusive .verdict-badge-inline {
+  background: #E9DFC9;
+  color: #9A8C82;
 }
 
 .condition-info {
@@ -427,23 +476,6 @@ body {
   font-style: italic;
 }
 
-/* Allergen Alerts */
-.allergen-alerts {
-  background: var(--sw-alert-red-bg);
-  border: 2px solid var(--sw-alert-red);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-}
-
-.allergen-alerts h4 {
-  color: var(--sw-alert-red-text);
-}
-
-.alert-content {
-  font-size: var(--font-size-md);
-  color: var(--sw-alert-red-text);
-  font-weight: var(--font-weight-medium);
-}
 
 /* Important Caveat */
 .important-caveat {

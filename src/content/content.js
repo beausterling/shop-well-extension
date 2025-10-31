@@ -528,22 +528,45 @@ class ProductExtractor {
       badge.textContent = 'Analyzing...';
     }
 
-    // Send message to background to open side panel and analyze
-    chrome.runtime.sendMessage({
-      type: 'analyze-listing-product',
-      productData: product
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error('Shop Well: Failed to send listing product message:', chrome.runtime.lastError);
-        if (badge) {
-          badge.classList.remove('analyzing');
-          badge.innerHTML = '❌ Error';
-        }
-      } else {
-        console.log('Shop Well: Listing product analysis request sent to background');
-        // Badge stays in "analyzing" state - check side panel for results
+    // Check if extension context is still valid (handles extension reload scenario)
+    if (!chrome.runtime?.id) {
+      console.warn('Shop Well: Extension context invalidated. Please refresh the page.');
+      if (badge) {
+        badge.classList.remove('analyzing');
+        badge.innerHTML = '🔄 Refresh Page';
+        badge.title = 'Extension was reloaded. Please refresh this page to analyze products.';
+        badge.style.cursor = 'help';
       }
-    });
+      return;
+    }
+
+    // Send message to background to open side panel and analyze
+    // Wrap in try-catch to catch any synchronous chrome API errors
+    try {
+      chrome.runtime.sendMessage({
+        type: 'analyze-listing-product',
+        productData: product
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('Shop Well: Failed to send listing product message:', chrome.runtime.lastError);
+          if (badge) {
+            badge.classList.remove('analyzing');
+            badge.innerHTML = '❌ Error';
+          }
+        } else {
+          console.log('Shop Well: Listing product analysis request sent to background');
+          // Badge stays in "analyzing" state - check side panel for results
+        }
+      });
+    } catch (error) {
+      console.error('Shop Well: Extension context error:', error);
+      if (badge) {
+        badge.classList.remove('analyzing');
+        badge.innerHTML = '🔄 Refresh Page';
+        badge.title = 'Extension was reloaded. Please refresh this page.';
+        badge.style.cursor = 'help';
+      }
+    }
   }
 
   setupListingMessageListener() {

@@ -30,6 +30,40 @@ function getPersonalization(firstName) {
 }
 
 /* =============================================================================
+   VERDICT MAPPING UTILITIES
+   ============================================================================= */
+
+/**
+ * Maps verdict string to emoji icon
+ * @param {string} verdict - Verdict type (good, warning, bad, inconclusive)
+ * @returns {string} - Emoji representation
+ */
+function getVerdictEmoji(verdict) {
+  const emojiMap = {
+    'good': '✅',
+    'warning': '⚠️',
+    'bad': '❌',
+    'inconclusive': '︖'
+  };
+  return emojiMap[verdict] || '︖';
+}
+
+/**
+ * Maps verdict string to display label
+ * @param {string} verdict - Verdict type (good, warning, bad, inconclusive)
+ * @returns {string} - Human-readable label
+ */
+function getVerdictLabel(verdict) {
+  const labelMap = {
+    'good': 'Good',
+    'warning': 'Warning',
+    'bad': 'Bad',
+    'inconclusive': 'Inconclusive'
+  };
+  return labelMap[verdict] || 'Inconclusive';
+}
+
+/* =============================================================================
    LANGUAGE UTILITIES
    ============================================================================= */
 
@@ -586,7 +620,7 @@ async function generateVerdict(facts, conditions, allergies = [], cachedLanguage
     );
     console.log('Shop Well: Raw AI response:', response);
 
-    const verdict = parseVerdictResponse(response, facts, allergies);
+    const verdict = parseVerdictResponse(response, facts, allergies, conditions);
     console.log('Shop Well: Generated verdict:', verdict);
 
     return { verdict, languageModel: session };
@@ -894,19 +928,38 @@ Product facts:
 - Allergen warnings: ${facts.allergen_warnings.join(', ') || 'none detected'}
 - Dietary claims: ${facts.dietary_claims.join(', ') || 'none'}
 
-Return ONLY this JSON structure:
+Return ONLY this JSON structure (evaluate ALL user conditions and allergies listed above):
 {
-  "verdict": "helpful" | "mixed" | "not_ideal",
-  "insights": "multiple short paragraphs (2 sentences each) with markdown formatting",
-  "caveat": "brief important warning (40-50 words max)"
+  "conditions": [
+    ${conditionsArray.map(c => `{"name": "${c}", "verdict": "good|warning|bad|inconclusive", "brief_reason": "..."}`).join(',\n    ')}
+  ],
+  "allergies": [
+    ${allergies.map(a => `{"name": "${a}", "verdict": "good|warning|bad|inconclusive", "brief_reason": "..."}`).join(',\n    ')}
+  ],
+  "insights": "General analysis in 2-3 short paragraphs (2 sentences each) with markdown formatting",
+  "caveat": "Brief important warning (40-50 words max)"
 }
 
-Write 100-150 words total in short paragraphs of EXACTLY 2 sentences each, with a blank line between each paragraph. Directly address the user with "you/your" language. Provide personalized insights based on their ${conditionsList}${allergies && allergies.length > 0 ? ` and allergen sensitivities (${allergies.join(', ')})` : ''}. Use **bold** for important ingredients or concerns, *italic* for emphasis, and regular bullet lists when listing multiple items. Focus on WHY this product matters for their specific health profile. Make it conversational as if speaking directly to them.
+VERDICT DEFINITIONS:
+- "good": Product is safe/helpful for this condition or allergen (e.g., allergen not present, beneficial ingredients)
+- "warning": Mixed results or use with caution (e.g., some concerns but not critical)
+- "bad": Product should be avoided (e.g., allergen present, harmful ingredients)
+- "inconclusive": Insufficient data to make determination
+
+For EACH condition in the conditions array, evaluate how this specific product affects that condition. Provide a verdict and brief_reason (1-2 sentences) explaining why.
+
+For EACH allergen in the allergies array, check if the product contains that allergen and provide a verdict:
+- If allergen is NOT detected in ingredients: "good"
+- If allergen is detected: "bad"
+- If uncertain: "warning" or "inconclusive"
+
+Write 100-150 words total in the insights field as short paragraphs of EXACTLY 2 sentences each, with a blank line between each paragraph. Directly address the user with "you/your" language. Provide personalized insights based on their ${conditionsList}${allergies && allergies.length > 0 ? ` and allergen sensitivities (${allergies.join(', ')})` : ''}. Use **bold** for important ingredients or concerns, *italic* for emphasis, and regular bullet lists when listing multiple items. Focus on WHY this product matters for their specific health profile. Make it conversational as if speaking directly to them.
 
 IMPORTANT:
 - Always use "you/your" (e.g., "Given your ${conditionsList}...", "this could help you manage...") - NEVER use third person
-${conditionsArray.length > 1 ? `- Consider ALL conditions (${conditionsList}) when providing insights\n` : ''}- Keep paragraphs to EXACTLY 2 sentences each for readability
+${conditionsArray.length > 1 ? `- Consider ALL conditions (${conditionsList}) when providing insights\n` : ''}- Keep insights paragraphs to EXACTLY 2 sentences each for readability
 - Separate each 2-sentence paragraph with a blank line
+- brief_reason fields should be 1-2 sentences, concise and specific to that condition/allergen
 
 For the caveat: Write a single concise sentence (40-50 words maximum) highlighting the most critical limitation or warning. Use **bold** for key terms if needed.`;
 
@@ -997,7 +1050,7 @@ function generateEnhancedCustomGuidance(condition) {
 - Explain WHY and HOW each factor matters specifically for ${condition}`;
 }
 
-function parseVerdictResponse(response, facts, allergies) {
+function parseVerdictResponse(response, facts, allergies, conditions = []) {
   let verdict;
 
   try {
@@ -1009,49 +1062,63 @@ function parseVerdictResponse(response, facts, allergies) {
     }
   } catch (error) {
     console.warn('Shop Well: Failed to parse AI response, using fallback');
-    verdict = createFallbackVerdict(facts, allergies);
+    verdict = createFallbackVerdict(facts, allergies, conditions);
   }
 
-  verdict = validateVerdict(verdict, facts, allergies);
-
-  if (facts.allergen_warnings.length > 0) {
-    verdict.allergen_alert = true;
-    if (!verdict.caveat.includes('allergen')) {
-      verdict.caveat = `Contains potential allergens: ${facts.allergen_warnings.join(', ')}. ${verdict.caveat}`;
-    }
-  }
+  verdict = validateVerdict(verdict, facts, allergies, conditions);
 
   return verdict;
 }
 
-function validateVerdict(verdict, facts, allergies) {
+function validateVerdict(verdict, facts, allergies, conditions = []) {
   const sanitized = {
-    verdict: ['helpful', 'mixed', 'not_ideal'].includes(verdict.verdict) ? verdict.verdict : 'mixed',
-    caveat: typeof verdict.caveat === 'string' ? verdict.caveat : 'Please verify product details',
-    allergen_alert: false
+    conditions: [],
+    allergies: [],
+    insights: typeof verdict.insights === 'string' ? verdict.insights : 'Analysis available.',
+    caveat: typeof verdict.caveat === 'string' ? verdict.caveat : 'Please verify product details'
   };
 
-  // NEW FORMAT: Preserve insights field if present (markdown paragraphs)
-  if (typeof verdict.insights === 'string' && verdict.insights.trim().length > 0) {
-    sanitized.insights = verdict.insights;
+  // Validate conditions array
+  if (Array.isArray(verdict.conditions) && verdict.conditions.length > 0) {
+    sanitized.conditions = verdict.conditions.map(c => ({
+      name: c.name || 'Unknown',
+      verdict: ['good', 'warning', 'bad', 'inconclusive'].includes(c.verdict) ? c.verdict : 'inconclusive',
+      brief_reason: typeof c.brief_reason === 'string' ? c.brief_reason : 'Analysis unavailable'
+    }));
+  } else {
+    // If AI didn't return conditions, create fallback entries for each user condition
+    sanitized.conditions = conditions.map(name => ({
+      name,
+      verdict: 'inconclusive',
+      brief_reason: 'Analysis unavailable for this condition'
+    }));
   }
-  // OLD FORMAT: Preserve bullets field if present (backward compatibility)
-  else if (Array.isArray(verdict.bullets) && verdict.bullets.length > 0) {
-    sanitized.bullets = verdict.bullets.slice(0, 6);
 
-    // Ensure at least 3 bullets for old format
-    while (sanitized.bullets.length < 3) {
-      sanitized.bullets.push('Additional analysis available');
-    }
+  // Validate allergies array
+  if (Array.isArray(verdict.allergies) && verdict.allergies.length > 0) {
+    sanitized.allergies = verdict.allergies.map(a => ({
+      name: a.name || 'Unknown',
+      verdict: ['good', 'warning', 'bad', 'inconclusive'].includes(a.verdict) ? a.verdict : 'inconclusive',
+      brief_reason: typeof a.brief_reason === 'string' ? a.brief_reason : 'Analysis unavailable'
+    }));
+  } else {
+    // If AI didn't return allergies, create fallback entries for each user allergen
+    sanitized.allergies = allergies.map(name => {
+      // Simple allergen check based on detected warnings
+      const allergenLower = name.toLowerCase();
+      const detected = facts.allergen_warnings.some(warning =>
+        warning.toLowerCase().includes(allergenLower) ||
+        allergenLower.includes(warning.toLowerCase())
+      );
 
-    // Allow longer bullets (up to 150 characters for detailed explanations)
-    sanitized.bullets = sanitized.bullets.map(bullet =>
-      bullet.length > 150 ? bullet.substring(0, 147) + '...' : bullet
-    );
-  }
-  // FALLBACK: Create generic bullets if neither format exists
-  else {
-    sanitized.bullets = ['Analysis available', 'Additional analysis available', 'Please review product details manually'];
+      return {
+        name,
+        verdict: detected ? 'bad' : 'good',
+        brief_reason: detected
+          ? 'Allergen detected in product'
+          : 'No allergen detected in available information'
+      };
+    });
   }
 
   // Limit caveat length (up to 300 characters for ~50 words)
@@ -1059,30 +1126,50 @@ function validateVerdict(verdict, facts, allergies) {
     sanitized.caveat = sanitized.caveat.substring(0, 297) + '...';
   }
 
-  if (facts.allergen_warnings.length > 0) {
-    const userAllergens = facts.allergen_warnings.filter(a => allergies.includes(a));
-    if (userAllergens.length > 0) {
-      sanitized.verdict = 'not_ideal';
-      sanitized.allergen_alert = true;
-    }
-  }
-
   return sanitized;
 }
 
-function createFallbackVerdict(facts, allergies = []) {
+function createFallbackVerdict(facts, allergies = [], conditions = []) {
   console.log('Shop Well: Creating fallback verdict (no AI)');
 
-  let verdict = 'mixed';
-  const bullets = [];
-  let caveat = 'AI analysis unavailable. Please verify details manually.';
+  const caveat = 'AI analysis unavailable. Please verify details manually.';
 
+  // Build conditions verdicts (all inconclusive when AI unavailable)
+  const conditionsArray = conditions.map(condition => ({
+    name: condition,
+    verdict: 'inconclusive',
+    brief_reason: 'AI analysis unavailable - please review product details manually'
+  }));
+
+  // Build allergies verdicts based on detected allergen warnings
+  const allergiesArray = allergies.map(allergen => {
+    const allergenLower = allergen.toLowerCase();
+    const detected = facts.allergen_warnings.some(warning =>
+      warning.toLowerCase().includes(allergenLower) ||
+      allergenLower.includes(warning.toLowerCase())
+    );
+
+    if (detected) {
+      return {
+        name: allergen,
+        verdict: 'bad',
+        brief_reason: 'Allergen detected in product ingredients or warnings'
+      };
+    } else {
+      return {
+        name: allergen,
+        verdict: 'good',
+        brief_reason: 'No allergen detected in available product information'
+      };
+    }
+  });
+
+  // Build general insights
+  const bullets = [];
   if (facts.allergen_warnings.length > 0) {
     const userAllergens = facts.allergen_warnings.filter(a => allergies.includes(a));
     if (userAllergens.length > 0) {
-      verdict = 'not_ideal';
       bullets.push(`Contains allergens: ${userAllergens.join(', ')}`);
-      caveat = 'Product contains allergens you specified. Please verify ingredients.';
     } else {
       bullets.push('Contains allergens - check if relevant to you');
     }
@@ -1090,12 +1177,10 @@ function createFallbackVerdict(facts, allergies = []) {
 
   if (facts.compression_garment) {
     bullets.push('Compression garment - may support circulation');
-    if (verdict === 'mixed') verdict = 'helpful';
   }
 
   if (facts.gluten_free) {
     bullets.push('Labeled gluten-free');
-    if (verdict === 'mixed') verdict = 'helpful';
   }
 
   if (facts.high_sodium) {
@@ -1113,11 +1198,14 @@ function createFallbackVerdict(facts, allergies = []) {
     bullets.push('Additional details available in product description');
   }
 
+  // Build insights from bullets
+  const insights = bullets.map(b => `${b}.`).join(' ');
+
   return {
-    verdict,
-    bullets: bullets.slice(0, 3),
-    caveat,
-    allergen_alert: facts.allergen_warnings.length > 0
+    conditions: conditionsArray,
+    allergies: allergiesArray,
+    insights: insights,
+    caveat: caveat
   };
 }
 
@@ -1648,16 +1736,12 @@ class SidePanelUI {
       `;
     }
 
-    // Hide verdict badge initially
-    const verdictBadge = this.elements.analysis.querySelector('.verdict-badge');
-    if (verdictBadge) {
-      verdictBadge.style.opacity = '0.3';
-      verdictBadge.textContent = '⏳ Analyzing...';
-    }
+    // Hide verdict sections during analysis
+    const conditionsSection = this.elements.analysis.querySelector('.conditions-section');
+    if (conditionsSection) conditionsSection.classList.add('hidden');
 
-    // Hide sections that need full analysis
-    const allergenSection = this.elements.analysis.querySelector('.allergen-alerts');
-    if (allergenSection) allergenSection.classList.add('hidden');
+    const allergiesSection = this.elements.analysis.querySelector('.allergies-section');
+    if (allergiesSection) allergiesSection.classList.add('hidden');
 
     const caveatSection = this.elements.analysis.querySelector('.important-caveat');
     if (caveatSection) caveatSection.classList.add('hidden');
@@ -1692,18 +1776,34 @@ class SidePanelUI {
 
     this.elements.analysis.classList.remove('hidden');
 
-    // Update verdict badge
-    const verdictBadge = this.elements.analysis.querySelector('.verdict-badge');
-    if (verdictBadge) {
-      verdictBadge.style.opacity = '1'; // Restore full opacity
-      verdictBadge.className = `verdict-badge verdict-${verdict.verdict}`;
-      const verdictText = {
-        'helpful': '✅ Helpful',
-        'mixed': '⚠️ Mixed Results',
-        'not_ideal': '❌ Not Ideal',
-        'unknown': '❓ Analysis Incomplete'
-      };
-      verdictBadge.textContent = verdictText[verdict.verdict] || verdictText.unknown;
+    // Update conditions verdicts list
+    const conditionsList = this.elements.analysis.querySelector('.conditions-list');
+    const conditionsSection = this.elements.analysis.querySelector('.conditions-section');
+    if (conditionsList && verdict.conditions && verdict.conditions.length > 0) {
+      conditionsList.innerHTML = verdict.conditions.map(c => `
+        <div class="verdict-item verdict-${c.verdict}">
+          <span class="verdict-name">${c.name}</span>
+          <span class="verdict-badge-inline">${getVerdictEmoji(c.verdict)} ${getVerdictLabel(c.verdict)}</span>
+        </div>
+      `).join('');
+      if (conditionsSection) conditionsSection.classList.remove('hidden');
+    } else {
+      if (conditionsSection) conditionsSection.classList.add('hidden');
+    }
+
+    // Update allergies verdicts list
+    const allergiesList = this.elements.analysis.querySelector('.allergies-list');
+    const allergiesSection = this.elements.analysis.querySelector('.allergies-section');
+    if (allergiesList && verdict.allergies && verdict.allergies.length > 0) {
+      allergiesList.innerHTML = verdict.allergies.map(a => `
+        <div class="verdict-item verdict-${a.verdict}">
+          <span class="verdict-name">${a.name}</span>
+          <span class="verdict-badge-inline">${getVerdictEmoji(a.verdict)} ${getVerdictLabel(a.verdict)}</span>
+        </div>
+      `).join('');
+      if (allergiesSection) allergiesSection.classList.remove('hidden');
+    } else {
+      if (allergiesSection) allergiesSection.classList.add('hidden');
     }
 
     // Update condition info
@@ -1767,20 +1867,6 @@ class SidePanelUI {
         insightsContent.innerHTML = fallbackHTML;
       } else {
         insightsContent.innerHTML = '<p>No insights available.</p>';
-      }
-    }
-
-    // Show allergen alerts if any
-    const allergenSection = this.elements.analysis.querySelector('.allergen-alerts');
-    if (allergenSection) {
-      if (verdict.allergen_alert && facts.allergen_warnings && facts.allergen_warnings.length > 0) {
-        allergenSection.classList.remove('hidden');
-        const alertContent = allergenSection.querySelector('.alert-content');
-        if (alertContent) {
-          alertContent.textContent = `Contains: ${facts.allergen_warnings.join(', ')}`;
-        }
-      } else {
-        allergenSection.classList.add('hidden');
       }
     }
 
@@ -1937,7 +2023,7 @@ class SidePanelUI {
 
       if (!verdict) {
         console.log('Shop Well: Using fallback verdict generation...');
-        verdict = createFallbackVerdict(facts, allAllergies);
+        verdict = createFallbackVerdict(facts, allAllergies, this.settings.allConditions);
       }
 
       // Mark that we've had at least one successful AI call
@@ -2120,7 +2206,7 @@ class SidePanelUI {
         }
 
         if (!verdict) {
-          verdict = createFallbackVerdict(facts, allAllergies);
+          verdict = createFallbackVerdict(facts, allAllergies, this.settings.allConditions);
         }
 
         // Mark that we've had a successful AI call
@@ -2160,7 +2246,7 @@ class SidePanelUI {
         }
 
         if (!verdict) {
-          verdict = createFallbackVerdict(facts, allAllergies);
+          verdict = createFallbackVerdict(facts, allAllergies, this.settings.allConditions);
         }
 
         verdict.caveat = `Limited data available. ${verdict.caveat || 'Visit product page for complete details.'}`;
