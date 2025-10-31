@@ -185,21 +185,45 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Listing product badge was clicked
     console.log('Shop Well: Listing product analysis requested:', message.productData.id);
 
-    // Queue the analysis request
-    pendingAnalysisRequest = {
-      type: 'analyze-listing-product',
-      productData: message.productData
-    };
-    console.log('Shop Well: Analysis request queued until side panel is ready');
-
-    // Open side panel first
+    // Get current tab to check if side panel is already open
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       const activeTab = tabs[0];
-      if (activeTab) {
+      if (!activeTab) {
+        sendResponse({ success: false, error: 'No active tab found' });
+        return;
+      }
+
+      // Check if side panel is already open for this tab
+      const isPanelAlreadyOpen = sidePanelOpenTabs.has(activeTab.id);
+
+      if (isPanelAlreadyOpen) {
+        // Side panel is already open - send message immediately
+        console.log('Shop Well: Side panel already open, sending message immediately');
+
+        chrome.runtime.sendMessage({
+          type: 'analyze-listing-product',
+          productData: message.productData
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.warn('Shop Well: Failed to send message to side panel:', chrome.runtime.lastError.message);
+            sendResponse({ success: false, error: chrome.runtime.lastError.message });
+          } else {
+            console.log('Shop Well: Message sent to already-open side panel');
+            sendResponse({ success: true });
+          }
+        });
+      } else {
+        // Side panel is not open - queue the message and open panel
+        console.log('Shop Well: Side panel not open, queueing message and opening panel');
+
+        pendingAnalysisRequest = {
+          type: 'analyze-listing-product',
+          productData: message.productData
+        };
+
         try {
           await chrome.sidePanel.open({ windowId: activeTab.windowId });
           console.log('Shop Well: Side panel opened for listing product');
-
           // Message will be sent when side panel signals it's ready
           sendResponse({ success: true });
         } catch (error) {

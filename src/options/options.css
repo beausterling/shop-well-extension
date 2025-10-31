@@ -11,8 +11,8 @@
 body {
   font-family: var(--font-family);
   max-width: 800px;
-  margin: 0;
-  padding: 0;
+  margin: 0 auto;
+  padding: var(--space-4) 0;
   min-height: 100vh;
   /* Force light mode with gradient background */
   background: linear-gradient(135deg, #E8F5EA 0%, #E6F4FA 100%);
