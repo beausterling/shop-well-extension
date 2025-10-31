@@ -27,6 +27,9 @@
 - ✅ **Array-based storage** (conditions[], customConditions[], allergies[], customAllergies[])
 - ✅ **AI multi-condition analysis** (analyzes ALL selected conditions together)
 - ✅ **Backward compatibility** (auto-migrates old single-condition data)
+- ✅ **Conditions UI overhaul**: 2-column grid, 6 conditions (added COPD, Arthritis, Hypertension), updated icons (🩺🪫🌾🫁🦴❤️), hidden checkboxes, no circular backgrounds
+- ✅ **Options page updated**: Now matches welcome page with multi-condition card layout
+- ✅ **First-time user fix**: Nothing pre-selected by default (checks welcomeCompleted flag)
 
 **Current State**: Extension is feature-complete with advanced personalization. Multi-condition support allows users with complex health profiles to get comprehensive analysis.
 
@@ -34,7 +37,7 @@
 
 ## 📋 Project Overview
 
-**Mission**: Chrome extension that analyzes Amazon/Walmart products for people with chronic conditions (POTS, ME/CFS, Celiac Disease) using Chrome Built-in AI (Gemini Nano).
+**Mission**: Chrome extension that analyzes Amazon/Walmart products for people with chronic conditions (POTS, ME/CFS, Celiac Disease, COPD, Arthritis, Hypertension) using Chrome Built-in AI (Gemini Nano).
 
 **Core Value**: 100% private, on-device AI analysis for wellness-friendly shopping decisions.
 
@@ -212,12 +215,13 @@
 - End-to-end workflow verification (install → onboard → analyze)
 - Edge case handling (missing ingredients, unclear product data)
 
-### Priority 1.5: Options Page Update (NOT YET IMPLEMENTED)
-- ⚠️ **Options page still uses old single-condition dropdown**
-- **Needed**: Update options/index.html to match welcome page multi-select pattern
-- **Needed**: Update options/options.js to handle conditions arrays
-- **Needed**: Add custom condition/allergen inputs to options page
-- **Impact**: Low (welcome page is primary onboarding path)
+### Priority 1.5: Options Page Update ✅ COMPLETED
+- ✅ Options page updated to 2-column card grid matching welcome page
+- ✅ 6 condition cards (POTS, ME/CFS, Celiac, COPD, Arthritis, Hypertension)
+- ✅ Hidden checkboxes with card-based selection
+- ✅ Custom condition/allergen inputs with "+ Add Custom" buttons
+- ✅ Updated icons and labels for consistency
+- ✅ First-time user experience fixed (nothing pre-selected)
 
 ### Priority 2: Final Polish
 - Cross-browser compatibility verification
@@ -365,7 +369,7 @@ npm run build
 - ✅ **Progressive loading UX** (hide broken data during preview)
 - ✅ **Badge system fully functional** (SPA navigation, caching, state management)
 - ✅ **Search page integration complete** (Walmart search results badges working)
-- ⚠️ Options page needs multi-condition update (low priority)
+- ✅ **Options page redesigned** (2-column grid, 6 conditions, consistent with welcome page)
 - ⚠️ End-to-end testing on live products needed
 - ⚠️ Cross-browser animation testing
 
@@ -383,9 +387,22 @@ npm run build
 
 ---
 
-**Last Updated**: October 30, 2025 - Multi-condition system with custom entries complete
+**Last Updated**: October 30, 2025 - Conditions UI redesigned with 6 conditions across both pages
 
 **Recent Achievements (October 30, 2025)**:
+
+### Conditions UI Redesign (Later Session) ✅
+- **2-Column Card Grid**: Replaced dropdown with modern card-based selection
+  - 6 conditions total: POTS, ME/CFS, Celiac Disease, COPD, Arthritis, Hypertension
+  - Updated icons: 🩺 (POTS stethoscope), 🪫 (ME/CFS low battery), 🌾 (Celiac), 🫁 (COPD lungs), 🦴 (Arthritis bone), ❤️ (Hypertension heart)
+  - Removed circular emoji backgrounds (plain emojis like allergen chips)
+  - Hidden checkboxes (accessible but invisible)
+- **Consistent Labels**: "Chronic Conditions (Select all that apply)" and "Allergies/Sensitivities (Select all that apply)"
+- **Simplified Buttons**: Changed "+ Add Custom Condition/Allergen" to just "+ Add Custom"
+- **Both Pages Updated**: Welcome and options pages now match perfectly
+- **Enter Key Fix**: Custom inputs no longer advance to next step when Enter pressed
+- **First-Time User Fix**: Nothing pre-selected by default (checks welcomeCompleted flag)
+- **Impact**: Cleaner UI, better consistency, 6 supported conditions instead of 3
 
 ### Multi-Condition Selection System ✅
 - **Checkbox-Based Selection**: Changed from single radio button to multi-select checkboxes
