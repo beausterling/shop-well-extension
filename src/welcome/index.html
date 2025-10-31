@@ -333,33 +333,24 @@
 
           <!-- Email Input -->
           <div class="form-section">
-            <label class="form-label" for="email-input">Email Address <span class="required-indicator">*</span></label>
+            <label class="form-label" for="email-input">Email Address (Optional)</label>
             <input
               type="email"
               id="email-input"
               class="email-input"
               placeholder="your.email@example.com"
-              required
               autocomplete="email"
             >
-            <p class="form-helper">Your email is saved locally on your device for personalized wellness insights.</p>
+            <p class="form-helper">We will never share your information</p>
 
-            <!-- Opt-In Checkbox -->
-            <div class="opt-in-section">
+            <!-- Opt-In Checkbox (hidden until user types email) -->
+            <div class="opt-in-section hidden" id="opt-in-section">
               <label class="opt-in-checkbox">
                 <input type="checkbox" id="email-opt-in" name="emailOptIn">
-                <span class="checkbox-label">
-                  📬 Share my email with Shop Well to receive:
-                  <ul class="opt-in-benefits">
-                    <li>Product safety alerts & recalls</li>
-                    <li>New wellness feature updates</li>
-                    <li>Personalized health tips (optional)</li>
-                  </ul>
-                </span>
+                <span class="checkbox-label">Share data with Shop Well</span>
               </label>
               <p class="privacy-note">
-                🔒 <strong>Privacy First:</strong> Your data stays local unless you opt in.
-                <a href="#" id="privacy-policy-link" class="privacy-link">View Privacy Policy</a>
+                Your data stays local unless you opt in. <a href="#" id="privacy-policy-link" class="privacy-link">View Privacy Policy</a>
               </p>
             </div>
           </div>

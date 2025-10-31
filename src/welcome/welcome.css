@@ -1174,12 +1174,12 @@ body {
 }
 
 .celebration-note {
-  background: var(--sw-green-light);
-  border: 2px solid var(--sw-green);
+  background: var(--sw-beige);
+  border: 2px solid var(--sw-taupe);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
   font-size: var(--font-size-base);
-  color: var(--sw-green-dark);
+  color: var(--sw-charcoal);
   line-height: 1.6;
 }
 

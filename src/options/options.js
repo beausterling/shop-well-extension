@@ -271,6 +271,29 @@ async function saveSettings() {
       languagePreference
     });
 
+    // Regenerate health profile when conditions or allergies change
+    try {
+      console.log('Options: Regenerating health profile...');
+      const healthProfile = await generateHealthProfile(conditions, customConditions, allergies, customAllergies);
+
+      if (healthProfile) {
+        await chrome.storage.local.set({
+          healthProfile: {
+            conditions,
+            customConditions,
+            allergies,
+            customAllergies,
+            profile: healthProfile,
+            generatedAt: new Date().toISOString()
+          }
+        });
+        console.log('Options: Health profile regenerated successfully');
+      }
+    } catch (profileError) {
+      // Profile regeneration failure is non-critical
+      console.warn('Options: Health profile regeneration failed (non-critical):', profileError);
+    }
+
     const totalConditions = conditions.length + customConditions.length;
     const totalAllergens = allergies.length + customAllergies.length;
 
@@ -287,6 +310,109 @@ async function saveSettings() {
     console.error('Error saving settings:', error);
     showStatus('Error saving settings', 'error');
   }
+}
+
+/**
+ * Generates a personalized health profile using AI.
+ * This profile is stored locally and used for product analysis.
+ *
+ * @param {Array} conditions - Standard conditions
+ * @param {Array} customConditions - Custom conditions
+ * @param {Array} allergies - Standard allergies
+ * @param {Array} customAllergies - Custom allergies
+ * @returns {Promise<string>} - Generated health profile
+ */
+async function generateHealthProfile(conditions = [], customConditions = [], allergies = [], customAllergies = []) {
+  console.log('Options: Starting health profile generation...');
+
+  try {
+    const allConditions = [...conditions, ...customConditions];
+    const allAllergies = [...allergies, ...customAllergies];
+
+    // Handle empty profile
+    if (allConditions.length === 0 && allAllergies.length === 0) {
+      return 'General wellness focus. User has no specific health conditions or allergies specified.';
+    }
+
+    // Check if LanguageModel is available
+    if (typeof LanguageModel === 'undefined') {
+      console.warn('Options: LanguageModel not available, using fallback profile');
+      return generateFallbackProfile(allConditions, allAllergies);
+    }
+
+    // Create AI session
+    const session = await LanguageModel.create({
+      temperature: 0.7,
+      topK: 3
+    });
+
+    const profilePrompt = `You are a health profile analyst. Create a comprehensive, personalized health profile for someone with the following conditions and allergies.
+
+**Conditions:** ${allConditions.length > 0 ? allConditions.join(', ') : 'None'}
+**Allergies/Sensitivities:** ${allAllergies.length > 0 ? allAllergies.join(', ') : 'None'}
+
+Generate a detailed health profile that includes:
+
+1. **Key Health Considerations:**
+   - For each condition, explain the primary symptoms and challenges
+   - Note any interactions or compounding effects between multiple conditions
+   - Explain how these conditions affect daily product choices
+
+2. **Ingredients & Features to AVOID:**
+   - List specific ingredients that could worsen symptoms or trigger reactions
+   - Explain WHY each ingredient is problematic for this specific health profile
+   - Include both obvious allergens and hidden triggers
+
+3. **Ingredients & Features to SEEK:**
+   - List beneficial ingredients, nutrients, or product features
+   - Explain HOW each helps manage symptoms or support health
+   - Prioritize evidence-based recommendations
+
+4. **Product Category Guidance:**
+   - Foods: Key nutritional needs and dietary restrictions
+   - Household items: Sensitivities to fragrances, chemicals, textures
+   - Wellness products: Ergonomics, ease-of-use, physical demands
+   - General: Any product considerations unique to this health profile
+
+5. **Special Considerations:**
+   - Note any unique aspects of this particular combination of conditions
+   - Highlight potential conflicts (e.g., "POTS needs high sodium but hypertension needs low sodium")
+   - Provide nuanced guidance for complex situations
+
+Write 300-400 words in a clear, factual tone. Focus on actionable insights that will help analyze products for this specific health profile. This profile will be used by an AI assistant to evaluate products, so be thorough and specific.`;
+
+    const response = await session.prompt(profilePrompt);
+    session.destroy();
+
+    console.log('Options: Health profile generated successfully');
+    return response.trim();
+
+  } catch (error) {
+    console.error('Options: Health profile generation failed:', error);
+    return generateFallbackProfile(
+      [...conditions, ...customConditions],
+      [...allergies, ...customAllergies]
+    );
+  }
+}
+
+/**
+ * Generates a basic fallback profile when AI is unavailable
+ */
+function generateFallbackProfile(allConditions, allAllergies) {
+  let profile = 'Health Profile:\n\n';
+
+  if (allConditions.length > 0) {
+    profile += `Conditions: ${allConditions.join(', ')}\n`;
+    profile += 'Focus on products that support symptom management and daily comfort.\n\n';
+  }
+
+  if (allAllergies.length > 0) {
+    profile += `Allergies/Sensitivities: ${allAllergies.join(', ')}\n`;
+    profile += 'Avoid products containing these allergens. Check ingredient lists carefully.\n';
+  }
+
+  return profile;
 }
 
 async function clearData() {

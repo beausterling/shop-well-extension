@@ -518,7 +518,21 @@ async function generateVerdict(facts, conditions, allergies = [], cachedLanguage
     const language = await getUserLanguage();
     console.log('Shop Well: Using language:', language.code, `(${language.name})`);
 
-    const { systemPrompt, userPrompt } = preparePrompts(facts, conditions, allergies, language, firstName);
+    // Retrieve stored health profile if available
+    let healthProfile = null;
+    try {
+      const result = await chrome.storage.local.get(['healthProfile']);
+      healthProfile = result.healthProfile?.profile || null;
+      if (healthProfile) {
+        console.log('Shop Well: Using stored health profile');
+      } else {
+        console.log('Shop Well: No health profile found, using legacy guidance');
+      }
+    } catch (error) {
+      console.warn('Shop Well: Failed to load health profile:', error);
+    }
+
+    const { systemPrompt, userPrompt } = preparePrompts(facts, conditions, allergies, language, firstName, healthProfile);
     console.log('Shop Well: Prompt length:', userPrompt.length);
 
     // Map language to Chrome API-compatible code (only en, es, ja supported)
@@ -581,7 +595,118 @@ async function generateVerdict(facts, conditions, allergies = [], cachedLanguage
   }
 }
 
-function preparePrompts(facts, conditions, allergies, language, firstName) {
+/**
+ * Generates a personalized health profile for the user based on their conditions and allergies.
+ * This profile is stored locally and used as context for all product analyses.
+ *
+ * @param {Array} conditions - Array of standard condition names
+ * @param {Array} customConditions - Array of custom condition names
+ * @param {Array} allergies - Array of standard allergens
+ * @param {Array} customAllergies - Array of custom allergens
+ * @returns {Promise<string>} - Generated health profile text
+ */
+async function generateHealthProfile(conditions = [], customConditions = [], allergies = [], customAllergies = []) {
+  console.log('Shop Well: Generating personalized health profile...');
+
+  try {
+    // Combine all conditions and allergies
+    const allConditions = [...conditions, ...customConditions];
+    const allAllergies = [...allergies, ...customAllergies];
+
+    // Handle case where user has no conditions or allergies
+    if (allConditions.length === 0 && allAllergies.length === 0) {
+      return 'General wellness focus. User has no specific health conditions or allergies specified.';
+    }
+
+    // Check if LanguageModel is available
+    if (typeof LanguageModel === 'undefined') {
+      console.warn('Shop Well: LanguageModel not available for profile generation');
+      return generateFallbackProfile(allConditions, allAllergies);
+    }
+
+    // Create AI session
+    const session = await LanguageModel.create({
+      temperature: 0.7,
+      topK: 3
+    });
+
+    // Create prompt for profile generation
+    const profilePrompt = `You are a health profile analyst. Create a comprehensive, personalized health profile for someone with the following conditions and allergies.
+
+**Conditions:** ${allConditions.length > 0 ? allConditions.join(', ') : 'None'}
+**Allergies/Sensitivities:** ${allAllergies.length > 0 ? allAllergies.join(', ') : 'None'}
+
+Generate a detailed health profile that includes:
+
+1. **Key Health Considerations:**
+   - For each condition, explain the primary symptoms and challenges
+   - Note any interactions or compounding effects between multiple conditions
+   - Explain how these conditions affect daily product choices
+
+2. **Ingredients & Features to AVOID:**
+   - List specific ingredients that could worsen symptoms or trigger reactions
+   - Explain WHY each ingredient is problematic for this specific health profile
+   - Include both obvious allergens and hidden triggers
+
+3. **Ingredients & Features to SEEK:**
+   - List beneficial ingredients, nutrients, or product features
+   - Explain HOW each helps manage symptoms or support health
+   - Prioritize evidence-based recommendations
+
+4. **Product Category Guidance:**
+   - Foods: Key nutritional needs and dietary restrictions
+   - Household items: Sensitivities to fragrances, chemicals, textures
+   - Wellness products: Ergonomics, ease-of-use, physical demands
+   - General: Any product considerations unique to this health profile
+
+5. **Special Considerations:**
+   - Note any unique aspects of this particular combination of conditions
+   - Highlight potential conflicts (e.g., "POTS needs high sodium but hypertension needs low sodium")
+   - Provide nuanced guidance for complex situations
+
+Write 300-400 words in a clear, factual tone. Focus on actionable insights that will help analyze products for this specific health profile. This profile will be used by an AI assistant to evaluate products, so be thorough and specific.`;
+
+    const response = await withTimeout(
+      session.prompt(profilePrompt),
+      60000,
+      'Health profile generation'
+    );
+
+    console.log('Shop Well: Health profile generated successfully');
+    session.destroy(); // Clean up session
+
+    return response.trim();
+
+  } catch (error) {
+    console.error('Shop Well: Health profile generation failed:', error);
+    // Fall back to basic profile
+    return generateFallbackProfile(
+      [...conditions, ...customConditions],
+      [...allergies, ...customAllergies]
+    );
+  }
+}
+
+/**
+ * Generates a basic fallback profile when AI is unavailable
+ */
+function generateFallbackProfile(allConditions, allAllergies) {
+  let profile = 'Health Profile:\n\n';
+
+  if (allConditions.length > 0) {
+    profile += `Conditions: ${allConditions.join(', ')}\n`;
+    profile += 'Focus on products that support symptom management and daily comfort.\n\n';
+  }
+
+  if (allAllergies.length > 0) {
+    profile += `Allergies/Sensitivities: ${allAllergies.join(', ')}\n`;
+    profile += 'Avoid products containing these allergens. Check ingredient lists carefully.\n';
+  }
+
+  return profile;
+}
+
+function preparePrompts(facts, conditions, allergies, language, firstName, healthProfile) {
   const languageInstruction = getLanguageInstruction(language.code);
 
   // Handle conditions array
@@ -606,12 +731,14 @@ You help people with chronic conditions make informed shopping decisions based o
     ? `User allergies to check: ${allergies.join(', ')}`
     : 'No specific allergies to check';
 
-  const conditionGuidance = getConditionSpecificGuidance(conditionsArray);
+  // Use health profile if provided, otherwise fall back to legacy guidance
+  const profileGuidance = healthProfile || getConditionSpecificGuidance(conditionsArray);
 
   const userPrompt = `
 Analyze this product for someone with: ${conditionsList}
 
-${conditionGuidance}
+USER HEALTH PROFILE:
+${profileGuidance}
 
 ${allergenList}
 

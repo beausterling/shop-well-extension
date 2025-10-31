@@ -110,11 +110,11 @@ async function updateAIStatus(showCheckingState = true) {
     console.log('Welcome: AI Status Result:', aiStatus);
 
     if (aiStatus.available && aiStatus.summarizer && aiStatus.prompt) {
-      // ✅ AI is fully ready - SUCCESS!
-      statusCard.className = 'ai-status-card ready';
-      statusIcon.innerHTML = '✅';
-      statusTitle.textContent = 'Chrome AI is Ready!';
-      statusMessage.textContent = 'Enhanced wellness analysis is available.';
+      // ✅ AI is fully ready - Hide entire card and auto-advance!
+      console.log('Welcome: AI is ready, hiding status card and auto-advancing...');
+
+      // Hide the entire AI status card
+      statusCard.style.display = 'none';
 
       // Hide all AI setup UI elements
       setupInstructions?.classList.add('hidden');
@@ -124,8 +124,14 @@ async function updateAIStatus(showCheckingState = true) {
       primaryAction?.classList.add('hidden');
       secondaryAction?.classList.add('hidden');
 
+      // Auto-advance to Step 3 after brief delay
+      setTimeout(() => {
+        goToStep(3);
+      }, 500);
+
     } else {
       // ⚠️ AI not fully available - show friendly options
+      statusCard.style.display = ''; // Ensure card is visible
       statusCard.className = 'ai-status-card not-ready';
       statusIcon.innerHTML = '🤖';
       statusTitle.textContent = 'Want Smarter Analysis?';
@@ -140,6 +146,7 @@ async function updateAIStatus(showCheckingState = true) {
     }
   } catch (error) {
     console.error('Welcome: AI status check failed:', error);
+    statusCard.style.display = ''; // Ensure card is visible
     statusCard.className = 'ai-status-card not-ready';
     statusIcon.innerHTML = '🤖';
     statusTitle.textContent = 'Want Smarter Analysis?';
@@ -275,6 +282,29 @@ async function saveSettings() {
       console.log('Welcome: User did not opt in to data sharing');
     }
 
+    // STEP 3: Generate personalized health profile (non-blocking)
+    try {
+      console.log('Welcome: Generating personalized health profile...');
+      const healthProfile = await generateHealthProfile(conditions, customConditions, allergies, customAllergies);
+
+      if (healthProfile && chrome.storage) {
+        await chrome.storage.local.set({
+          healthProfile: {
+            conditions,
+            customConditions,
+            allergies,
+            customAllergies,
+            profile: healthProfile,
+            generatedAt: new Date().toISOString()
+          }
+        });
+        console.log('Welcome: Health profile generated and saved successfully');
+      }
+    } catch (profileError) {
+      // Profile generation failure should not block onboarding
+      console.warn('Welcome: Health profile generation failed (non-critical):', profileError);
+    }
+
     return true;
   } catch (error) {
     console.error('Welcome: Failed to save settings:', error);
@@ -315,28 +345,126 @@ async function sendToBackend(data) {
   }
 }
 
+/**
+ * Generates a personalized health profile using AI.
+ * This profile is stored locally and used for product analysis.
+ *
+ * @param {Array} conditions - Standard conditions
+ * @param {Array} customConditions - Custom conditions
+ * @param {Array} allergies - Standard allergies
+ * @param {Array} customAllergies - Custom allergies
+ * @returns {Promise<string>} - Generated health profile
+ */
+async function generateHealthProfile(conditions = [], customConditions = [], allergies = [], customAllergies = []) {
+  console.log('Welcome: Starting health profile generation...');
+
+  try {
+    const allConditions = [...conditions, ...customConditions];
+    const allAllergies = [...allergies, ...customAllergies];
+
+    // Handle empty profile
+    if (allConditions.length === 0 && allAllergies.length === 0) {
+      return 'General wellness focus. User has no specific health conditions or allergies specified.';
+    }
+
+    // Check if LanguageModel is available
+    if (typeof LanguageModel === 'undefined') {
+      console.warn('Welcome: LanguageModel not available, using fallback profile');
+      return generateFallbackProfile(allConditions, allAllergies);
+    }
+
+    // Create AI session
+    const session = await LanguageModel.create({
+      temperature: 0.7,
+      topK: 3
+    });
+
+    const profilePrompt = `You are a health profile analyst. Create a comprehensive, personalized health profile for someone with the following conditions and allergies.
+
+**Conditions:** ${allConditions.length > 0 ? allConditions.join(', ') : 'None'}
+**Allergies/Sensitivities:** ${allAllergies.length > 0 ? allAllergies.join(', ') : 'None'}
+
+Generate a detailed health profile that includes:
+
+1. **Key Health Considerations:**
+   - For each condition, explain the primary symptoms and challenges
+   - Note any interactions or compounding effects between multiple conditions
+   - Explain how these conditions affect daily product choices
+
+2. **Ingredients & Features to AVOID:**
+   - List specific ingredients that could worsen symptoms or trigger reactions
+   - Explain WHY each ingredient is problematic for this specific health profile
+   - Include both obvious allergens and hidden triggers
+
+3. **Ingredients & Features to SEEK:**
+   - List beneficial ingredients, nutrients, or product features
+   - Explain HOW each helps manage symptoms or support health
+   - Prioritize evidence-based recommendations
+
+4. **Product Category Guidance:**
+   - Foods: Key nutritional needs and dietary restrictions
+   - Household items: Sensitivities to fragrances, chemicals, textures
+   - Wellness products: Ergonomics, ease-of-use, physical demands
+   - General: Any product considerations unique to this health profile
+
+5. **Special Considerations:**
+   - Note any unique aspects of this particular combination of conditions
+   - Highlight potential conflicts (e.g., "POTS needs high sodium but hypertension needs low sodium")
+   - Provide nuanced guidance for complex situations
+
+Write 300-400 words in a clear, factual tone. Focus on actionable insights that will help analyze products for this specific health profile. This profile will be used by an AI assistant to evaluate products, so be thorough and specific.`;
+
+    const response = await session.prompt(profilePrompt);
+    session.destroy();
+
+    console.log('Welcome: Health profile generated successfully');
+    return response.trim();
+
+  } catch (error) {
+    console.error('Welcome: Health profile generation failed:', error);
+    return generateFallbackProfile(
+      [...conditions, ...customConditions],
+      [...allergies, ...customAllergies]
+    );
+  }
+}
+
+/**
+ * Generates a basic fallback profile when AI is unavailable
+ */
+function generateFallbackProfile(allConditions, allAllergies) {
+  let profile = 'Health Profile:\n\n';
+
+  if (allConditions.length > 0) {
+    profile += `Conditions: ${allConditions.join(', ')}\n`;
+    profile += 'Focus on products that support symptom management and daily comfort.\n\n';
+  }
+
+  if (allAllergies.length > 0) {
+    profile += `Allergies/Sensitivities: ${allAllergies.join(', ')}\n`;
+    profile += 'Avoid products containing these allergens. Check ingredient lists carefully.\n';
+  }
+
+  return profile;
+}
+
 // ===================================
 // FINISH SETUP
 // ===================================
 async function finishSetup() {
   console.log('Welcome: Finishing setup...');
 
-  // Validate email is provided
+  // Validate email format if provided (email is optional now)
   const emailInput = document.getElementById('email-input');
   const email = emailInput ? emailInput.value.trim() : '';
 
-  if (!email) {
-    alert('Please enter your email address to continue.');
-    emailInput?.focus();
-    return;
-  }
-
-  // Validate email format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    alert('Please enter a valid email address.');
-    emailInput?.focus();
-    return;
+  if (email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      alert('Please enter a valid email address or leave it blank.');
+      emailInput?.focus();
+      return;
+    }
   }
 
   // Save settings
@@ -645,6 +773,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Step 3: Email input - show/hide opt-in section
+  document.getElementById('email-input')?.addEventListener('input', (e) => {
+    const optInSection = document.getElementById('opt-in-section');
+    const emailValue = e.target.value.trim();
+
+    if (emailValue.length > 0) {
+      // Show opt-in section when user starts typing email
+      optInSection?.classList.remove('hidden');
+    } else {
+      // Hide opt-in section when email field is empty
+      optInSection?.classList.add('hidden');
+    }
+  });
+
   // Keyboard navigation
   document.addEventListener('keydown', (e) => {
     // Ignore Enter key when user is typing in input fields
@@ -726,6 +868,10 @@ async function loadExistingSettings() {
       if (emailInput) {
         emailInput.value = result.email;
         console.log(`Welcome: Pre-filled email: ${result.email}`);
+
+        // Show opt-in section since email is present
+        const optInSection = document.getElementById('opt-in-section');
+        optInSection?.classList.remove('hidden');
       }
     }
 
