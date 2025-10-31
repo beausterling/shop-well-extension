@@ -377,6 +377,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Keyboard navigation
   document.addEventListener('keydown', (e) => {
+    // Ignore Enter key when user is typing in name input field
+    // This prevents accidentally advancing to next step while entering name
+    if (e.key === 'Enter' && e.target.id === 'first-name-input') {
+      e.target.blur(); // Close keyboard (mobile) and accept input
+      return; // Don't advance to next step
+    }
+
     if (e.key === 'ArrowRight' || e.key === 'Enter') {
       if (currentStep < totalSteps) {
         // Only advance if on step 1, or if appropriate on step 2/3

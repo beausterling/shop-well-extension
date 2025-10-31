@@ -61,6 +61,16 @@ class ProductExtractor {
     // Update last known URL to current (prevents polling from re-triggering)
     this.lastUrl = window.location.href;
 
+    // Reset all badge states from previous page to default "Analyze" state
+    const allBadges = document.querySelectorAll('.shop-well-badge');
+    allBadges.forEach(badge => {
+      badge.classList.remove('analyzing', 'completed');
+      badge.textContent = '🌿 Analyze';
+    });
+    if (allBadges.length > 0) {
+      console.log(`Shop Well: Reset ${allBadges.length} badge states to default`);
+    }
+
     // Stop existing mutation observer if running
     if (this.mutationObserver) {
       this.mutationObserver.disconnect();
@@ -591,7 +601,6 @@ class ProductExtractor {
           badge.classList.remove('completed');
           badge.textContent = 'Analyze';
         });
-        // Note: Analysis cache remains intact for instant re-display
         return false;
       }
 
