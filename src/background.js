@@ -1,6 +1,8 @@
 // Shop Well Background Service Worker
 // Handles keyboard shortcuts, side panel management, and message routing
 
+import { automateProductExtraction } from './background-automation.js';
+
 console.log('Shop Well background service worker initialized');
 
 /* =============================================================================
@@ -124,7 +126,52 @@ chrome.action.onClicked.addListener(async (tab) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Shop Well: Message received:', message.type || message.command);
 
-  // Handle cross-origin product HTML fetch for listing analysis
+  // Handle automated product extraction (browser automation with click expansion)
+  if (message.type === 'FETCH_PRODUCT_HTML_AUTOMATED') {
+    console.log('Shop Well: Starting automated extraction for:', message.url);
+
+    automateProductExtraction(message.url)
+      .then(result => {
+        if (result.success) {
+          console.log('Shop Well: Automated extraction successful, duration:', result.duration, 'ms');
+          sendResponse({
+            ok: true,
+            html: result.html,
+            extractedData: result.extractedData,
+            method: 'automated',
+            duration: result.duration
+          });
+        } else {
+          console.warn('Shop Well: Automated extraction failed:', result.error);
+          console.log('Shop Well: Falling back to simple fetch...');
+
+          // Fall back to simple fetch
+          fetch(message.url, { credentials: 'omit' })
+            .then(response => {
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+              }
+              return response.text();
+            })
+            .then(html => {
+              console.log('Shop Well: Fallback fetch successful, length:', html.length);
+              sendResponse({ ok: true, html, method: 'fallback-fetch' });
+            })
+            .catch(fetchError => {
+              console.error('Shop Well: Fallback fetch also failed:', fetchError);
+              sendResponse({ ok: false, error: String(fetchError), method: 'all-failed' });
+            });
+        }
+      })
+      .catch(error => {
+        console.error('Shop Well: Automated extraction error:', error);
+        sendResponse({ ok: false, error: String(error), method: 'automation-error' });
+      });
+
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle cross-origin product HTML fetch for listing analysis (fallback method)
   if (message.type === 'FETCH_PRODUCT_HTML') {
     console.log('Shop Well: Fetching product HTML from:', message.url);
 

@@ -48,6 +48,29 @@ async function bundleContentScript() {
   }
 }
 
+async function bundleBackgroundScript() {
+  console.log('📦 Bundling background script with esbuild...');
+
+  try {
+    await esbuild.build({
+      entryPoints: [path.join(srcDir, 'background.js')],
+      bundle: true,
+      outfile: path.join(distDir, 'background.js'),
+      format: 'iife', // Immediately Invoked Function Expression for service workers
+      target: 'chrome114', // Target Chrome 114+ for extension compatibility
+      platform: 'browser',
+      minify: false, // Keep readable for development
+      sourcemap: false,
+      logLevel: 'info'
+    });
+
+    console.log('✓ Background script bundled successfully');
+  } catch (error) {
+    console.error('✗ Background script bundling failed:', error);
+    throw error;
+  }
+}
+
 async function copyFiles(source, destination) {
   const entries = await fs.readdir(source, { withFileTypes: true });
 
@@ -68,11 +91,7 @@ async function copyFiles(source, destination) {
 async function copyFilesSelectively() {
   console.log('📁 Copying extension files...');
 
-  // Copy background script
-  await fs.copyFile(
-    path.join(srcDir, 'background.js'),
-    path.join(distDir, 'background.js')
-  );
+  // Note: background.js is now bundled by bundleBackgroundScript(), not copied
 
   // Copy manifest
   await fs.copyFile(
@@ -215,8 +234,9 @@ async function build() {
     await cleanDist();
     await createDistDir();
 
-    // Bundle content script with esbuild
+    // Bundle scripts with esbuild
     await bundleContentScript();
+    await bundleBackgroundScript();
 
     // Copy other files
     await copyFilesSelectively();

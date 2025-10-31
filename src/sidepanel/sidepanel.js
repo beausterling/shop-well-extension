@@ -662,23 +662,71 @@ function detectProductCategory(productData, facts) {
   const titleLower = (productData.title || '').toLowerCase();
   const bulletsText = (productData.bullets || []).join(' ').toLowerCase();
   const hasIngredients = !!(productData.ingredients && productData.ingredients.length > 0);
+  const pricePerUnit = (productData.pricePerUnit || '').toLowerCase();
 
-  // Food & Supplements - highest priority for ingredient-based products
-  if (hasIngredients || facts.gluten_free || facts.high_sugar || facts.high_sodium) {
+  // PRIORITY 1: Nutrition facts detected = FOOD (very high confidence)
+  if (facts.gluten_free || facts.high_sugar || facts.high_sodium || facts.dietary_claims.length > 0) {
     // Distinguish supplements from regular food
     if (titleLower.match(/\b(vitamin|supplement|probiotic|mineral|omega|capsule|tablet|softgel)\b/)) {
+      console.log('Category: supplement (nutrition + supplement keywords)');
       return 'supplement';
     }
+    console.log('Category: food (nutrition facts detected)');
     return 'food';
   }
 
-  // Check title patterns for non-food categories
+  // PRIORITY 2: Comprehensive food keywords in title (HIGH PRIORITY)
+  const foodKeywords = [
+    // Frozen desserts
+    'ice cream', 'icecream', 'frozen yogurt', 'sherbet', 'sorbet', 'gelato',
+    'frozen dessert', 'popsicle', 'ice pop',
+    // Dairy
+    'milk', 'cheese', 'yogurt', 'butter', 'cream', 'dairy', 'whipped cream',
+    // Snacks & treats
+    'chips', 'crackers', 'cookies', 'candy', 'chocolate', 'snack', 'popcorn',
+    'pretzels', 'nuts', 'trail mix', 'granola',
+    // Meals & ingredients
+    'cereal', 'bread', 'pasta', 'rice', 'beans', 'soup', 'sauce', 'salsa',
+    'tortilla', 'burrito', 'pizza', 'sandwich',
+    // Beverages
+    'juice', 'water', 'soda', 'coffee', 'tea', 'drink', 'beverage', 'smoothie',
+    'lemonade', 'energy drink',
+    // Prepared foods
+    'meal', 'dinner', 'lunch', 'breakfast', 'food', 'entree', 'appetizer',
+    // Baking & cooking
+    'flour', 'sugar', 'baking', 'mix', 'seasoning', 'spice', 'oil',
+    // Protein & nutrition
+    'protein', 'bar', 'shake', 'powder', 'supplement bar'
+  ];
+
+  for (const keyword of foodKeywords) {
+    if (titleLower.includes(keyword)) {
+      // Check if it's a supplement type
+      if (titleLower.match(/\b(vitamin|supplement|probiotic|mineral|omega|capsule|tablet|softgel)\b/)) {
+        console.log('Category: supplement (food keyword + supplement type)');
+        return 'supplement';
+      }
+      console.log(`Category: food (keyword: "${keyword}")`);
+      return 'food';
+    }
+  }
+
+  // PRIORITY 3: Price per weight/volume = likely food
+  if (pricePerUnit && pricePerUnit.match(/¢?\/?(\boz\b|\blb\b|fl oz|\bg\b|\bkg\b|\bml\b|\bl\b)/)) {
+    console.log('Category: food (price per weight/volume)');
+    return 'food';
+  }
+
+  // PRIORITY 4: Explicit ingredients list = FOOD
+  if (hasIngredients && productData.ingredients.length > 20) {
+    console.log('Category: food (has ingredient list)');
+    return 'food';
+  }
+
+  // Supplements (after food checks)
   if (titleLower.match(/\b(vitamin|supplement|probiotic|mineral|omega|capsule|tablet|pill|softgel)\b/)) {
+    console.log('Category: supplement');
     return 'supplement';
-  }
-
-  if (titleLower.match(/\b(cereal|snack|food|drink|beverage|meal|bar|shake|protein|powder|juice|water|tea|coffee|sauce|seasoning)\b/)) {
-    return 'food';
   }
 
   // Mobility & Assistive Devices
@@ -723,26 +771,88 @@ function detectProductCategory(productData, facts) {
  * @returns {string} - Filtered health profile focusing on relevant aspects
  */
 function filterHealthProfileByCategory(healthProfile, category, conditions = [], allergies = []) {
-  // Category-to-health-aspect relevance mapping
+  const categoryLabel = category.replace('-', ' ');
+
+  // For FOOD and SUPPLEMENTS: Aggressively remove non-food content
+  if (category === 'food' || category === 'supplement') {
+    console.log(`Filtering health profile for ${category} - removing non-food content`);
+
+    let filtered = healthProfile;
+
+    // REMOVE: Fragrance/scent-related content (not relevant for food)
+    filtered = filtered.replace(/[^.]*\bfragrance[^.]*\./gi, '');
+    filtered = filtered.replace(/[^.]*\bscent[^.]*\./gi, '');
+    filtered = filtered.replace(/[^.]*\bperfume[^.]*\./gi, '');
+    filtered = filtered.replace(/[^.]*\bodor[^.]*\./gi, '');
+
+    // REMOVE: Ergonomics/physical handling (not relevant for food)
+    filtered = filtered.replace(/[^.]*\bergonomic[^.]*\./gi, '');
+    filtered = filtered.replace(/[^.]*\blightweight[^.]*\./gi, '');
+    filtered = filtered.replace(/[^.]*\bease of use[^.]*\./gi, '');
+    filtered = filtered.replace(/[^.]*\bphysical demand[^.]*\./gi, '');
+    filtered = filtered.replace(/[^.]*\bgrip[^.]*\./gi, '');
+    filtered = filtered.replace(/[^.]*\blifting[^.]*\./gi, '');
+
+    // REMOVE: Household chemicals (not relevant for food)
+    filtered = filtered.replace(/[^.]*\bchemical[^.]*\./gi, '');
+    filtered = filtered.replace(/[^.]*\birritant[^.]*\./gi, '');
+    filtered = filtered.replace(/[^.]*\bcleaning[^.]*\./gi, '');
+
+    // REMOVE: Personal care/skin (not relevant for food)
+    filtered = filtered.replace(/[^.]*\bskin sensitive[^.]*\./gi, '');
+    filtered = filtered.replace(/[^.]*\btopical[^.]*\./gi, '');
+    filtered = filtered.replace(/[^.]*\bappl(y|ied|ying)[^.]*skin[^.]*\./gi, '');
+
+    // Clean up extra whitespace and empty lines
+    filtered = filtered.replace(/\n\s*\n/g, '\n\n');
+    filtered = filtered.replace(/\s+/g, ' ');
+    filtered = filtered.trim();
+
+    // Add header
+    const header = `**Relevant for ${categoryLabel} products:**\n\n`;
+
+    console.log(`Filtered profile length: ${filtered.length} chars (original: ${healthProfile.length})`);
+    return header + filtered;
+  }
+
+  // For HOUSEHOLD products: Keep fragrance/chemical content, remove food content
+  if (category === 'household') {
+    console.log('Filtering health profile for household - removing food/nutrition content');
+
+    let filtered = healthProfile;
+
+    // REMOVE: Nutrition/dietary content (not relevant for household)
+    filtered = filtered.replace(/[^.]*\bnutrition[^.]*\./gi, '');
+    filtered = filtered.replace(/[^.]*\bdietary[^.]*\./gi, '');
+    filtered = filtered.replace(/[^.]*\bcalories[^.]*\./gi, '');
+    filtered = filtered.replace(/[^.]*\bsodium[^.]*content[^.]*\./gi, '');
+    filtered = filtered.replace(/[^.]*\bsugar[^.]*content[^.]*\./gi, '');
+
+    filtered = filtered.replace(/\n\s*\n/g, '\n\n');
+    filtered = filtered.replace(/\s+/g, ' ');
+    filtered = filtered.trim();
+
+    const header = `**Relevant for ${categoryLabel} products:**\n\n`;
+    return header + filtered;
+  }
+
+  // For other categories: Use keyword-based positive filtering
   const relevanceMap = {
-    food: ['dietary', 'ingredient', 'nutrition', 'sodium', 'sugar', 'gluten', 'allergen', 'food', 'eating', 'digest'],
-    supplement: ['dietary', 'ingredient', 'nutrition', 'vitamin', 'mineral', 'supplement', 'interaction', 'allergen'],
     mobility: ['physical', 'mobility', 'movement', 'ergonomic', 'lightweight', 'ease of use', 'energy', 'fatigue', 'pain', 'joint', 'muscle'],
     clothing: ['physical', 'compression', 'support', 'circulation', 'temperature', 'comfort', 'mobility', 'skin'],
-    household: ['chemical', 'fragrance', 'scent', 'sensitive', 'irritant', 'allergen', 'ease of use', 'physical'],
     'personal-care': ['skin', 'fragrance', 'scent', 'chemical', 'sensitive', 'allergen', 'irritant', 'ingredient'],
     'medical-equipment': ['physical', 'ease of use', 'cognitive', 'mobility', 'symptom', 'monitoring', 'ergonomic'],
-    general: null // null means include everything
+    general: null
   };
 
   const relevantTerms = relevanceMap[category];
 
-  // If general category, return full profile
+  // If general category or no mapping, return full profile
   if (!relevantTerms) {
     return healthProfile;
   }
 
-  // Split profile into sentences/sections
+  // Split profile into sentences
   const sentences = healthProfile.split(/[.!?]+/).filter(s => s.trim().length > 0);
 
   // Filter sentences that contain relevant terms
@@ -751,19 +861,14 @@ function filterHealthProfileByCategory(healthProfile, category, conditions = [],
     return relevantTerms.some(term => sentenceLower.includes(term));
   });
 
-  // If filtered profile is too short, add category-specific context
   let filteredProfile = relevantSentences.join('. ') + '.';
-
-  // Add explicit filtering instruction
-  const categoryLabel = category.replace('-', ' ');
-  const header = `**Relevant for ${categoryLabel} products:**\n\n`;
 
   // Ensure we have meaningful content
   if (filteredProfile.length < 100) {
-    // Profile was too filtered, provide minimal context
     filteredProfile = `For ${categoryLabel} products, focus on: ${relevantTerms.slice(0, 5).join(', ')}.`;
   }
 
+  const header = `**Relevant for ${categoryLabel} products:**\n\n`;
   return header + filteredProfile;
 }
 
@@ -921,8 +1026,55 @@ You help people with chronic conditions make informed shopping decisions based o
   // Use health profile if provided, otherwise fall back to legacy guidance
   const profileGuidance = healthProfile || getConditionSpecificGuidance(conditionsArray);
 
+  // Category-specific validation instructions
+  const categoryInstructions = {
+    food: `
+⚠️ CRITICAL PRODUCT TYPE VALIDATION:
+This is a FOOD/BEVERAGE product (ice cream, snack, meal, etc.). You MUST:
+- ONLY discuss nutritional aspects (sugar, sodium, calories, ingredients, nutrients)
+- ONLY discuss FOOD allergens (eggs, milk, soy, wheat, peanuts, tree nuts, fish, shellfish, sesame)
+- ONLY discuss how this FOOD affects health conditions (dietary restrictions, blood sugar, sodium intake, etc.)
+- DO NOT mention: fragrance, scent, perfume, chemicals (cleaning), irritants (topical), ergonomics, ease-of-use, physical handling
+- DO NOT call this a "personal care item" or "household product" or any non-food category
+- DO NOT discuss physical strength needed or handling ease - this is FOOD, not equipment
+- If the product has "fragrance-free" mentioned, IGNORE IT - fragrances are not relevant for food products`,
+
+    supplement: `
+⚠️ CRITICAL PRODUCT TYPE VALIDATION:
+This is a DIETARY SUPPLEMENT (vitamin, mineral, etc.). You MUST:
+- ONLY discuss nutritional/supplement aspects (dosage, ingredients, interactions, nutrients)
+- ONLY discuss food allergens and supplement-specific concerns
+- DO NOT mention: fragrance, scent, ergonomics, physical handling, household chemicals`,
+
+    household: `
+This is a HOUSEHOLD/CLEANING product. Focus on:
+- Chemical sensitivities and fragrances/scents
+- Potential irritants for sensitive skin or airways
+- Physical ease of use if relevant for conditions
+- DO NOT discuss nutritional content, dietary restrictions, or food allergens`,
+
+    'personal-care': `
+This is a PERSONAL CARE product. Focus on:
+- Skin sensitivities and fragrance/scent concerns
+- Topical ingredients and potential irritants
+- DO NOT discuss nutritional content or dietary aspects`,
+
+    mobility: `
+This is a MOBILITY/ASSISTIVE device. Focus on:
+- Ergonomics and ease of use
+- Physical demands and energy requirements
+- Weight and handling considerations
+- DO NOT discuss nutritional content, fragrance, or dietary aspects`,
+
+    general: ''
+  };
+
+  const categoryInstruction = categoryInstructions[productCategory] || '';
+
   const userPrompt = `
 PRODUCT CATEGORY: ${categoryLabel}
+
+${categoryInstruction}
 
 Analyze this ${categoryLabel} for someone with: ${conditionsList}
 
@@ -1275,12 +1427,52 @@ function createFallbackVerdict(facts, allergies = [], conditions = []) {
    ============================================================================= */
 
 /**
- * Fetch product HTML from background worker
+ * Fetch product HTML from background worker with automated expansion
+ * First tries automated browser automation, then falls back to simple fetch
  * @param {string} url - Product URL to fetch
- * @returns {Promise<string>} HTML content
+ * @returns {Promise<Object>} { html: string, extractedData: Object|null, method: string }
  */
 async function fetchProductHTML(url) {
-  console.log('Shop Well: Requesting product HTML from background...');
+  console.log('Shop Well: Requesting automated product extraction from background...');
+
+  return new Promise((resolve, reject) => {
+    // Try automated extraction first (browser automation with click expansion)
+    chrome.runtime.sendMessage(
+      { type: 'FETCH_PRODUCT_HTML_AUTOMATED', url },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn('Shop Well: Automated extraction unavailable:', chrome.runtime.lastError.message);
+          // Fall back to simple fetch
+          fetchProductHTMLFallback(url).then(resolve).catch(reject);
+          return;
+        }
+
+        if (!response.ok) {
+          console.warn('Shop Well: Automated extraction failed:', response.error);
+          // Fall back to simple fetch
+          fetchProductHTMLFallback(url).then(resolve).catch(reject);
+          return;
+        }
+
+        console.log('Shop Well: Product data received via', response.method);
+        resolve({
+          html: response.html,
+          extractedData: response.extractedData || null,
+          method: response.method || 'automated',
+          duration: response.duration
+        });
+      }
+    );
+  });
+}
+
+/**
+ * Fallback: Simple HTML fetch without automation
+ * @param {string} url - Product URL to fetch
+ * @returns {Promise<Object>} { html: string, extractedData: null, method: string }
+ */
+async function fetchProductHTMLFallback(url) {
+  console.log('Shop Well: Using fallback fetch method...');
 
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(
@@ -1291,7 +1483,11 @@ async function fetchProductHTML(url) {
         } else if (!response.ok) {
           reject(new Error(response.error || 'Fetch failed'));
         } else {
-          resolve(response.html);
+          resolve({
+            html: response.html,
+            extractedData: null,
+            method: 'fallback-fetch'
+          });
         }
       }
     );
@@ -1518,6 +1714,10 @@ class SidePanelUI {
     this.aiCapabilities = await checkAIAvailability();
     console.log('Shop Well: AI Capabilities:', this.aiCapabilities);
 
+    // AUTO-GENERATE MISSING HEALTH PROFILES
+    // Check if user has conditions/allergies but no profile → auto-generate
+    await this.checkAndGenerateProfileIfNeeded();
+
     // Setup event listeners
     this.setupEventListeners();
 
@@ -1740,16 +1940,40 @@ class SidePanelUI {
     console.log('Shop Well: Showing setup state');
   }
 
-  showProfileBuilding() {
+  showProfileBuilding(isAutoGeneration = false) {
     this.hideAllStates();
     if (this.elements.profileBuilding) {
       this.elements.profileBuilding.classList.remove('hidden');
+
+      // Update message based on context
+      const messageElement = this.elements.profileBuilding.querySelector('p');
+      const submessageElement = this.elements.profileBuilding.querySelector('small');
+
+      if (isAutoGeneration) {
+        if (messageElement) {
+          messageElement.textContent = '🤖 Building your personalized health profile...';
+        }
+        if (submessageElement) {
+          submessageElement.textContent = 'This only happens once and takes about 10-15 seconds.';
+        }
+        console.log('Shop Well: Auto-generating health profile');
+      } else {
+        if (messageElement) {
+          messageElement.textContent = 'Your health profile is being built...';
+        }
+        if (submessageElement) {
+          submessageElement.textContent = 'This was started in the Settings page. Please wait...';
+        }
+        console.log('Shop Well: Waiting for profile to build');
+      }
     }
     this.currentState = 'profileBuilding';
     console.log('Shop Well: Showing profile building state');
 
-    // Start polling for profile completion
-    this.startProfilePolling();
+    // Only start polling if NOT auto-generating (auto-generation handles its own completion)
+    if (!isAutoGeneration) {
+      this.startProfilePolling();
+    }
   }
 
   /**
@@ -1789,6 +2013,210 @@ class SidePanelUI {
       console.error('Shop Well: Error checking profile status:', error);
       return { status: 'error', error: error.message };
     }
+  }
+
+  /**
+   * Check if profile needs to be generated and auto-generate if needed
+   * Called during sidepanel initialization
+   */
+  async checkAndGenerateProfileIfNeeded() {
+    // Check if user has any conditions or allergies
+    const hasConditionsOrAllergies =
+      this.settings.allConditions.length > 0 ||
+      this.settings.allergies.length > 0 ||
+      this.settings.customAllergies.length > 0;
+
+    if (!hasConditionsOrAllergies) {
+      console.log('Shop Well: No conditions or allergies - profile not needed');
+      return;
+    }
+
+    // Check current profile status
+    const profileCheck = await this.checkProfileStatus();
+    console.log('Shop Well: Profile check result:', profileCheck.status);
+
+    // Auto-generate if profile is missing or not started
+    if (profileCheck.status === 'not-started') {
+      console.log('Shop Well: Profile not found - auto-generating...');
+      console.log('Shop Well: User has', this.settings.allConditions.length, 'conditions and',
+                  (this.settings.allergies.length + this.settings.customAllergies.length), 'allergies');
+
+      await this.autoGenerateHealthProfile();
+    } else if (profileCheck.status === 'complete') {
+      console.log('Shop Well: Existing health profile found - using cached profile');
+    } else if (profileCheck.status === 'building') {
+      console.log('Shop Well: Profile is currently building (started elsewhere)');
+    } else if (profileCheck.status === 'error') {
+      console.log('Shop Well: Previous profile generation failed - attempting regeneration...');
+      await this.autoGenerateHealthProfile();
+    }
+  }
+
+  /**
+   * Automatically generate health profile in the background
+   * Runs during sidepanel initialization if profile is missing
+   */
+  async autoGenerateHealthProfile() {
+    try {
+      console.log('Shop Well: Starting automatic health profile generation...');
+
+      // Show UI feedback
+      this.showProfileBuilding(true); // true = auto-generation mode
+
+      // Set status to building
+      await chrome.storage.local.set({
+        profileStatus: {
+          status: 'building',
+          startedAt: new Date().toISOString(),
+          autoGenerated: true
+        }
+      });
+
+      const allConditions = this.settings.allConditions;
+      const allAllergies = [...this.settings.allergies, ...this.settings.customAllergies];
+
+      // Generate profile using AI (same logic as options.js)
+      const healthProfile = await this.generateHealthProfileWithAI(allConditions, allAllergies);
+
+      if (healthProfile) {
+        // Save generated profile
+        await chrome.storage.local.set({
+          healthProfile: {
+            conditions: this.settings.conditions,
+            customConditions: this.settings.customConditions,
+            allergies: this.settings.allergies,
+            customAllergies: this.settings.customAllergies,
+            profile: healthProfile,
+            generatedAt: new Date().toISOString()
+          },
+          profileStatus: {
+            status: 'complete',
+            startedAt: new Date().toISOString(),
+            completedAt: new Date().toISOString(),
+            autoGenerated: true
+          }
+        });
+
+        console.log('Shop Well: Health profile auto-generated successfully');
+        console.log('Shop Well: Profile length:', healthProfile.length, 'characters');
+
+        // Continue to show welcome state
+        this.showWelcome();
+      } else {
+        throw new Error('Profile generation returned null');
+      }
+
+    } catch (error) {
+      console.error('Shop Well: Auto-generation failed:', error);
+
+      // Set error status
+      await chrome.storage.local.set({
+        profileStatus: {
+          status: 'error',
+          startedAt: new Date().toISOString(),
+          error: error.message || 'Profile generation failed',
+          autoGenerated: true
+        }
+      });
+
+      // Show welcome anyway - will use fallback guidance
+      this.showWelcome();
+    }
+  }
+
+  /**
+   * Generate health profile using AI (LanguageModel API)
+   * Same logic as options.js generateHealthProfile()
+   */
+  async generateHealthProfileWithAI(conditions = [], allergies = []) {
+    console.log('Shop Well: Generating AI profile for', conditions.length, 'conditions and', allergies.length, 'allergies');
+
+    try {
+      const allConditions = conditions;
+      const allAllergies = allergies;
+
+      // Handle empty profile
+      if (allConditions.length === 0 && allAllergies.length === 0) {
+        return 'General wellness focus. User has no specific health conditions or allergies specified.';
+      }
+
+      // Check if LanguageModel is available
+      if (typeof LanguageModel === 'undefined') {
+        console.warn('Shop Well: LanguageModel not available, using fallback profile');
+        return this.generateFallbackProfile(allConditions, allAllergies);
+      }
+
+      // Create AI session
+      const session = await LanguageModel.create({
+        temperature: 0.7,
+        topK: 3
+      });
+
+      const profilePrompt = `You are a health profile analyst. Create a comprehensive, personalized health profile for someone with the following conditions and allergies.
+
+**Conditions:** ${allConditions.length > 0 ? allConditions.join(', ') : 'None'}
+**Allergies/Sensitivities:** ${allAllergies.length > 0 ? allAllergies.join(', ') : 'None'}
+
+Generate a detailed health profile that includes:
+
+1. **Key Health Considerations:**
+   - For each condition, explain the primary symptoms and challenges
+   - Note any interactions or compounding effects between multiple conditions
+   - Explain how these conditions affect daily product choices
+
+2. **Ingredients & Features to AVOID:**
+   - List specific ingredients that could worsen symptoms or trigger reactions
+   - Explain WHY each ingredient is problematic for this specific health profile
+   - Include both obvious allergens and hidden triggers
+
+3. **Ingredients & Features to SEEK:**
+   - List beneficial ingredients, nutrients, or product features
+   - Explain HOW each helps manage symptoms or support health
+   - Prioritize evidence-based recommendations
+
+4. **Product Category Guidance:**
+   - Foods: Key nutritional needs and dietary restrictions
+   - Household items: Sensitivities to fragrances, chemicals, textures
+   - Wellness products: Ergonomics, ease-of-use, physical demands
+   - General: Any product considerations unique to this health profile
+
+5. **Special Considerations:**
+   - Note any unique aspects of this particular combination of conditions
+   - Highlight potential conflicts (e.g., "POTS needs high sodium but hypertension needs low sodium")
+   - Provide nuanced guidance for complex situations
+
+Write 300-400 words in a clear, factual tone. Focus on actionable insights that will help analyze products for this specific health profile. This profile will be used by an AI assistant to evaluate products, so be thorough and specific.`;
+
+      const response = await session.prompt(profilePrompt);
+      session.destroy();
+
+      console.log('Shop Well: AI profile generated successfully, length:', response.length);
+      return response.trim();
+
+    } catch (error) {
+      console.error('Shop Well: AI profile generation failed:', error);
+      return this.generateFallbackProfile(conditions, allergies);
+    }
+  }
+
+  /**
+   * Generate basic fallback profile when AI is unavailable
+   */
+  generateFallbackProfile(allConditions, allAllergies) {
+    let profile = 'Health Profile:\n\n';
+
+    if (allConditions.length > 0) {
+      profile += `Conditions: ${allConditions.join(', ')}\n`;
+      profile += 'Focus on products that support symptom management and daily comfort.\n\n';
+    }
+
+    if (allAllergies.length > 0) {
+      profile += `Allergies/Sensitivities: ${allAllergies.join(', ')}\n`;
+      profile += 'Avoid products containing these allergens. Check ingredient lists carefully.\n';
+    }
+
+    console.log('Shop Well: Using fallback profile (AI unavailable)');
+    return profile;
   }
 
   /**
@@ -2324,42 +2752,67 @@ class SidePanelUI {
       };
 
       // ===================================================================
-      // PHASE 2: Fetch full product HTML
+      // PHASE 2: Fetch full product HTML (with automated expansion)
       // ===================================================================
       this.updateProgressMessage('🌐 Fetching full product details...');
       console.log('Shop Well: Fetching product URL:', productData.url);
 
-      let html;
+      let fetchResult;
       let fullProductData;
 
       try {
-        html = await fetchProductHTML(productData.url);
-        console.log('Shop Well: HTML fetched, length:', html.length);
+        fetchResult = await fetchProductHTML(productData.url);
+        console.log('Shop Well: Product data fetched via', fetchResult.method);
+
+        if (fetchResult.duration) {
+          console.log('Shop Well: Fetch duration:', fetchResult.duration, 'ms');
+        }
       } catch (error) {
-        console.warn('Shop Well: Failed to fetch product HTML:', error);
+        console.warn('Shop Well: Failed to fetch product data:', error);
         // Fall back to title-only analysis
-        html = null;
+        fetchResult = null;
       }
 
       // ===================================================================
       // PHASE 3: Parse full product data
       // ===================================================================
-      if (html) {
-        this.updateProgressMessage('📋 Extracting ingredients and details...');
+      if (fetchResult) {
+        // If automated extraction provided structured data, use it directly
+        if (fetchResult.extractedData) {
+          this.updateProgressMessage('📋 Processing extracted product data...');
+          console.log('Shop Well: Using automated extraction data (skipping HTML parsing)');
+          fullProductData = fetchResult.extractedData;
 
-        fullProductData = parseProductHTML(html, productData.url);
-
-        if (!fullProductData) {
-          console.warn('Shop Well: HTML parsing failed, using title-only data');
-          fullProductData = productData; // Fallback to search card data
-        } else {
-          console.log('Shop Well: Full product data extracted:', {
+          // Log what data we got
+          console.log('Shop Well: Automated extraction results:', {
+            hasTitle: !!fullProductData.title,
             hasIngredients: !!fullProductData.ingredients,
+            ingredientsLength: fullProductData.ingredients?.length || 0,
             bulletCount: fullProductData.bullets?.length || 0,
-            descriptionLength: fullProductData.description?.length || 0
+            descriptionLength: fullProductData.description?.length || 0,
+            hasSpecifications: fullProductData.specifications?.length > 0
           });
+        } else {
+          // Fall back to HTML parsing
+          this.updateProgressMessage('📋 Extracting ingredients and details...');
+          console.log('Shop Well: No extractedData, parsing HTML...');
 
-          // Merge search card data with parsed data
+          fullProductData = parseProductHTML(fetchResult.html, productData.url);
+
+          if (!fullProductData) {
+            console.warn('Shop Well: HTML parsing failed, using title-only data');
+            fullProductData = productData; // Fallback to search card data
+          } else {
+            console.log('Shop Well: Full product data extracted:', {
+              hasIngredients: !!fullProductData.ingredients,
+              bulletCount: fullProductData.bullets?.length || 0,
+              descriptionLength: fullProductData.description?.length || 0
+            });
+          }
+        }
+
+        // Merge search card data with extracted/parsed data
+        if (fullProductData && fullProductData !== productData) {
           fullProductData = {
             ...fullProductData,
             // Preserve search card specific data
@@ -2368,7 +2821,7 @@ class SidePanelUI {
             rating: productData.rating,
             position: productData.position,
             source: productData.source,
-            // Only preserve pricePerUnit if HTML parse didn't provide one
+            // Only preserve pricePerUnit if extracted data didn't provide one
             pricePerUnit: fullProductData.pricePerUnit || productData.pricePerUnit
           };
         }
