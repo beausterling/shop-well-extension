@@ -681,10 +681,52 @@ function getConditionSpecificGuidance(conditions) {
 
   // Build combined guidance for all conditions
   const guidanceTexts = conditionsArray.map(condition => {
-    return guidance[condition] || `${condition} considerations: Evaluate how this product may impact ${condition} symptoms and management. Explain specific benefits or concerns.`;
+    return guidance[condition] || generateEnhancedCustomGuidance(condition);
   });
 
   return guidanceTexts.join('\n\n');
+}
+
+/**
+ * Generates enhanced, structured guidance for custom conditions.
+ * Provides the AI with a comprehensive framework to analyze products
+ * for conditions not in the predefined list.
+ *
+ * @param {string} condition - Custom condition name (e.g., "Fibromyalgia", "IBS")
+ * @returns {string} Structured guidance prompt
+ */
+function generateEnhancedCustomGuidance(condition) {
+  return `${condition} considerations - Provide detailed, evidence-based analysis:
+
+**Symptom Management & Triggers:**
+- Identify how product features, ingredients, or characteristics may affect ${condition} symptoms
+- Consider common triggers, flare-up factors, or symptom exacerbators for ${condition}
+- Evaluate whether this product could help manage or worsen specific ${condition} symptoms
+- Explain the physiological or practical mechanisms involved
+
+**Dietary & Ingredient Considerations:**
+- Analyze ingredients for known sensitivities or beneficial compounds related to ${condition}
+- Consider nutritional needs, deficiencies, or dietary restrictions common with ${condition}
+- Evaluate food additives, preservatives, or compounds that may impact ${condition}
+- Reference any established dietary guidelines or patterns for ${condition} management
+
+**Usability & Lifestyle Factors:**
+- Assess ease of use, preparation requirements, and physical demands for someone with ${condition}
+- Consider cognitive load, energy expenditure, and accessibility challenges related to ${condition}
+- Evaluate whether product design accommodates common functional limitations of ${condition}
+- Identify features that support independence and quality of life with ${condition}
+
+**Condition-Specific Product Suitability:**
+- Determine if this product category is generally helpful, neutral, or problematic for ${condition}
+- Consider timing, frequency, and context of use relative to ${condition} management
+- Evaluate alignment with medical recommendations or therapeutic approaches for ${condition}
+- Highlight any red flags or particularly beneficial aspects specific to ${condition}
+
+**Evidence & Recommendations:**
+- Reference established medical guidelines, research, or clinical recommendations for ${condition} when applicable
+- Distinguish between evidence-based concerns and theoretical considerations
+- Provide practical, actionable insights for someone managing ${condition} daily
+- Explain WHY and HOW each factor matters specifically for ${condition}`;
 }
 
 function parseVerdictResponse(response, facts, allergies) {

@@ -13,6 +13,29 @@
 - Confirm product analysis displays correctly on Amazon/Walmart
 - Check all UI polish is production-ready
 
+**Recent Updates** (October 31, 2025):
+- ✅ **BACKEND DEPLOYED** - Email collection system live and working! 🎉
+  - Google Cloud Function deployed with Node.js 20 runtime
+  - Google Sheets integration complete (writing to "Shop Well User Emails" tab)
+  - Hybrid opt-in system: local-first with optional backend sync
+  - Privacy-compliant GDPR/CCPA policy created
+  - Serverless backend costs $0/month (free tier: 2M requests/month)
+  - Function URL: https://submituserdata-syhjp3kd4a-uc.a.run.app
+  - Tested and verified: Data successfully writing to Google Sheet ✓
+- ✅ **Enhanced Custom Conditions AI** - Dynamic guidance for ANY condition
+  - Custom conditions now get comprehensive 5-section analysis framework
+  - AI analyzes Fibromyalgia, IBS, Diabetes, etc. with detailed structured prompts
+  - Custom allergens (coconut, sulfites, etc.) dynamically flagged by AI
+  - Predefined conditions retain detailed symptom-specific guidance
+  - System is fully extensible for unlimited condition types
+- ✅ **Extension-Backend Integration** - Full end-to-end flow working
+  - welcome.js updated with Function URL
+  - Opt-in checkbox in onboarding (with benefits listed)
+  - Opt-in toggle in options page for existing users
+  - Local storage always happens first (privacy-first)
+  - Backend submission only if user explicitly opts in
+  - Graceful failure handling (backend errors don't block onboarding)
+
 **Recent Updates** (October 30, 2025):
 - ✅ Badge state persistence fixed (SPA navigation)
 - ✅ Welcome screen UI matches analysis screen colors
@@ -31,7 +54,7 @@
 - ✅ **Options page updated**: Now matches welcome page with multi-condition card layout
 - ✅ **First-time user fix**: Nothing pre-selected by default (checks welcomeCompleted flag)
 
-**Current State**: Extension is feature-complete with advanced personalization. Multi-condition support allows users with complex health profiles to get comprehensive analysis.
+**Current State**: Extension is feature-complete with advanced personalization AND email collection backend. Multi-condition support allows users with complex health profiles to get comprehensive analysis. Backend infrastructure enables product alerts, updates, and user communication.
 
 ---
 
@@ -55,6 +78,40 @@
 ---
 
 ## ✅ What's Complete
+
+### Backend Infrastructure (NEW - October 31, 2025) 🎉
+- ✅ **Google Cloud Function Deployed**: Serverless email collection endpoint
+  - Runtime: Node.js 20 (future-proof, Node.js 18 deprecated today)
+  - Region: us-central1 (optimal latency)
+  - URL: https://submituserdata-syhjp3kd4a-uc.a.run.app
+  - Service Account: shop-well-sheets@shop-well-backend.iam.gserviceaccount.com
+- ✅ **Google Sheets Integration**: Direct write to "Shop Well User Emails" sheet
+  - 8 columns: Timestamp, First Name, Email, Conditions, Custom Conditions, Allergies, Custom Allergies, User Agent
+  - Spreadsheet ID: 1OeLU8OwhrDillnfg_7rmBp14CjzWVV4FmIQoFYOMfTI
+  - Smart sheet name handling (supports spaces with single-quote wrapping)
+- ✅ **Hybrid Opt-In System**: Privacy-first with optional data sharing
+  - Local storage ALWAYS happens (Chrome storage.local)
+  - Backend submission ONLY if user checks opt-in box
+  - Graceful failure handling (backend errors are non-blocking)
+  - Clear benefits communication (alerts, updates, tips)
+- ✅ **Enhanced Custom Condition AI**: Dynamic guidance framework
+  - 5-section analysis for custom conditions (symptoms, diet, usability, suitability, evidence)
+  - Predefined conditions (POTS, ME/CFS, Celiac, etc.) retain detailed guidance
+  - Custom allergens flagged dynamically in AI analysis
+  - System extensible to unlimited condition types
+- ✅ **Privacy Compliance**: Comprehensive GDPR/CCPA policy
+  - PRIVACY.md with full data rights explanation
+  - Opt-in consent flow in onboarding
+  - Opt-in toggle in options page for existing users
+  - Clear data retention and deletion policies
+- ✅ **Deployment Documentation**:
+  - Interactive deployment script (deploy.sh) with validation
+  - Quick start guide (QUICKSTART.md) for 15-minute setup
+  - Comprehensive checklist (SETUP_CHECKLIST.md)
+  - Test script (test-endpoint.sh) for verification
+  - Helper script (update-extension.sh) for extension integration
+- ✅ **Cost**: $0/month (Google Cloud free tier: 2M requests/month)
+- ✅ **Tested & Verified**: End-to-end flow working (extension → backend → Google Sheet)
 
 ### Extension Core Functionality
 - ✅ **Chrome Built-in AI Integration**: Summarizer + Prompt APIs working
@@ -387,7 +444,60 @@ npm run build
 
 ---
 
-**Last Updated**: October 30, 2025 - Conditions UI redesigned with 6 conditions across both pages
+**Last Updated**: October 31, 2025 - Backend deployed & custom conditions enhanced
+
+**Recent Achievements (October 31, 2025)**:
+
+### Backend Email Collection System ✅
+- **Google Cloud Deployment**: Serverless function live on Google Cloud Functions (Gen 2)
+  - Project: shop-well-backend
+  - Runtime: Node.js 20 (deployed on deprecation day of Node.js 18!)
+  - Region: us-central1
+  - Cost: $0/month (free tier)
+- **Google Sheets Integration**:
+  - Successfully writing data to Google Sheet
+  - Tab name: "Shop Well User Emails" (fixed sheet name parsing with spaces)
+  - 8-column schema for comprehensive user data
+  - Service account authentication (secure, no keys in code)
+- **Extension Integration**:
+  - Opt-in checkbox added to welcome page (Step 3)
+  - Opt-in toggle added to options page
+  - Backend URL configured: https://submituserdata-syhjp3kd4a-uc.a.run.app
+  - Fetch code uncommented and activated
+  - Extension rebuilt and tested
+- **Privacy-First Architecture**:
+  - Local storage ALWAYS happens first
+  - Backend submission ONLY if user opts in
+  - Comprehensive PRIVACY.md created (GDPR/CCPA compliant)
+  - Clear benefits communication (alerts, updates, tips)
+  - Non-blocking failure handling (backend errors don't stop onboarding)
+- **Deployment Tools Created**:
+  - `deploy.sh` - Interactive deployment script with validation
+  - `test-endpoint.sh` - Endpoint testing utility
+  - `update-extension.sh` - Helper for extension code updates
+  - `QUICKSTART.md` - 15-minute deployment guide
+  - `SETUP_CHECKLIST.md` - Comprehensive deployment checklist
+  - `backend/README.md` - Full technical documentation
+- **End-to-End Testing**: ✅ Verified working
+  - Test data successfully sent to backend
+  - Data appears in Google Sheet correctly
+  - All 8 columns populated as expected
+
+### Enhanced Custom Condition AI ✅
+- **Dynamic Guidance Framework**: Custom conditions now get rich, structured analysis
+  - 5-section analysis framework for ANY condition
+  - Sections: Symptom Management, Dietary Considerations, Usability, Product Suitability, Evidence
+  - Works for Fibromyalgia, IBS, Diabetes, Migraine, or any user-entered condition
+- **Code Implementation**:
+  - New function: `generateEnhancedCustomGuidance(condition)`
+  - Comprehensive prompts with specific analysis directives
+  - Predefined conditions (POTS, ME/CFS, Celiac) retain detailed symptom-specific guidance
+  - Custom conditions get intelligent generic framework that AI interprets contextually
+- **Custom Allergens**: Dynamically included in AI prompts
+  - Custom allergens (coconut, sulfites, etc.) flagged in analysis
+  - AI receives combined allergen list (standard + custom)
+  - System fully extensible to unlimited allergen types
+- **Impact**: Users with rare/uncommon conditions get same quality analysis as predefined conditions
 
 **Recent Achievements (October 30, 2025)**:
 

@@ -342,7 +342,26 @@
               required
               autocomplete="email"
             >
-            <p class="form-helper">We'll use this to provide personalized wellness insights and product recommendations.</p>
+            <p class="form-helper">Your email is saved locally on your device for personalized wellness insights.</p>
+
+            <!-- Opt-In Checkbox -->
+            <div class="opt-in-section">
+              <label class="opt-in-checkbox">
+                <input type="checkbox" id="email-opt-in" name="emailOptIn">
+                <span class="checkbox-label">
+                  📬 Share my email with Shop Well to receive:
+                  <ul class="opt-in-benefits">
+                    <li>Product safety alerts & recalls</li>
+                    <li>New wellness feature updates</li>
+                    <li>Personalized health tips (optional)</li>
+                  </ul>
+                </span>
+              </label>
+              <p class="privacy-note">
+                🔒 <strong>Privacy First:</strong> Your data stays local unless you opt in.
+                <a href="#" id="privacy-policy-link" class="privacy-link">View Privacy Policy</a>
+              </p>
+            </div>
           </div>
         </div>
 

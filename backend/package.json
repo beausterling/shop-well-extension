@@ -1,0 +1,24 @@
+{
+  "name": "shop-well-backend",
+  "version": "1.0.0",
+  "description": "Google Cloud Function for Shop Well email collection",
+  "main": "index.js",
+  "scripts": {
+    "deploy": "gcloud functions deploy submitUserData --runtime nodejs20 --trigger-http --allow-unauthenticated --region us-central1",
+    "test": "echo \"No tests yet\"",
+    "logs": "gcloud functions logs read submitUserData --limit 50"
+  },
+  "keywords": [
+    "google-sheets",
+    "serverless",
+    "chrome-extension"
+  ],
+  "author": "Shop Well",
+  "license": "MIT",
+  "dependencies": {
+    "googleapis": "^128.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

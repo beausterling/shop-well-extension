@@ -211,6 +211,10 @@ async function saveSettings() {
   const emailInput = document.getElementById('email-input');
   const email = emailInput ? emailInput.value.trim() : '';
 
+  // Get opt-in status
+  const optInCheckbox = document.getElementById('email-opt-in');
+  const emailOptIn = optInCheckbox ? optInCheckbox.checked : false;
+
   // Get selected conditions (multiple checkboxes)
   const conditionInputs = document.querySelectorAll('input[name="condition"]:checked');
   const conditions = Array.from(conditionInputs).map(input => input.value);
@@ -222,6 +226,7 @@ async function saveSettings() {
   console.log('Welcome: Saving settings:', {
     firstName,
     email,
+    emailOptIn,
     conditions,
     customConditions,
     allergies,
@@ -229,11 +234,12 @@ async function saveSettings() {
   });
 
   try {
-    // Save to Chrome storage (if available)
+    // STEP 1: Always save to Chrome local storage (privacy-first)
     if (typeof chrome !== 'undefined' && chrome.storage) {
       await chrome.storage.local.set({
         firstName,
         email,
+        emailOptIn,          // Store opt-in preference
         conditions,           // Array of standard conditions
         customConditions,     // Array of custom conditions
         allergies,           // Array of standard allergens
@@ -241,14 +247,71 @@ async function saveSettings() {
         welcomeCompleted: true,
         setupDate: new Date().toISOString()
       });
-      console.log('Welcome: Settings saved successfully');
+      console.log('Welcome: Settings saved locally');
     } else {
       console.warn('Welcome: Chrome storage not available (testing mode)');
     }
+
+    // STEP 2: If user opted in, send to backend (non-blocking)
+    if (emailOptIn && email) {
+      console.log('Welcome: User opted in, sending data to backend...');
+      try {
+        await sendToBackend({
+          firstName,
+          email,
+          conditions,
+          customConditions,
+          allergies,
+          customAllergies,
+          timestamp: new Date().toISOString()
+        });
+        console.log('Welcome: Successfully sent data to backend');
+      } catch (backendError) {
+        // Backend failure should not block onboarding completion
+        console.warn('Welcome: Backend submission failed (non-critical):', backendError);
+        // Could optionally save a flag to retry later
+      }
+    } else {
+      console.log('Welcome: User did not opt in to data sharing');
+    }
+
     return true;
   } catch (error) {
     console.error('Welcome: Failed to save settings:', error);
     return false;
+  }
+}
+
+/**
+ * Sends user data to backend endpoint (Google Sheets API).
+ * This function is only called if user explicitly opts in.
+ *
+ * @param {Object} data - User data to send
+ * @returns {Promise<void>}
+ */
+async function sendToBackend(data) {
+  // Backend endpoint URL from deployed Google Cloud Function
+  const BACKEND_URL = 'https://submituserdata-syhjp3kd4a-uc.a.run.app';
+
+  try {
+    const response = await fetch(BACKEND_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Backend returned ${response.status}: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    console.log('Welcome: Backend response:', result);
+    return result;
+  } catch (error) {
+    console.error('Welcome: Backend submission failed:', error);
+    throw error;
   }
 }
 
