@@ -186,12 +186,12 @@
           </div>
           <!-- Condition Selection -->
           <div class="form-section">
-            <label class="form-label">What brings you here? (Select all that apply)</label>
+            <label class="form-label">Chronic Conditions (Select all that apply)</label>
             <div class="condition-selector">
               <div class="condition-option" data-condition="POTS">
                 <input type="checkbox" name="condition" id="condition-pots" value="POTS">
                 <label for="condition-pots">
-                  <span class="condition-icon">💚</span>
+                  <span class="condition-icon">🩺</span>
                   <div>
                     <span class="condition-name">POTS</span>
                     <span class="condition-desc">Postural Orthostatic Tachycardia Syndrome</span>
@@ -201,7 +201,7 @@
               <div class="condition-option" data-condition="ME/CFS">
                 <input type="checkbox" name="condition" id="condition-mecfs" value="ME/CFS">
                 <label for="condition-mecfs">
-                  <span class="condition-icon">💙</span>
+                  <span class="condition-icon">🪫</span>
                   <div>
                     <span class="condition-name">ME/CFS</span>
                     <span class="condition-desc">Myalgic Encephalomyelitis / Chronic Fatigue Syndrome</span>
@@ -218,12 +218,42 @@
                   </div>
                 </label>
               </div>
+              <div class="condition-option" data-condition="COPD">
+                <input type="checkbox" name="condition" id="condition-copd" value="COPD">
+                <label for="condition-copd">
+                  <span class="condition-icon">🫁</span>
+                  <div>
+                    <span class="condition-name">COPD</span>
+                    <span class="condition-desc">Chronic Obstructive Pulmonary Disease</span>
+                  </div>
+                </label>
+              </div>
+              <div class="condition-option" data-condition="Arthritis">
+                <input type="checkbox" name="condition" id="condition-arthritis" value="Arthritis">
+                <label for="condition-arthritis">
+                  <span class="condition-icon">🦴</span>
+                  <div>
+                    <span class="condition-name">Arthritis</span>
+                    <span class="condition-desc">Joint inflammation & pain management</span>
+                  </div>
+                </label>
+              </div>
+              <div class="condition-option" data-condition="Hypertension">
+                <input type="checkbox" name="condition" id="condition-hypertension" value="Hypertension">
+                <label for="condition-hypertension">
+                  <span class="condition-icon">❤️</span>
+                  <div>
+                    <span class="condition-name">Hypertension</span>
+                    <span class="condition-desc">High blood pressure management</span>
+                  </div>
+                </label>
+              </div>
             </div>
 
             <!-- Custom Condition Input -->
             <div class="custom-input-section">
               <button type="button" class="add-custom-button" id="add-condition-btn">
-                ➕ Add Custom Condition
+                + Add Custom
               </button>
               <div class="custom-input-group hidden" id="custom-condition-input-group">
                 <input type="text" id="custom-condition-input" placeholder="Enter condition (e.g., Fibromyalgia, IBS, Diabetes)" maxlength="50">
@@ -235,8 +265,8 @@
 
           <!-- Allergen Selection -->
           <div class="form-section">
-            <label class="form-label">Any allergies to watch for?</label>
-            <p class="form-helper">Select all that apply—we'll alert you when detected</p>
+            <label class="form-label">Allergies/Sensitivities (Select all that apply)</label>
+            <p class="form-helper">We'll alert you when detected</p>
             <div class="allergen-chips">
               <label class="allergen-chip">
                 <input type="checkbox" name="allergen" value="peanuts">
@@ -279,7 +309,7 @@
             <!-- Custom Allergen Input -->
             <div class="custom-input-section">
               <button type="button" class="add-custom-button" id="add-allergen-btn">
-                ➕ Add Custom Allergen
+                + Add Custom
               </button>
               <div class="custom-input-group hidden" id="custom-allergen-input-group">
                 <input type="text" id="custom-allergen-input" placeholder="Enter allergen (e.g., Coconut, Sulfites, Corn)" maxlength="50">

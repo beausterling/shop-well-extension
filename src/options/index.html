@@ -95,23 +95,94 @@
     </div>
 
     <div class="form-group">
-      <label for="condition">Select your health condition:</label>
-      <select id="condition">
-        <option value="POTS">POTS (Postural Orthostatic Tachycardia Syndrome)</option>
-        <option value="ME/CFS">ME/CFS (Myalgic Encephalomyelitis/Chronic Fatigue Syndrome)</option>
-        <option value="Celiac Disease">Celiac Disease</option>
-        <option value="custom">Other (specify below)</option>
-      </select>
+      <label>Chronic Conditions (Select all that apply):</label>
+      <div class="condition-grid">
+        <!-- Column 1 -->
+        <div class="condition-card">
+          <input type="checkbox" id="condition-pots" name="condition" value="POTS">
+          <label for="condition-pots">
+            <span class="condition-icon">🩺</span>
+            <div class="condition-text">
+              <span class="condition-name">POTS</span>
+              <span class="condition-desc">Postural Orthostatic Tachycardia Syndrome</span>
+            </div>
+          </label>
+        </div>
 
-      <div id="custom-condition-group" class="custom-input-group hidden">
-        <input type="text" id="custom-condition" class="custom-input"
-               placeholder="Enter your condition (e.g., IBS, Fibromyalgia, Diabetes)"
-               maxlength="100">
+        <div class="condition-card">
+          <input type="checkbox" id="condition-mecfs" name="condition" value="ME/CFS">
+          <label for="condition-mecfs">
+            <span class="condition-icon">🪫</span>
+            <div class="condition-text">
+              <span class="condition-name">ME/CFS</span>
+              <span class="condition-desc">Myalgic Encephalomyelitis / Chronic Fatigue Syndrome</span>
+            </div>
+          </label>
+        </div>
+
+        <div class="condition-card">
+          <input type="checkbox" id="condition-celiac" name="condition" value="Celiac Disease">
+          <label for="condition-celiac">
+            <span class="condition-icon">🌾</span>
+            <div class="condition-text">
+              <span class="condition-name">Celiac Disease</span>
+              <span class="condition-desc">Gluten sensitivity & autoimmune response</span>
+            </div>
+          </label>
+        </div>
+
+        <!-- Column 2 -->
+        <div class="condition-card">
+          <input type="checkbox" id="condition-copd" name="condition" value="COPD">
+          <label for="condition-copd">
+            <span class="condition-icon">🫁</span>
+            <div class="condition-text">
+              <span class="condition-name">COPD</span>
+              <span class="condition-desc">Chronic Obstructive Pulmonary Disease</span>
+            </div>
+          </label>
+        </div>
+
+        <div class="condition-card">
+          <input type="checkbox" id="condition-arthritis" name="condition" value="Arthritis">
+          <label for="condition-arthritis">
+            <span class="condition-icon">🦴</span>
+            <div class="condition-text">
+              <span class="condition-name">Arthritis</span>
+              <span class="condition-desc">Joint inflammation & pain management</span>
+            </div>
+          </label>
+        </div>
+
+        <div class="condition-card">
+          <input type="checkbox" id="condition-hypertension" name="condition" value="Hypertension">
+          <label for="condition-hypertension">
+            <span class="condition-icon">❤️</span>
+            <div class="condition-text">
+              <span class="condition-name">Hypertension</span>
+              <span class="condition-desc">High blood pressure management</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Custom Condition Input -->
+      <div class="custom-condition-section">
+        <button type="button" class="add-custom-button" id="add-condition-btn">
+          + Add Custom
+        </button>
+        <div id="custom-condition-group" class="custom-input-group hidden">
+          <input type="text" id="custom-condition" class="custom-input"
+                 placeholder="Enter your condition (e.g., IBS, Fibromyalgia, Diabetes)"
+                 maxlength="100">
+          <button type="button" id="add-condition-submit" class="add-button">Add</button>
+        </div>
+        <div id="custom-conditions-list" class="custom-chips"></div>
       </div>
     </div>
 
     <div class="form-group">
-      <label>Allergies & Dietary Restrictions:</label>
+      <label>Allergies/Sensitivities (Select all that apply):</label>
       <div class="allergen-warning">
         ⚠️ <strong>Important:</strong> Shop Well will flag products containing these allergens, but always verify ingredients yourself before consuming any product.
       </div>

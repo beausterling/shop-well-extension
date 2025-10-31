@@ -571,11 +571,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Keyboard navigation
   document.addEventListener('keydown', (e) => {
-    // Ignore Enter key when user is typing in name input field
-    // This prevents accidentally advancing to next step while entering name
-    if (e.key === 'Enter' && e.target.id === 'first-name-input') {
-      e.target.blur(); // Close keyboard (mobile) and accept input
-      return; // Don't advance to next step
+    // Ignore Enter key when user is typing in input fields
+    // This prevents accidentally advancing to next step while entering data
+    if (e.key === 'Enter' && (
+      e.target.id === 'first-name-input' ||
+      e.target.id === 'custom-condition-input' ||
+      e.target.id === 'custom-allergen-input'
+    )) {
+      // Don't advance to next step - let the specific input handler process it
+      return;
     }
 
     if (e.key === 'ArrowRight' || e.key === 'Enter') {
@@ -617,10 +621,19 @@ async function loadExistingSettings() {
     }
 
     const result = await chrome.storage.local.get([
+      'welcomeCompleted',
       'firstName', 'email',
       'condition', 'conditions', 'customConditions',
       'allergies', 'customAllergies'
     ]);
+
+    // Only load settings if user has completed onboarding before
+    if (!result.welcomeCompleted) {
+      console.log('Welcome: First-time user, not loading existing settings');
+      return; // Exit early for first-time users
+    }
+
+    console.log('Welcome: Returning user, loading existing settings');
 
     // Load first name if available
     if (result.firstName) {
@@ -650,9 +663,13 @@ async function loadExistingSettings() {
     // Load standard conditions (checkboxes)
     if (conditionsToLoad.length > 0) {
       conditionsToLoad.forEach(condition => {
-        const conditionInput = document.getElementById(`condition-${condition.toLowerCase().replace(/\//g, '')}`);
+        // Convert condition name to ID format: remove slashes, spaces, and lowercase
+        const conditionId = condition.toLowerCase().replace(/\//g, '').replace(/\s+/g, '');
+        const conditionInput = document.getElementById(`condition-${conditionId}`);
         if (conditionInput) {
           conditionInput.checked = true;
+        } else {
+          console.warn(`Welcome: Could not find checkbox for condition: ${condition} (ID: condition-${conditionId})`);
         }
       });
       console.log(`Welcome: Pre-selected conditions: ${conditionsToLoad.join(', ')}`);

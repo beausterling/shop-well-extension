@@ -182,7 +182,7 @@ function setupCopyButtons() {
 async function loadSettings() {
   try {
     const settings = await chrome.storage.local.get([
-      'firstName', 'condition', 'customCondition', 'autoshow', 'allergies', 'customAllergies', 'languagePreference'
+      'firstName', 'condition', 'conditions', 'customConditions', 'autoshow', 'allergies', 'customAllergies', 'languagePreference'
     ]);
 
     // Load first name
@@ -193,15 +193,25 @@ async function loadSettings() {
     const languagePreference = settings.languagePreference || 'auto';
     document.getElementById('language-preference').value = languagePreference;
 
-    // Load condition settings
-    const condition = settings.condition || 'POTS';
-    document.getElementById('condition').value = condition;
+    // Load condition settings (with migration from old format)
+    let conditions = settings.conditions || [];
 
-    // Handle custom condition
-    if (condition === 'custom') {
-      showCustomConditionInput();
-      document.getElementById('custom-condition').value = settings.customCondition || '';
+    // Migration: Convert old single condition format to array
+    if (!settings.conditions && settings.condition) {
+      conditions = settings.condition === 'custom' ? [] : [settings.condition];
+      // Migrate to new format
+      await chrome.storage.local.set({ conditions });
     }
+
+    // Check appropriate condition checkboxes
+    const conditionCheckboxes = document.querySelectorAll('.condition-card input[type="checkbox"]');
+    conditionCheckboxes.forEach(checkbox => {
+      checkbox.checked = conditions.includes(checkbox.value);
+    });
+
+    // Load custom conditions
+    const customConditions = settings.customConditions || [];
+    displayCustomConditions(customConditions);
 
     // Load autoshow setting
     document.getElementById('autoshow').checked = settings.autoshow !== false;
@@ -226,14 +236,16 @@ async function loadSettings() {
 async function saveSettings() {
   try {
     const firstName = document.getElementById('first-name').value.trim();
-    const condition = document.getElementById('condition').value;
     const autoshow = document.getElementById('autoshow').checked;
     const languagePreference = document.getElementById('language-preference').value;
 
-    // Get custom condition if applicable
-    const customCondition = condition === 'custom'
-      ? document.getElementById('custom-condition').value.trim()
-      : '';
+    // Collect selected conditions from checkboxes
+    const conditionCheckboxes = document.querySelectorAll('.condition-card input[type="checkbox"]:checked');
+    const conditions = Array.from(conditionCheckboxes).map(checkbox => checkbox.value);
+
+    // Get custom conditions
+    const customConditions = Array.from(document.querySelectorAll('.custom-chip'))
+      .map(chip => chip.querySelector('span').textContent);
 
     // Collect selected common allergies
     const allergenCheckboxes = document.querySelectorAll('.allergen-item input[type="checkbox"]:checked');
@@ -243,28 +255,25 @@ async function saveSettings() {
     const customAllergies = Array.from(document.querySelectorAll('.custom-allergen-item'))
       .map(item => item.querySelector('span').textContent);
 
-    // Validation for custom condition
-    if (condition === 'custom' && !customCondition) {
-      showStatus('Please enter your custom condition', 'error');
-      return;
-    }
-
     await chrome.storage.local.set({
       firstName,
-      condition,
-      customCondition,
+      conditions,
+      customConditions,
       autoshow,
       allergies,
       customAllergies,
       languagePreference
     });
 
+    const totalConditions = conditions.length + customConditions.length;
     const totalAllergens = allergies.length + customAllergies.length;
-    const conditionDisplay = condition === 'custom' ? customCondition : condition;
 
-    let statusMessage = `Settings saved for ${conditionDisplay}!`;
+    let statusMessage = 'Settings saved!';
+    if (totalConditions > 0) {
+      statusMessage += ` Monitoring ${totalConditions} condition${totalConditions > 1 ? 's' : ''}.`;
+    }
     if (totalAllergens > 0) {
-      statusMessage += ` Monitoring ${totalAllergens} allergen${totalAllergens > 1 ? 's' : ''}.`;
+      statusMessage += ` ${totalAllergens} allergen${totalAllergens > 1 ? 's' : ''} tracked.`;
     }
 
     showStatus(statusMessage, 'success');
@@ -300,13 +309,69 @@ function showStatus(message, type = 'success') {
 }
 
 // Custom condition management
-function showCustomConditionInput() {
-  document.getElementById('custom-condition-group').classList.remove('hidden');
+function displayCustomConditions(customConditions) {
+  const container = document.getElementById('custom-conditions-list');
+  container.innerHTML = '';
+
+  customConditions.forEach(condition => {
+    const chip = document.createElement('div');
+    chip.className = 'custom-chip';
+    chip.innerHTML = `
+      <span>${condition}</span>
+      <button type="button" aria-label="Remove ${condition}">×</button>
+    `;
+
+    chip.querySelector('button').addEventListener('click', () => {
+      chip.remove();
+      saveSettings();
+    });
+
+    container.appendChild(chip);
+  });
 }
 
-function hideCustomConditionInput() {
+function addCustomCondition() {
+  const input = document.getElementById('custom-condition');
+  const condition = input.value.trim();
+
+  if (!condition) {
+    showStatus('Please enter a condition name', 'error');
+    return;
+  }
+
+  // Check for duplicates
+  const existingConditions = Array.from(document.querySelectorAll('.custom-chip span'))
+    .map(span => span.textContent.toLowerCase());
+
+  const standardConditions = Array.from(document.querySelectorAll('.condition-card input:checked'))
+    .map(input => input.value.toLowerCase());
+
+  if (existingConditions.includes(condition.toLowerCase()) || standardConditions.includes(condition.toLowerCase())) {
+    showStatus('This condition is already added', 'error');
+    return;
+  }
+
+  // Create chip
+  const chip = document.createElement('div');
+  chip.className = 'custom-chip';
+  chip.innerHTML = `
+    <span>${condition}</span>
+    <button type="button" aria-label="Remove ${condition}">×</button>
+  `;
+
+  chip.querySelector('button').addEventListener('click', () => {
+    chip.remove();
+    saveSettings();
+  });
+
+  document.getElementById('custom-conditions-list').appendChild(chip);
+  input.value = '';
+
+  // Hide input group
   document.getElementById('custom-condition-group').classList.add('hidden');
-  document.getElementById('custom-condition').value = '';
+
+  // Auto-save
+  saveSettings();
 }
 
 // Custom allergen management
@@ -408,18 +473,38 @@ document.addEventListener('DOMContentLoaded', () => {
     console.warn('Shop Well Options: recheck-ai-error button not found');
   }
 
-  // Condition dropdown change handler
-  document.getElementById('condition').addEventListener('change', (e) => {
-    if (e.target.value === 'custom') {
-      showCustomConditionInput();
-    } else {
-      hideCustomConditionInput();
-    }
-    saveSettings();
+  // Condition checkbox change handlers
+  const conditionCheckboxes = document.querySelectorAll('.condition-card input[type="checkbox"]');
+  conditionCheckboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', saveSettings);
   });
 
-  // Custom condition input handler
-  document.getElementById('custom-condition').addEventListener('input', saveSettings);
+  // Custom condition button handler
+  const addConditionBtn = document.getElementById('add-condition-btn');
+  if (addConditionBtn) {
+    addConditionBtn.addEventListener('click', () => {
+      document.getElementById('custom-condition-group').classList.toggle('hidden');
+      if (!document.getElementById('custom-condition-group').classList.contains('hidden')) {
+        document.getElementById('custom-condition').focus();
+      }
+    });
+  }
+
+  // Custom condition submit handler
+  const addConditionSubmit = document.getElementById('add-condition-submit');
+  if (addConditionSubmit) {
+    addConditionSubmit.addEventListener('click', addCustomCondition);
+  }
+
+  // Allow Enter key to add custom condition
+  const customConditionInput = document.getElementById('custom-condition');
+  if (customConditionInput) {
+    customConditionInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        addCustomCondition();
+      }
+    });
+  }
 
   // Auto-save when first name changes
   document.getElementById('first-name').addEventListener('input', saveSettings);

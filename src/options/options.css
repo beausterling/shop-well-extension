@@ -364,6 +364,147 @@ button.secondary:hover,
 }
 
 /* ====================
+   CONDITION GRID
+   ==================== */
+
+.condition-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.condition-card {
+  position: relative;
+}
+
+.condition-card input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.condition-card label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--sw-white);
+  border: 2px solid var(--input-border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  min-height: 80px;
+}
+
+.condition-card label:hover {
+  border-color: var(--sw-green);
+  box-shadow: var(--shadow-sm);
+  transform: translateX(2px);
+}
+
+.condition-card input[type="checkbox"]:checked + label {
+  border-color: var(--sw-green);
+  background: var(--color-success-bg);
+  box-shadow: var(--shadow-md);
+}
+
+.condition-icon {
+  font-size: 32px;
+  font-family: var(--emoji-font-family);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.condition-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.condition-name {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--sw-charcoal);
+  display: block;
+}
+
+.condition-desc {
+  font-size: var(--font-size-xs);
+  color: var(--sw-taupe);
+  display: block;
+  line-height: var(--line-height-normal);
+}
+
+/* Custom Condition Section */
+.custom-condition-section {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--input-border-color);
+}
+
+.add-custom-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--sw-white);
+  border: 2px dashed var(--input-border-color);
+  border-radius: var(--radius-sm);
+  color: var(--sw-taupe);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.add-custom-button:hover {
+  border-color: var(--sw-green);
+  color: var(--sw-green);
+  background: var(--color-success-bg);
+  box-shadow: var(--shadow-sm);
+}
+
+.custom-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.custom-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--sw-blue-light);
+  border: 1px solid var(--sw-blue);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  color: var(--sw-charcoal);
+}
+
+.custom-chip button {
+  background: none;
+  border: none;
+  color: var(--sw-taupe);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  padding: 0 var(--space-1);
+  margin: 0;
+  transition: color var(--transition-normal);
+}
+
+.custom-chip button:hover {
+  color: var(--sw-terracotta);
+  transform: none;
+  box-shadow: none;
+}
+
+/* ====================
    AI STATUS SECTION
    ==================== */
 
@@ -600,6 +741,10 @@ button.secondary:hover,
   }
 
   .allergen-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .condition-grid {
     grid-template-columns: 1fr;
   }
 }
