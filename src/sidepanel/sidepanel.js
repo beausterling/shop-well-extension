@@ -1435,7 +1435,7 @@ For EACH allergen in the allergies array, check if the product contains that all
 - Check BOTH the PRODUCT NAME and ingredients list
 - If the PRODUCT NAME itself indicates it IS the allergen (e.g., "Milk", "Whole Milk", "Eggs", "Cheese", "Peanut Butter"): verdict is "bad"
 - If allergen is detected in ingredients: "bad"
-- If allergen is NOT detected in product name OR ingredients: "good"
+- If allergen is ABSENT from BOTH product name AND ingredients: "good"
 - If uncertain: "warning" or "inconclusive"
 
 CRITICAL: A product can BE an allergen itself. Examples:
@@ -1660,11 +1660,31 @@ function validateVerdict(verdict, facts, allergies, conditions = []) {
 
   // Validate allergies array
   if (Array.isArray(verdict.allergies) && verdict.allergies.length > 0) {
-    sanitized.allergies = verdict.allergies.map(a => ({
-      name: a.name || 'Unknown',
-      verdict: ['good', 'warning', 'bad', 'inconclusive'].includes(a.verdict) ? a.verdict : 'inconclusive',
-      brief_reason: typeof a.brief_reason === 'string' ? a.brief_reason : 'Analysis unavailable'
-    }));
+    sanitized.allergies = verdict.allergies.map(a => {
+      const allergenName = a.name || 'Unknown';
+      let allergenVerdict = ['good', 'warning', 'bad', 'inconclusive'].includes(a.verdict) ? a.verdict : 'inconclusive';
+      let briefReason = typeof a.brief_reason === 'string' ? a.brief_reason : 'Analysis unavailable';
+
+      // SAFETY CHECK: Cross-check AI verdict against detected allergen warnings
+      // If allergen is in facts.allergen_warnings but AI said "good", override to "bad"
+      const allergenLower = allergenName.toLowerCase();
+      const detectedInWarnings = facts.allergen_warnings.some(warning =>
+        warning.toLowerCase().includes(allergenLower) ||
+        allergenLower.includes(warning.toLowerCase())
+      );
+
+      if (detectedInWarnings && allergenVerdict === 'good') {
+        console.warn(`Shop Well: SAFETY OVERRIDE - AI said "${allergenName}" is good, but it was detected in allergen warnings. Overriding to "bad".`);
+        allergenVerdict = 'bad';
+        briefReason = 'Allergen detected in product ingredients (safety override)';
+      }
+
+      return {
+        name: allergenName,
+        verdict: allergenVerdict,
+        brief_reason: briefReason
+      };
+    });
   } else {
     // If AI didn't return allergies, create fallback entries for each user allergen
     sanitized.allergies = allergies.map(name => {
