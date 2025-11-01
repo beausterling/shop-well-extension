@@ -95,9 +95,9 @@ body {
   justify-content: center;
   padding: 40px 20px;
   text-align: center;
-  background: white;
+  background: #E9DFC9; /* Beige background to match welcome page */
   border-radius: 12px;
-  border: 1px solid #E9DFC9; /* Soft Beige border */
+  border: 3px solid #776B63; /* Dark brown/taupe border to match welcome page */
   box-shadow: 0 2px 8px rgba(107, 175, 122, 0.08); /* Subtle Leaf Green tint */
   margin: 16px;
 }
@@ -170,9 +170,9 @@ body {
   justify-content: center;
   padding: 40px 20px;
   text-align: center;
-  background: white;
+  background: #E9DFC9; /* Beige background to match welcome page */
   border-radius: 12px;
-  border: 1px solid #E9DFC9;
+  border: 3px solid #776B63; /* Dark brown/taupe border to match welcome page */
   box-shadow: 0 2px 8px rgba(107, 175, 122, 0.08);
   margin: 16px;
 }
@@ -246,9 +246,9 @@ body {
 
 .shop-well-setup {
   padding: 24px;
-  background: white;
+  background: #E9DFC9; /* Beige background to match welcome page */
   border-radius: 12px;
-  border: 1px solid #E9DFC9;
+  border: 3px solid #776B63; /* Dark brown/taupe border to match welcome page */
   box-shadow: 0 2px 8px rgba(107, 175, 122, 0.08);
   margin: 16px;
 }
@@ -705,9 +705,9 @@ body {
   justify-content: center;
   padding: 40px 20px;
   text-align: center;
-  background: white;
+  background: #E9DFC9; /* Beige background to match welcome page */
   border-radius: 12px;
-  border: 1px solid #E9DFC9;
+  border: 3px solid #776B63; /* Dark brown/taupe border to match welcome page */
   box-shadow: 0 2px 8px rgba(107, 175, 122, 0.08);
   margin: 16px;
 }
@@ -738,9 +738,9 @@ body {
 .shop-well-welcome {
   padding: 32px 24px;
   text-align: center;
-  background: white;
+  background: #E9DFC9; /* Beige background to match welcome page */
   border-radius: 12px;
-  border: 1px solid #E9DFC9;
+  border: 3px solid #776B63; /* Dark brown/taupe border to match welcome page */
   box-shadow: 0 2px 8px rgba(107, 175, 122, 0.08);
   margin: 16px;
 }
@@ -884,7 +884,7 @@ button {
 .retry-button,
 .refresh-button {
   padding: 12px 24px;
-  background: #65AEDD; /* Sky Blue */
+  background: linear-gradient(135deg, #6BAF7A 0%, #65AEDD 100%); /* Greenish gradient to match welcome page */
   color: white;
   border: none;
   border-radius: 12px;
@@ -896,15 +896,15 @@ button {
   gap: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 6px rgba(101, 174, 221, 0.3);
+  box-shadow: 0 2px 6px rgba(107, 175, 122, 0.3);
   width: 100%;
 }
 
 .retry-button:hover,
 .refresh-button:hover {
-  background: #5A9AC9; /* Darker sky blue */
+  background: linear-gradient(135deg, #5A9D68 0%, #5A9AC9 100%); /* Darker gradient on hover */
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(101, 174, 221, 0.4);
+  box-shadow: 0 4px 12px rgba(107, 175, 122, 0.4);
 }
 
 .retry-button:active,
@@ -914,16 +914,16 @@ button {
 }
 
 .refresh-button {
-  background: transparent;
-  color: #65AEDD; /* Sky Blue */
-  border: 1px solid #65AEDD;
-  box-shadow: none;
+  background: linear-gradient(135deg, #6BAF7A 0%, #65AEDD 100%); /* Use gradient instead of transparent */
+  color: white;
+  border: none;
+  box-shadow: 0 2px 6px rgba(107, 175, 122, 0.3);
 }
 
 .refresh-button:hover {
-  background: rgba(101, 174, 221, 0.1);
+  background: linear-gradient(135deg, #5A9D68 0%, #5A9AC9 100%); /* Darker gradient on hover */
   transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(101, 174, 221, 0.2);
+  box-shadow: 0 4px 12px rgba(107, 175, 122, 0.4);
 }
 
 .cancel-analysis-button {
