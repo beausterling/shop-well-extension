@@ -186,7 +186,46 @@ class ProductExtractor {
     return false;
   }
 
-  extractProductData() {
+  async expandAllSections() {
+    console.log('Shop Well: Expanding all collapsible sections...');
+
+    // Amazon expander selectors
+    const amazonExpanders = document.querySelectorAll('.a-expander-prompt:not(.a-expander-prompt-expanded)');
+    console.log(`Shop Well: Found ${amazonExpanders.length} collapsed Amazon sections`);
+
+    for (const expander of amazonExpanders) {
+      try {
+        expander.click();
+        console.log('Shop Well: Clicked Amazon expander');
+      } catch (error) {
+        console.warn('Shop Well: Failed to click Amazon expander:', error);
+      }
+    }
+
+    // Walmart expander selectors (buttons with "Show more" text)
+    const walmartExpanders = document.querySelectorAll('button[aria-expanded="false"]');
+    console.log(`Shop Well: Found ${walmartExpanders.length} collapsed Walmart sections`);
+
+    for (const expander of walmartExpanders) {
+      try {
+        const text = expander.textContent?.toLowerCase() || '';
+        if (text.includes('show') || text.includes('more') || text.includes('ingredient')) {
+          expander.click();
+          console.log('Shop Well: Clicked Walmart expander');
+        }
+      } catch (error) {
+        console.warn('Shop Well: Failed to click Walmart expander:', error);
+      }
+    }
+
+    // Wait for content to render after clicking expanders
+    if (amazonExpanders.length > 0 || walmartExpanders.length > 0) {
+      console.log('Shop Well: Waiting 500ms for expanded content to render...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+
+  async extractProductData() {
     if (!this.parser || !this.isProductPage) {
       console.warn('Shop Well: Cannot extract data - not on a product page');
       return null;
@@ -195,6 +234,10 @@ class ProductExtractor {
     console.log('Shop Well: Extracting product data...');
 
     try {
+      // First, expand all collapsible sections
+      await this.expandAllSections();
+
+      // Now extract the data
       const productData = this.parser.parse();
 
       if (!productData) {
@@ -205,6 +248,7 @@ class ProductExtractor {
       console.log('Shop Well: Product data extracted successfully:', {
         title: productData.title?.substring(0, 50) + '...',
         hasIngredients: !!productData.ingredients,
+        ingredientsLength: productData.ingredients?.length || 0,
         bulletCount: productData.bullets?.length || 0,
         price: productData.price
       });
@@ -698,19 +742,26 @@ class ProductExtractor {
       console.log('Shop Well: Message received:', message.command);
 
       if (message.command === 'extract-product-data') {
-        const productData = this.extractProductData();
-
-        if (productData) {
-          sendResponse({
-            success: true,
-            productData: productData
-          });
-        } else {
+        // Handle async extraction
+        this.extractProductData().then(productData => {
+          if (productData) {
+            sendResponse({
+              success: true,
+              productData: productData
+            });
+          } else {
+            sendResponse({
+              success: false,
+              error: 'Failed to extract product data'
+            });
+          }
+        }).catch(error => {
+          console.error('Shop Well: Async extraction error:', error);
           sendResponse({
             success: false,
-            error: 'Failed to extract product data'
+            error: error.message || 'Failed to extract product data'
           });
-        }
+        });
 
         // Return true to indicate we'll send response asynchronously
         return true;

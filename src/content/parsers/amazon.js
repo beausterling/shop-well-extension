@@ -115,23 +115,96 @@ export class AmazonParser {
    * @returns {string}
    */
   static extractIngredients() {
-    // Amazon-specific ingredient selectors
+    // Amazon-specific ingredient selectors (valid CSS only)
     const ingredientSelectors = [
+      // Direct feature selectors
       '[data-feature-name="ingredients"]',
       '#ingredients',
       '.ingredients',
-      '.a-expander-content:contains("Ingredients")',
-      '[data-feature-name="productDetails"] tr:contains("Ingredients") td',
-      '#detailBullets_feature_div tr:contains("Ingredients") td',
+
+      // Expandable sections (after being expanded)
+      '.a-expander-content',
+
+      // Important Information section
+      '#important-information',
+      '#importantInformation',
+      '[data-feature-name="important-information"]',
+
+      // Product details sections
+      '[data-feature-name="productDetails"]',
+      '#detailBullets_feature_div',
+
+      // Tab content
       '.pdTab[data-tab="ingredients"]',
-      // Generic patterns
-      '*:contains("Ingredients:") + *',
-      '*:contains("INGREDIENTS:") + *'
+      '#ingredients-tab',
+
+      // A+ Content sections
+      '#aplus_feature_div .ingredients',
+      '#aplus .ingredients'
     ];
 
-    const ingredients = extractIngredients() || getText(ingredientSelectors);
-    console.log('Shop Well: Amazon ingredients found:', !!ingredients);
-    return ingredients;
+    // First try the generic extractor (has fallback logic)
+    let ingredients = extractIngredients();
+    if (ingredients) {
+      console.log('Shop Well: Amazon ingredients found via generic extractor');
+      return ingredients;
+    }
+
+    // Try Amazon-specific selectors
+    ingredients = getText(ingredientSelectors);
+    if (ingredients) {
+      console.log('Shop Well: Amazon ingredients found via specific selectors');
+      return ingredients;
+    }
+
+    // Fallback: Search for table rows containing "Ingredients" label
+    ingredients = this.extractIngredientsFromTable();
+    if (ingredients) {
+      console.log('Shop Well: Amazon ingredients found in table');
+      return ingredients;
+    }
+
+    console.log('Shop Well: Amazon ingredients NOT found');
+    return '';
+  }
+
+  /**
+   * Extract ingredients from product details tables
+   * @returns {string}
+   */
+  static extractIngredientsFromTable() {
+    try {
+      // Look for tables in product details sections
+      const tables = document.querySelectorAll(
+        '#detailBullets_feature_div table, ' +
+        '[data-feature-name="productDetails"] table, ' +
+        '#productDetails_feature_div table, ' +
+        '.prodDetTable'
+      );
+
+      for (const table of tables) {
+        const rows = table.querySelectorAll('tr');
+        for (const row of rows) {
+          const cells = row.querySelectorAll('th, td');
+          if (cells.length >= 2) {
+            const labelCell = cells[0];
+            const contentCell = cells[1];
+
+            const label = labelCell.textContent?.trim().toLowerCase() || '';
+            if (label.includes('ingredient')) {
+              const content = contentCell.textContent?.trim() || '';
+              if (content.length > 10) {
+                return content;
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Shop Well: Error extracting ingredients from table:', error);
+    }
+
+    return '';
   }
 
   /**

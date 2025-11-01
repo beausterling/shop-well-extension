@@ -207,26 +207,132 @@ export function elementExists(selectors, root = document) {
  */
 export function extractIngredients(root = document) {
   const ingredientSelectors = [
-    // Amazon selectors
+    // Amazon selectors (valid CSS)
     '[data-feature-name="ingredients"]',
-    '.a-expander-content:has-text("Ingredients")',
-    '.a-section:has-text("Ingredients")',
     '#ingredients',
     '.ingredients',
+    '.a-expander-content',
+    '#important-information',
+    '#importantInformation',
 
-    // Walmart selectors
+    // Walmart selectors (valid CSS)
     '[data-testid="nutrition-facts"] .ingredients',
     '.nutrition-facts .ingredients',
     '.product-ingredients',
     '[aria-label*="Ingredients"]',
 
-    // Generic selectors
-    '*:contains("Ingredients:") + *',
+    // Generic selectors (valid CSS)
     '.ingredient-list',
     '.ingredients-section'
   ];
 
-  return getText(ingredientSelectors, root);
+  // Try standard selectors first
+  let result = getText(ingredientSelectors, root);
+  if (result) {
+    return result;
+  }
+
+  // Fallback: Search for "Ingredients" labels and extract adjacent content
+  result = findTextByLabel('Ingredients', root);
+  if (result) {
+    return result;
+  }
+
+  return '';
+}
+
+/**
+ * Find text content by searching for a label and extracting adjacent/child content
+ * @param {string} labelText - The label to search for (e.g., "Ingredients")
+ * @param {Element} root - Root element to search within
+ * @returns {string} - Found text content or empty string
+ */
+function findTextByLabel(labelText, root = document) {
+  try {
+    // Get all text-containing elements
+    const allElements = root.querySelectorAll('*');
+
+    for (const element of allElements) {
+      // Check if this element's direct text content contains the label
+      const directText = element.textContent?.trim() || '';
+      const childrenText = Array.from(element.children).map(c => c.textContent).join('');
+      const ownText = directText.replace(childrenText, '').trim();
+
+      // Check if this element is a label (contains "Ingredients:" or "INGREDIENTS:")
+      if (ownText.toLowerCase().includes(labelText.toLowerCase() + ':') ||
+          ownText.toLowerCase() === labelText.toLowerCase()) {
+
+        // Strategy 1: Check next sibling
+        let nextSibling = element.nextElementSibling;
+        if (nextSibling) {
+          const siblingText = cleanText(nextSibling.textContent);
+          if (siblingText && siblingText.length > 10) {
+            console.log(`Shop Well: Found ${labelText} via next sibling`);
+            return siblingText;
+          }
+        }
+
+        // Strategy 2: Check parent's next sibling (for table row structures)
+        if (element.parentElement) {
+          nextSibling = element.parentElement.nextElementSibling;
+          if (nextSibling) {
+            const siblingText = cleanText(nextSibling.textContent);
+            if (siblingText && siblingText.length > 10) {
+              console.log(`Shop Well: Found ${labelText} via parent's next sibling`);
+              return siblingText;
+            }
+          }
+        }
+
+        // Strategy 3: Check children of parent (for nested structures)
+        const parent = element.parentElement;
+        if (parent) {
+          const siblings = Array.from(parent.children);
+          const elementIndex = siblings.indexOf(element);
+          if (elementIndex !== -1 && elementIndex < siblings.length - 1) {
+            const nextElement = siblings[elementIndex + 1];
+            const nextText = cleanText(nextElement.textContent);
+            if (nextText && nextText.length > 10) {
+              console.log(`Shop Well: Found ${labelText} via parent children`);
+              return nextText;
+            }
+          }
+        }
+
+        // Strategy 4: Check if there's text after the label in the same element
+        const fullText = element.textContent || '';
+        const labelPattern = new RegExp(`${labelText}:?\\s*(.+)`, 'i');
+        const match = fullText.match(labelPattern);
+        if (match && match[1]) {
+          const extractedText = cleanText(match[1]);
+          if (extractedText.length > 10) {
+            console.log(`Shop Well: Found ${labelText} in same element`);
+            return extractedText;
+          }
+        }
+      }
+
+      // Check for table row structure: <tr><td>Ingredients</td><td>CONTENT</td></tr>
+      if (element.tagName === 'TR') {
+        const cells = element.querySelectorAll('td, th');
+        for (let i = 0; i < cells.length - 1; i++) {
+          const cellText = cleanText(cells[i].textContent);
+          if (cellText.toLowerCase().includes(labelText.toLowerCase())) {
+            const contentCell = cells[i + 1];
+            const content = cleanText(contentCell.textContent);
+            if (content && content.length > 10) {
+              console.log(`Shop Well: Found ${labelText} in table row`);
+              return content;
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.warn(`Shop Well: Error finding text by label "${labelText}":`, error);
+  }
+
+  return '';
 }
 
 /**

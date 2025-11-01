@@ -144,24 +144,111 @@ export class WalmartParser {
    * @returns {string}
    */
   static extractIngredients() {
-    // Walmart-specific ingredient selectors
+    // Walmart-specific ingredient selectors (valid CSS only)
     const ingredientSelectors = [
+      // Nutrition facts sections
       '[data-testid="nutrition-facts"] .ingredients',
       '.nutrition-facts .ingredients',
+
+      // Product ingredients sections
       '.product-ingredients',
       '[aria-label*="Ingredients"]',
       '.ingredient-list',
-      // Look in specifications table
-      '.specifications-container tr:contains("Ingredients") td',
-      '.product-details tr:contains("Ingredients") td',
-      // Generic patterns
-      '*:contains("Ingredients:") + *',
-      '*:contains("INGREDIENTS:") + *'
+
+      // Specifications and details sections
+      '.specifications-container',
+      '.product-details',
+      '.product-specifications',
+
+      // Expandable sections
+      '[data-testid="product-details"]',
+      '[data-testid="specifications"]'
     ];
 
-    const ingredients = extractIngredients() || getText(ingredientSelectors);
-    console.log('Shop Well: Walmart ingredients found:', !!ingredients);
-    return ingredients;
+    // First try the generic extractor (has fallback logic)
+    let ingredients = extractIngredients();
+    if (ingredients) {
+      console.log('Shop Well: Walmart ingredients found via generic extractor');
+      return ingredients;
+    }
+
+    // Try Walmart-specific selectors
+    ingredients = getText(ingredientSelectors);
+    if (ingredients) {
+      console.log('Shop Well: Walmart ingredients found via specific selectors');
+      return ingredients;
+    }
+
+    // Fallback: Search for table/list structures containing "Ingredients" label
+    ingredients = this.extractIngredientsFromTable();
+    if (ingredients) {
+      console.log('Shop Well: Walmart ingredients found in table/list');
+      return ingredients;
+    }
+
+    console.log('Shop Well: Walmart ingredients NOT found');
+    return '';
+  }
+
+  /**
+   * Extract ingredients from specification tables or lists
+   * @returns {string}
+   */
+  static extractIngredientsFromTable() {
+    try {
+      // Look for tables in specifications sections
+      const tables = document.querySelectorAll(
+        '.specifications-container table, ' +
+        '.product-details table, ' +
+        '.product-specifications table, ' +
+        '[data-testid="specifications"] table'
+      );
+
+      for (const table of tables) {
+        const rows = table.querySelectorAll('tr');
+        for (const row of rows) {
+          const cells = row.querySelectorAll('th, td');
+          if (cells.length >= 2) {
+            const labelCell = cells[0];
+            const contentCell = cells[1];
+
+            const label = labelCell.textContent?.trim().toLowerCase() || '';
+            if (label.includes('ingredient')) {
+              const content = contentCell.textContent?.trim() || '';
+              if (content.length > 10) {
+                return content;
+              }
+            }
+          }
+        }
+      }
+
+      // Also check for definition lists (dl/dt/dd structure)
+      const definitionLists = document.querySelectorAll(
+        '.specifications-container dl, ' +
+        '.product-details dl'
+      );
+
+      for (const dl of definitionLists) {
+        const terms = dl.querySelectorAll('dt');
+        for (const dt of terms) {
+          const label = dt.textContent?.trim().toLowerCase() || '';
+          if (label.includes('ingredient')) {
+            const dd = dt.nextElementSibling;
+            if (dd && dd.tagName === 'DD') {
+              const content = dd.textContent?.trim() || '';
+              if (content.length > 10) {
+                return content;
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Shop Well: Error extracting Walmart ingredients from table:', error);
+    }
+
+    return '';
   }
 
   /**
