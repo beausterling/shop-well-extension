@@ -830,18 +830,19 @@ body {
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-5);
-  background: var(--sw-blue);
+  background: linear-gradient(135deg, #6BAF7A 0%, #65AEDD 100%); /* Greenish gradient to match other buttons */
   color: var(--sw-white);
   text-decoration: none;
   border-radius: var(--radius-md);
   font-weight: var(--font-weight-medium);
   transition: all var(--transition-fast);
+  box-shadow: 0 2px 6px rgba(107, 175, 122, 0.3);
 }
 
 .settings-link:hover {
-  background: var(--sw-blue-dark);
+  background: linear-gradient(135deg, #5A9D68 0%, #5A9AC9 100%); /* Darker gradient on hover */
   transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 12px rgba(107, 175, 122, 0.4);
 }
 
 /* ====================
