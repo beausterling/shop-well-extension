@@ -177,11 +177,11 @@ export class WalmartParser {
         const elements = document.querySelectorAll(selector);
         for (const element of elements) {
           const text = element.textContent?.trim();
-          // Filter for actual ingredient content (must be substantial and contain ingredient indicators)
-          if (text && text.length > 50 &&
-              (text.includes('INGREDIENTS:') || text.includes('CONTAINS') ||
-               text.toUpperCase().startsWith('INGREDIENTS'))) {
+          // Accept any substantial text that looks like an ingredient list
+          // Removed strict keyword requirement - many products list ingredients without labels
+          if (text && text.length > 20) {
             console.log('Shop Well: Walmart ingredients found via selector:', selector);
+            console.log('Shop Well: Ingredient text preview:', text.substring(0, 150));
             return text;
           }
         }

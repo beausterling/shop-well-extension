@@ -235,11 +235,10 @@ export function extractIngredients(root = document) {
       const elements = root.querySelectorAll(selector);
       for (const element of elements) {
         const text = cleanText(element.textContent);
-        // Filter to ensure we got actual ingredients, not random text
-        // Must be substantial (>50 chars) and contain ingredient indicators
-        if (text.length > 50 &&
-            (text.includes('INGREDIENTS:') || text.includes('CONTAINS') ||
-             text.toLowerCase().includes('ingredients'))) {
+        // Accept any substantial text - removed strict keyword requirement
+        // Many products list ingredients without explicit labels
+        if (text.length > 20) {
+          console.log('Shop Well: Generic ingredient extractor found text (length:', text.length, ')');
           return text;
         }
       }

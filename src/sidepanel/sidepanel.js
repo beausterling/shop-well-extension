@@ -1554,29 +1554,42 @@ function generateEnhancedCustomGuidance(condition) {
 function fixLiteralControlChars(jsonStr) {
   let result = '';
   let inString = false;
-  let prevChar = '';
+  let escapeNext = false;
 
   for (let i = 0; i < jsonStr.length; i++) {
     const char = jsonStr[i];
 
+    // Handle escape sequences
+    if (escapeNext) {
+      result += char;
+      escapeNext = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      result += char;
+      escapeNext = true;
+      continue;
+    }
+
     // Track if we're inside a string value (respect escaped quotes)
-    if (char === '"' && prevChar !== '\\') {
+    if (char === '"') {
       inString = !inString;
       result += char;
     }
-    // If inside string, escape control characters
+    // If inside string, escape control characters and backslashes
     else if (inString) {
       if (char === '\n') result += '\\n';
       else if (char === '\r') result += '\\r';
       else if (char === '\t') result += '\\t';
+      else if (char === '\b') result += '\\b';
+      else if (char === '\f') result += '\\f';
       else result += char;
     }
     // Outside string, keep as-is (structural whitespace is OK)
     else {
       result += char;
     }
-
-    prevChar = char;
   }
 
   return result;
@@ -1625,7 +1638,22 @@ function parseVerdictResponse(response, facts, allergies, conditions = []) {
   } catch (e) {
     // Parsing failed - log detailed error and use fallback
     console.error('Shop Well: ✗ JSON parsing failed:', e.message);
-    console.error('Error position:', e.message.match(/position (\d+)/)?.[1] || 'unknown');
+
+    // Extract error position if available
+    const posMatch = e.message.match(/position (\d+)/);
+    if (posMatch) {
+      const errorPos = parseInt(posMatch[1]);
+      const contextStart = Math.max(0, errorPos - 100);
+      const contextEnd = Math.min(fixedJSON.length, errorPos + 100);
+      const context = fixedJSON.substring(contextStart, contextEnd);
+      const markerPos = Math.min(100, errorPos - contextStart);
+
+      console.error('Error position:', errorPos);
+      console.error('Context around error:');
+      console.error(context);
+      console.error(' '.repeat(markerPos) + '^ ERROR HERE');
+    }
+
     console.error('Problematic JSON (first 500 chars):', fixedJSON.substring(0, 500));
     console.error('Problematic JSON (last 200 chars):', fixedJSON.substring(fixedJSON.length - 200));
 
@@ -2486,8 +2514,11 @@ class SidePanelUI {
     this.currentState = 'profileBuilding';
     console.log('Shop Well: Showing profile building state');
 
-    // Only start polling if NOT auto-generating (auto-generation handles its own completion)
-    if (!isAutoGeneration) {
+    // Start polling if:
+    // 1. NOT auto-generating (manual from settings), OR
+    // 2. We have pending product data (user clicked Analyze during auto-generation)
+    if (!isAutoGeneration || this.pendingProductData) {
+      console.log('Shop Well: Starting profile polling' + (this.pendingProductData ? ' (pending product queued)' : ''));
       this.startProfilePolling();
     }
   }
@@ -2616,8 +2647,22 @@ class SidePanelUI {
         console.log('Shop Well: Health profile auto-generated successfully');
         console.log('Shop Well: Profile length:', healthProfile.length, 'characters');
 
-        // Continue to show welcome state
-        this.showWelcome();
+        // Check if there's a pending product to analyze (user clicked Analyze during generation)
+        if (this.pendingProductData) {
+          console.log('Shop Well: Found pending product after profile generation, starting analysis...');
+          const productData = this.pendingProductData;
+          this.pendingProductData = null;
+
+          // Determine which analysis method to use based on product source
+          if (productData.source && productData.source.includes('search')) {
+            this.analyzeListingProduct(productData);
+          } else {
+            this.analyzeProduct(productData);
+          }
+        } else {
+          // No pending product, continue to show welcome state
+          this.showWelcome();
+        }
       } else {
         throw new Error('Profile generation returned null');
       }
