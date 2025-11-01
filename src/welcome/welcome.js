@@ -602,7 +602,7 @@ async function finishSetup() {
 
   console.log('Welcome: Settings saved successfully, showing success screen with confetti...');
 
-  // Small delay to ensure loading screen was visible for at least a moment
+  // 5-second delay to give backend profile generation time to start building
   setTimeout(() => {
     // Trigger confetti explosion
     triggerConfetti();
@@ -610,7 +610,7 @@ async function finishSetup() {
     // Switch to success state
     loadingState.classList.add('hidden');
     successState.classList.remove('hidden');
-  }, 500); // 0.5 second minimum display time for loading state
+  }, 5000); // 5 second delay for profile generation head start
 }
 
 // ===================================

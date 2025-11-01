@@ -1969,34 +1969,95 @@ class SidePanelUI {
 
     // Listen for messages from content script/background
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      if (message.type === 'analyze-product') {
-        // Prevent starting new analysis if one is already in progress
+      if (message.type === 'force-reset-state') {
+        // Force reset side panel to clean state for new analysis
+        console.log('Shop Well: Force resetting side panel state:', message.reason);
+
+        // Cancel any ongoing analysis
         if (this.isAnalyzing) {
-          console.warn('Shop Well: Analysis already in progress, ignoring analyze-product request');
-          sendResponse({ success: false, error: 'Analysis in progress' });
-          return true;
+          console.log('Shop Well: Canceling ongoing analysis for reset');
+          this.cleanup(); // Cleanup but don't close panel
         }
+
+        // Clear pending requests
+        this.pendingProductData = null;
+
+        // Stop profile building if active
+        if (this.profilePollingInterval) {
+          clearInterval(this.profilePollingInterval);
+          this.profilePollingInterval = null;
+        }
+
+        // Force transition to welcome state (ready for new analysis)
+        this.currentState = 'welcome';
+        this.isAnalyzing = false;
+
+        // Clear UI - hide all states
+        this.hideAllStates();
+
+        console.log('Shop Well: State reset complete, ready for new analysis');
+        sendResponse({ success: true });
+        return true;
+      }
+
+      if (message.type === 'analyze-product') {
+        // Force state transition to loading regardless of current state
+        console.log('Shop Well: Analyze product request - forcing state transition');
+
+        // Cancel existing analysis if any
+        if (this.isAnalyzing) {
+          console.log('Shop Well: Canceling existing analysis for new request');
+          this.cleanup(); // Cleanup but don't close panel
+        }
+
+        // Stop profile building if active
+        if (this.currentState === 'profileBuilding' && this.profilePollingInterval) {
+          console.log('Shop Well: Overriding profile building state for new analysis');
+          clearInterval(this.profilePollingInterval);
+          this.profilePollingInterval = null;
+        }
+
+        // Force visual transition to loading state
+        this.hideAllStates();
+        this.elements.loading.classList.remove('hidden');
+        this.currentState = 'loading';
 
         // Clear the message received timer
         if (this.messageReceivedTimer) {
           clearTimeout(this.messageReceivedTimer);
           this.messageReceivedTimer = null;
         }
+
         this.analyzeProduct(message.productData);
         sendResponse({ success: true });
       } else if (message.type === 'analyze-listing-product') {
-        // Prevent starting new analysis if one is already in progress
+        // Force state transition to loading regardless of current state
+        console.log('Shop Well: Analyze listing product request - forcing state transition');
+
+        // Cancel existing analysis if any
         if (this.isAnalyzing) {
-          console.warn('Shop Well: Analysis already in progress, ignoring analyze-listing-product request');
-          sendResponse({ success: false, error: 'Analysis in progress' });
-          return true;
+          console.log('Shop Well: Canceling existing analysis for new request');
+          this.cleanup(); // Cleanup but don't close panel
         }
+
+        // Stop profile building if active
+        if (this.currentState === 'profileBuilding' && this.profilePollingInterval) {
+          console.log('Shop Well: Overriding profile building state for new analysis');
+          clearInterval(this.profilePollingInterval);
+          this.profilePollingInterval = null;
+        }
+
+        // Force visual transition to loading state
+        this.hideAllStates();
+        this.elements.loading.classList.remove('hidden');
+        this.currentState = 'loading';
 
         // Clear the message received timer
         if (this.messageReceivedTimer) {
           clearTimeout(this.messageReceivedTimer);
           this.messageReceivedTimer = null;
         }
+
         this.analyzeListingProduct(message.productData);
         sendResponse({ success: true });
       }

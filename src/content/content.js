@@ -593,6 +593,21 @@ class ProductExtractor {
     if (badge) {
       badge.classList.add('analyzing');
       badge.textContent = 'Analyzing...';
+
+      // Add safety timeout (15 seconds) - reset badge if analysis doesn't complete
+      const badgeResetTimeout = setTimeout(() => {
+        console.warn('Shop Well: Badge timeout - analysis took too long (15s), resetting badge');
+        if (badge && badge.classList.contains('analyzing')) {
+          badge.classList.remove('analyzing');
+          badge.textContent = 'Retry';
+          badge.style.background = '#F2A94C'; // Orange = needs retry
+          badge.title = 'Analysis timed out. Click to retry.';
+        }
+        this.isAnalyzing = false;
+      }, 15000);
+
+      // Store timeout ID on badge element for cleanup later
+      badge.dataset.timeoutId = badgeResetTimeout;
     }
 
     // Check if extension context is still valid (handles extension reload scenario)
@@ -666,9 +681,17 @@ class ProductExtractor {
         // Update badge to "completed" state (white bg, green text, 👉 Look!)
         const badge = document.querySelector(`.shop-well-badge[data-product-asin="${message.productId}"]`);
         if (badge) {
+          // Clear the safety timeout if it exists
+          if (badge.dataset.timeoutId) {
+            clearTimeout(parseInt(badge.dataset.timeoutId));
+            delete badge.dataset.timeoutId;
+          }
+
           badge.classList.remove('analyzing');
           badge.classList.add('completed');
           badge.textContent = 'Look!';
+          badge.style.background = ''; // Reset to CSS default
+          badge.title = ''; // Clear any timeout message
           console.log(`Shop Well: Badge for product ${message.productId} marked as completed`);
         } else {
           console.warn(`Shop Well: Could not find badge for product ${message.productId}`);
@@ -680,10 +703,23 @@ class ProductExtractor {
         // Revert badge to normal state
         const badge = document.querySelector(`.shop-well-badge[data-product-asin="${message.productId}"]`);
         if (badge) {
+          // Clear the safety timeout if it exists
+          if (badge.dataset.timeoutId) {
+            clearTimeout(parseInt(badge.dataset.timeoutId));
+            delete badge.dataset.timeoutId;
+          }
+
           badge.classList.remove('analyzing', 'completed');
           badge.textContent = 'Analyze';
+          badge.style.background = ''; // Reset to CSS default
+          badge.title = ''; // Clear any timeout message
           console.log(`Shop Well: Badge for product ${message.productId} reverted to normal state`);
         }
+
+        // Reset global analyzing flag to allow new analyses immediately
+        this.isAnalyzing = false;
+        console.log('Shop Well: Reset isAnalyzing flag (cancel button clicked)');
+
         return false;
       }
 
@@ -694,8 +730,16 @@ class ProductExtractor {
         // Reset ALL badges to default state (not just completed ones)
         const allBadges = document.querySelectorAll('.shop-well-badge');
         allBadges.forEach(badge => {
+          // Clear any safety timeouts
+          if (badge.dataset.timeoutId) {
+            clearTimeout(parseInt(badge.dataset.timeoutId));
+            delete badge.dataset.timeoutId;
+          }
+
           badge.classList.remove('analyzing', 'completed');
           badge.textContent = 'Analyze';
+          badge.style.background = ''; // Reset to CSS default
+          badge.title = ''; // Clear any messages
         });
 
         // Reset global analyzing flag to allow new analyses

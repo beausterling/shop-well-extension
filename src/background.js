@@ -12,6 +12,30 @@ console.log('Shop Well background service worker initialized');
 // Store pending analysis requests until side panel is ready
 let pendingAnalysisRequest = null;
 
+/**
+ * Force open side panel with retry logic
+ * @param {number} windowId - Window ID to open panel in
+ * @param {number} retries - Number of retry attempts (default: 2)
+ * @returns {Promise<boolean>} - True if successful, false otherwise
+ */
+async function forceOpenSidePanel(windowId, retries = 2) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      await chrome.sidePanel.open({ windowId });
+      console.log(`Shop Well: Successfully forced panel open (attempt ${i + 1})`);
+      return true;
+    } catch (error) {
+      console.warn(`Shop Well: Panel open attempt ${i + 1} failed:`, error.message);
+      if (i < retries) {
+        // Wait 500ms before retrying
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+  }
+  console.error('Shop Well: Failed to open panel after all retry attempts');
+  return false;
+}
+
 /* =============================================================================
    KEYBOARD SHORTCUT HANDLER
    ============================================================================= */
@@ -232,7 +256,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Listing product badge was clicked
     console.log('Shop Well: Listing product analysis requested:', message.productData.id);
 
-    // Get current tab to check if side panel is already open
+    // Get current tab
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       const activeTab = tabs[0];
       if (!activeTab) {
@@ -240,45 +264,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return;
       }
 
-      // Check if side panel is already open for this tab
-      const isPanelAlreadyOpen = sidePanelOpenTabs.has(activeTab.id);
+      // ALWAYS force panel open (idempotent if already open)
+      console.log('Shop Well: Forcing side panel open with retry logic...');
+      const panelOpened = await forceOpenSidePanel(activeTab.windowId);
 
-      if (isPanelAlreadyOpen) {
-        // Side panel is already open - send message immediately
-        console.log('Shop Well: Side panel already open, sending message immediately');
+      if (!panelOpened) {
+        // Failed to open panel after retries - notify content script
+        console.error('Shop Well: Could not open side panel');
+        chrome.tabs.sendMessage(activeTab.id, {
+          type: 'analysis-error',
+          error: 'Failed to open side panel'
+        });
+        sendResponse({ success: false, error: 'Failed to open side panel' });
+        return;
+      }
 
+      // Send force-reset message to ensure panel is in clean state
+      console.log('Shop Well: Sending force-reset to side panel');
+      chrome.runtime.sendMessage({
+        type: 'force-reset-state',
+        reason: 'new-analysis-requested'
+      });
+
+      // Small delay to allow reset to process, then send analysis request
+      setTimeout(() => {
+        console.log('Shop Well: Sending analysis request to side panel');
         chrome.runtime.sendMessage({
           type: 'analyze-listing-product',
           productData: message.productData
         }, (response) => {
           if (chrome.runtime.lastError) {
-            console.warn('Shop Well: Failed to send message to side panel:', chrome.runtime.lastError.message);
+            console.warn('Shop Well: Failed to send analysis message:', chrome.runtime.lastError.message);
             sendResponse({ success: false, error: chrome.runtime.lastError.message });
           } else {
-            console.log('Shop Well: Message sent to already-open side panel');
+            console.log('Shop Well: Analysis request sent successfully');
             sendResponse({ success: true });
           }
         });
-      } else {
-        // Side panel is not open - queue the message and open panel
-        console.log('Shop Well: Side panel not open, queueing message and opening panel');
-
-        pendingAnalysisRequest = {
-          type: 'analyze-listing-product',
-          productData: message.productData
-        };
-
-        try {
-          await chrome.sidePanel.open({ windowId: activeTab.windowId });
-          console.log('Shop Well: Side panel opened for listing product');
-          // Message will be sent when side panel signals it's ready
-          sendResponse({ success: true });
-        } catch (error) {
-          console.error('Shop Well: Failed to open side panel:', error);
-          pendingAnalysisRequest = null; // Clear queue on error
-          sendResponse({ success: false, error: error.message });
-        }
-      }
+      }, 150); // 150ms delay for reset to process
     });
 
     return true; // Will send response asynchronously
