@@ -2,6 +2,94 @@
 // All logic inline for compatibility (will be bundled later)
 
 /* =============================================================================
+   KNOWLEDGE BASE - Naturally Gluten-Free Foods
+   ============================================================================= */
+
+/**
+ * List of foods that are naturally gluten-free when unprocessed.
+ * Used to prevent false positives in gluten detection.
+ */
+const NATURALLY_GLUTEN_FREE_FOODS = {
+  // Simple proteins
+  proteins: ['egg', 'chicken', 'beef', 'pork', 'turkey', 'lamb', 'fish', 'salmon',
+             'tuna', 'shrimp', 'crab', 'lobster', 'duck', 'venison'],
+
+  // Dairy products (plain, unflavored)
+  dairy: ['milk', 'cheese', 'butter', 'cream', 'yogurt'],
+
+  // Fresh produce
+  produce: ['apple', 'banana', 'orange', 'strawberry', 'blueberry', 'grape',
+            'tomato', 'lettuce', 'spinach', 'carrot', 'broccoli', 'potato'],
+
+  // Naturally gluten-free grains
+  grains: ['rice', 'corn', 'quinoa', 'buckwheat', 'millet'],
+
+  // Other naturally gluten-free
+  other: ['bean', 'lentil', 'nut', 'almond', 'cashew', 'peanut', 'oil']
+};
+
+/**
+ * Checks if a product is naturally gluten-free based on title and ingredients.
+ * @param {string} title - Product title
+ * @param {string} ingredients - Ingredients list
+ * @returns {Object} - {isNaturallyGlutenFree: boolean, confidence: string, reasoning: string}
+ */
+function checkNaturallyGlutenFree(title, ingredients) {
+  const titleLower = (title || '').toLowerCase();
+  const ingredientsLower = (ingredients || '').toLowerCase();
+
+  // Check for explicit gluten-free claims
+  if (titleLower.includes('gluten-free') || titleLower.includes('gluten free') ||
+      ingredientsLower.includes('gluten-free') || ingredientsLower.includes('gluten free')) {
+    return {
+      isNaturallyGlutenFree: true,
+      confidence: 'high',
+      reasoning: 'Product explicitly labeled as gluten-free'
+    };
+  }
+
+  // Check if title matches naturally gluten-free food categories
+  const allNaturalFoods = [
+    ...NATURALLY_GLUTEN_FREE_FOODS.proteins,
+    ...NATURALLY_GLUTEN_FREE_FOODS.dairy,
+    ...NATURALLY_GLUTEN_FREE_FOODS.produce,
+    ...NATURALLY_GLUTEN_FREE_FOODS.grains,
+    ...NATURALLY_GLUTEN_FREE_FOODS.other
+  ];
+
+  // Check for simple matches (e.g., "eggs" in title)
+  const matchedFoods = allNaturalFoods.filter(food => titleLower.includes(food));
+
+  if (matchedFoods.length > 0) {
+    // Verify ingredients are minimal (simple/unprocessed product)
+    const ingredientsList = ingredientsLower.split(',').map(i => i.trim());
+
+    // If ingredients list is short (<=3 items) and matches natural food, high confidence
+    if (ingredientsList.length <= 3 && ingredientsList.length > 0) {
+      return {
+        isNaturallyGlutenFree: true,
+        confidence: 'high',
+        reasoning: `Plain ${matchedFoods[0]} with minimal ingredients - naturally gluten-free`
+      };
+    }
+
+    // If more ingredients, medium confidence (may be processed)
+    return {
+      isNaturallyGlutenFree: true,
+      confidence: 'medium',
+      reasoning: `Contains ${matchedFoods[0]} but has additional ingredients - likely gluten-free but verify`
+    };
+  }
+
+  // Unknown - requires AI analysis
+  return {
+    isNaturallyGlutenFree: null,
+    confidence: 'unknown',
+    reasoning: 'Requires detailed ingredient analysis'
+  };
+}
+
+/* =============================================================================
    PERSONALIZATION UTILITIES
    ============================================================================= */
 
@@ -384,7 +472,8 @@ async function summarizeProduct(productData, cachedSummarizer = null) {
     );
     console.log('Shop Well: Raw summarizer output:', summary);
 
-    const facts = parseStructuredFacts(summary, productData);
+    // Use AI-powered fact extraction instead of keyword matching
+    const facts = await extractFactsWithAI(summary, productData);
     console.log('Shop Well: Extracted facts:', facts);
 
     return { facts, summarizer };
@@ -429,11 +518,20 @@ function prepareInputText(productData) {
   return inputText;
 }
 
-function parseStructuredFacts(summary, productData) {
+/**
+ * Uses AI to extract structured nutritional facts from product data.
+ * Replaces broken keyword matching with semantic understanding.
+ * @param {string} summary - Summarizer output
+ * @param {Object} productData - Full product data
+ * @returns {Promise<Object>} - Structured facts with confidence scores
+ */
+async function extractFactsWithAI(summary, productData) {
+  console.log('Shop Well: Extracting facts with AI semantic analysis...');
+
   const facts = {
-    high_sodium: false,
-    high_sugar: false,
-    gluten_free: false,
+    sodium_level: 'unknown',      // none, low, moderate, high, unknown
+    sugar_level: 'unknown',        // none, low, moderate, high, unknown
+    gluten_status: 'unknown',      // gluten-free, contains-gluten, unknown
     dietary_claims: [],
     lightweight: false,
     compression_garment: false,
@@ -441,7 +539,170 @@ function parseStructuredFacts(summary, productData) {
     ease_of_use: false,
     ergonomic_design: false,
     summary_text: summary,
-    confidence: 'medium'
+    confidence: 'medium',
+    data_quality: 'unknown'
+  };
+
+  try {
+    // Step 1: Check naturally gluten-free foods knowledge base
+    const glutenCheck = checkNaturallyGlutenFree(productData.title, productData.ingredients);
+    if (glutenCheck.isNaturallyGlutenFree === true) {
+      facts.gluten_status = 'gluten-free';
+      facts.dietary_claims.push('naturally gluten-free');
+      console.log('Shop Well: Gluten status determined by knowledge base:', glutenCheck.reasoning);
+    }
+
+    // Step 2: Use AI to analyze nutritional content semantically
+    if (typeof LanguageModel !== 'undefined') {
+      const factExtractionPrompt = `Analyze this product data and extract ONLY factual nutritional information.
+
+PRODUCT DATA:
+Title: ${productData.title || 'Unknown'}
+Ingredients: ${productData.ingredients || 'Not listed'}
+Features: ${(productData.bullets || []).slice(0, 5).join('; ')}
+Summary: ${summary}
+
+Extract the following facts based ONLY on the data provided above:
+
+1. **Sodium Level:** Choose one: none, low, moderate, high, unknown
+   - none: no sodium/salt listed
+   - low: <140mg per serving OR explicitly states "low sodium"
+   - moderate: 140-400mg per serving
+   - high: >400mg per serving OR explicitly states "high sodium"
+   - unknown: no nutritional data available
+
+2. **Sugar Level:** Choose one: none, low, moderate, high, unknown
+   - none: no sugar/sweetener listed
+   - low: <5g per serving OR naturally occurring only
+   - moderate: 5-15g per serving
+   - high: >15g per serving OR "high sugar" stated
+   - unknown: no nutritional data available
+
+3. **Gluten Status:** Choose one: gluten-free, contains-gluten, unknown
+   - gluten-free: explicitly labeled OR naturally gluten-free food (eggs, meat, produce, rice, corn)
+   - contains-gluten: contains wheat, barley, rye, or similar
+   - unknown: cannot determine from data
+
+4. **Allergens:** List any detected allergens considering BOTH the product title/name AND ingredients.
+   Common allergens: eggs, milk, soy, wheat, peanuts, tree-nuts, fish, shellfish, sesame
+
+   CRITICAL FOR ALLERGEN DETECTION:
+   - Check the PRODUCT TITLE/NAME first - the product itself can BE an allergen
+   - Examples: If title is "Milk", "Whole Milk", "Eggs", "Peanut Butter", or "Cheese", those ARE allergens
+   - A product titled "Organic Whole Milk" contains the allergen "milk" - this is obvious and critical
+   - Also check ingredients list for allergen-containing items
+   - If the product IS fundamentally an allergen (e.g., milk, eggs, cheese, nuts), MUST include it
+
+CRITICAL RULES:
+- Base answers ONLY on provided data - do NOT make assumptions EXCEPT for obvious product identity
+- For plain simple foods (eggs, chicken, vegetables, milk, cheese): use basic nutritional knowledge
+  Example: Plain eggs = sodium: low, sugar: none, gluten: gluten-free, allergens: ["eggs"]
+  Example: Whole milk = sodium: low, sugar: moderate, gluten: gluten-free, allergens: ["milk"]
+- If nutritional data is missing, answer "unknown" - do NOT guess
+- If data is contradictory, choose "unknown"
+- EXCEPTION: Product allergen identity is NOT a guess - if it's titled "Milk", it contains milk
+
+Return ONLY a JSON object with this structure (no other text):
+{
+  "sodium_level": "low",
+  "sugar_level": "none",
+  "gluten_status": "gluten-free",
+  "allergens": ["eggs"],
+  "confidence": "high",
+  "reasoning": "Plain eggs are naturally low in sodium, contain no sugar, and are gluten-free"
+}`;
+
+      const session = await LanguageModel.create({
+        temperature: 0.3,  // Low temperature for factual extraction
+        topK: 1            // Deterministic output
+      });
+
+      const aiResponse = await session.prompt(factExtractionPrompt);
+      session.destroy();
+
+      console.log('Shop Well: AI fact extraction raw response:', aiResponse);
+
+      // Parse AI response (should be JSON)
+      try {
+        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const extracted = JSON.parse(jsonMatch[0]);
+
+          // Update facts with AI-extracted data
+          facts.sodium_level = extracted.sodium_level || 'unknown';
+          facts.sugar_level = extracted.sugar_level || 'unknown';
+
+          // Only override gluten status if knowledge base didn't determine it
+          if (facts.gluten_status === 'unknown') {
+            facts.gluten_status = extracted.gluten_status || 'unknown';
+          }
+
+          facts.allergen_warnings = extracted.allergens || [];
+          facts.confidence = extracted.confidence || 'medium';
+          facts.data_quality = extracted.reasoning || 'AI analysis completed';
+
+          console.log('Shop Well: AI-extracted facts:', extracted);
+        }
+      } catch (parseError) {
+        console.warn('Shop Well: Failed to parse AI fact extraction response:', parseError);
+        facts.confidence = 'low';
+        facts.data_quality = 'AI response parsing failed';
+      }
+    } else {
+      console.warn('Shop Well: LanguageModel not available for fact extraction');
+      facts.confidence = 'low';
+      facts.data_quality = 'AI unavailable - using fallback';
+    }
+
+  } catch (error) {
+    console.error('Shop Well: AI fact extraction failed:', error);
+    facts.confidence = 'low';
+    facts.data_quality = 'Fact extraction error';
+  }
+
+  // Step 3: Non-nutritional fact extraction (keep existing keyword logic for these)
+  const summaryLower = summary.toLowerCase();
+  const titleLower = (productData.title || '').toLowerCase();
+  const bulletsText = (productData.bullets || []).join(' ').toLowerCase();
+
+  // Physical product characteristics (keyword matching is fine here)
+  if (titleLower.includes('compression') || bulletsText.includes('compression')) {
+    facts.compression_garment = true;
+  }
+
+  if (summaryLower.includes('lightweight') || bulletsText.includes('lightweight')) {
+    facts.lightweight = true;
+    facts.ease_of_use = true;
+  }
+
+  if (summaryLower.includes('ergonomic') || bulletsText.includes('ergonomic')) {
+    facts.ergonomic_design = true;
+  }
+
+  console.log('Shop Well: Final extracted facts:', facts);
+  return facts;
+}
+
+/**
+ * LEGACY FUNCTION - Kept for fallback compatibility
+ * ⚠️ This function has known issues with false positives (keyword matching)
+ * Use extractFactsWithAI() instead for accurate analysis
+ */
+function parseStructuredFacts(summary, productData) {
+  console.warn('Shop Well: Using legacy parseStructuredFacts (keyword matching) - may have false positives');
+
+  const facts = {
+    sodium_level: 'unknown',
+    sugar_level: 'unknown',
+    gluten_status: 'unknown',
+    dietary_claims: [],
+    lightweight: false,
+    compression_garment: false,
+    allergen_warnings: [],
+    ease_of_use: false,
+    ergonomic_design: false,
+    summary_text: summary,
+    confidence: 'low'  // Lowered confidence due to keyword matching limitations
   };
 
   const summaryLower = summary.toLowerCase();
@@ -449,20 +710,23 @@ function parseStructuredFacts(summary, productData) {
   const bulletsText = (productData.bullets || []).join(' ').toLowerCase();
   const ingredientsLower = (productData.ingredients || '').toLowerCase();
 
-  // Dietary analysis
-  if (summaryLower.includes('sodium') || summaryLower.includes('salt') ||
-      bulletsText.includes('electrolyte') || bulletsText.includes('sodium')) {
-    facts.high_sodium = true;
+  // Legacy keyword-based detection (⚠️ Known to cause false positives)
+  // Only set to moderate/high if explicitly stated
+  if (summaryLower.includes('high sodium') || bulletsText.includes('high sodium')) {
+    facts.sodium_level = 'high';
+  } else if (summaryLower.includes('low sodium') || bulletsText.includes('low sodium')) {
+    facts.sodium_level = 'low';
   }
 
-  if (summaryLower.includes('sugar') || summaryLower.includes('sweet') ||
-      bulletsText.includes('sugar') || ingredientsLower.includes('sugar')) {
-    facts.high_sugar = true;
+  if (summaryLower.includes('high sugar') || bulletsText.includes('high sugar')) {
+    facts.sugar_level = 'high';
+  } else if (summaryLower.includes('sugar-free') || bulletsText.includes('sugar-free')) {
+    facts.sugar_level = 'none';
   }
 
   if (summaryLower.includes('gluten-free') || summaryLower.includes('gluten free') ||
       titleLower.includes('gluten-free') || bulletsText.includes('gluten-free')) {
-    facts.gluten_free = true;
+    facts.gluten_status = 'gluten-free';
     facts.dietary_claims.push('gluten-free');
   }
 
@@ -573,7 +837,7 @@ async function generateVerdict(facts, conditions, allergies = [], cachedLanguage
       console.warn('Shop Well: Failed to load health profile:', error);
     }
 
-    const { systemPrompt, userPrompt } = preparePrompts(facts, conditions, allergies, language, firstName, healthProfile, productCategory);
+    const { systemPrompt, userPrompt } = preparePrompts(facts, conditions, allergies, language, firstName, healthProfile, productCategory, productData);
     console.log('Shop Well: Prompt length:', userPrompt.length);
 
     // Map language to Chrome API-compatible code (only en, es, ja supported)
@@ -983,12 +1247,15 @@ function generateFallbackProfile(allConditions, allAllergies) {
   return profile;
 }
 
-function preparePrompts(facts, conditions, allergies, language, firstName, healthProfile, productCategory = 'general') {
+function preparePrompts(facts, conditions, allergies, language, firstName, healthProfile, productCategory = 'general', productData = null) {
   const languageInstruction = getLanguageInstruction(language.code);
 
   // Handle conditions array
   const conditionsArray = Array.isArray(conditions) ? conditions : [conditions];
   const conditionsList = conditionsArray.length > 0 ? conditionsArray.join(', ') : 'general wellness';
+
+  // Extract product title for allergen context
+  const productTitle = productData?.title || 'Unknown product';
 
   // Category-specific focus instructions
   const categoryLabels = {
@@ -1016,6 +1283,27 @@ CRITICAL RULES:
 - ALWAYS address the user directly as "you/your" (second person) - never use third person
 - FOCUS ONLY on health aspects relevant to ${categoryLabel} products
 - DO NOT discuss unrelated health concerns (e.g., no ergonomics for food items)
+
+⚠️ FACT VERIFICATION & BASIC NUTRITIONAL KNOWLEDGE:
+- Apply basic nutritional knowledge for simple foods:
+  * Plain eggs: naturally gluten-free, low sodium (~70mg), no added sugar
+  * Fresh meat/poultry: gluten-free, sodium varies by processing
+  * Fresh produce: gluten-free, very low sodium, natural sugars only
+  * Plain rice/corn: naturally gluten-free, very low sodium
+- If product facts contradict basic knowledge, note data quality concerns
+- Example: "Plain eggs with high sodium" is INCORRECT - trust nutritional knowledge over extracted facts
+- For sodium levels: "none" = no sodium, "low" = <140mg, "moderate" = 140-400mg, "high" = >400mg, "unknown" = no data
+- For sugar levels: "none" = no sugar, "low" = <5g, "moderate" = 5-15g, "high" = >15g, "unknown" = no data
+- For gluten: "gluten-free" = safe for celiac, "contains-gluten" = has wheat/barley/rye, "unknown" = insufficient data
+- If facts show "unknown", state "Unable to determine from product information" rather than making assumptions
+
+SODIUM GUIDANCE (CONDITION-SPECIFIC):
+${conditionsArray.some(c => c.toLowerCase().includes('pots')) ?
+`- User has POTS: Higher sodium is generally BENEFICIAL for POTS management
+- Moderate to high sodium products may be helpful (unless contraindicated by other conditions)
+- Only mention sodium concerns if product has extreme sodium (>1000mg per serving) AND user has other conditions affected by sodium` :
+`- Only mention sodium if product has extreme levels (>20% Daily Value per serving) OR user specifically needs to monitor sodium
+- Do NOT emphasize sodium for conditions where it's not medically relevant`}
 
 You help people with chronic conditions make informed shopping decisions based on product features.`;
 
@@ -1076,6 +1364,8 @@ PRODUCT CATEGORY: ${categoryLabel}
 
 ${categoryInstruction}
 
+PRODUCT NAME: ${productTitle}
+
 Analyze this ${categoryLabel} for someone with: ${conditionsList}
 
 USER HEALTH PROFILE (filtered for ${categoryLabel} products):
@@ -1083,16 +1373,20 @@ ${profileGuidance}
 
 ${allergenList}
 
-Product facts:
-- High sodium: ${facts.high_sodium}
-- High sugar: ${facts.high_sugar}
-- Gluten-free: ${facts.gluten_free}
+Product nutritional profile:
+${conditionsArray.some(c => c.toLowerCase().includes('pots')) ? `- Sodium level: ${facts.sodium_level || 'unknown'}` : ''}
+- Sugar level: ${facts.sugar_level || 'unknown'}
+- Gluten status: ${facts.gluten_status || 'unknown'}
+- Allergen warnings: ${facts.allergen_warnings.join(', ') || 'none detected'}
+- Dietary claims: ${facts.dietary_claims.join(', ') || 'none'}
+
+Product characteristics:
 - Compression garment: ${facts.compression_garment}
 - Lightweight: ${facts.lightweight}
 - Easy to use: ${facts.ease_of_use}
-- Ergonomic: ${facts.ergonomic_design}
-- Allergen warnings: ${facts.allergen_warnings.join(', ') || 'none detected'}
-- Dietary claims: ${facts.dietary_claims.join(', ') || 'none'}
+- Ergonomic design: ${facts.ergonomic_design}
+
+Data quality: ${facts.data_quality || 'Standard analysis'}
 
 Return ONLY this JSON structure (evaluate ALL user conditions and allergies listed above):
 
@@ -1138,9 +1432,16 @@ VERDICT DEFINITIONS:
 For EACH condition in the conditions array, evaluate how this specific product affects that condition. Provide a verdict and brief_reason (1-2 sentences) explaining why.
 
 For EACH allergen in the allergies array, check if the product contains that allergen and provide a verdict:
-- If allergen is NOT detected in ingredients: "good"
-- If allergen is detected: "bad"
+- Check BOTH the PRODUCT NAME and ingredients list
+- If the PRODUCT NAME itself indicates it IS the allergen (e.g., "Milk", "Whole Milk", "Eggs", "Cheese", "Peanut Butter"): verdict is "bad"
+- If allergen is detected in ingredients: "bad"
+- If allergen is NOT detected in product name OR ingredients: "good"
 - If uncertain: "warning" or "inconclusive"
+
+CRITICAL: A product can BE an allergen itself. Examples:
+- Product name "Organic Whole Milk" + user allergic to milk = verdict: "bad" (obvious - it IS milk)
+- Product name "Cheddar Cheese" + user allergic to milk = verdict: "bad" (cheese contains milk)
+- Product name "Peanut Butter" + user allergic to peanuts = verdict: "bad" (it IS peanuts)
 
 Write 100-150 words total in the insights field as 2-3 short paragraphs of EXACTLY 2 sentences each. Separate paragraphs with blank lines (use natural paragraph breaks). Directly address the user with "you/your" language. Provide personalized insights based on their ${conditionsList}${allergies && allergies.length > 0 ? ` and allergen sensitivities (${allergies.join(', ')})` : ''}. Use **bold** for important ingredients or concerns, *italic* for emphasis. Focus on WHY this product matters for their specific health profile. Make it conversational as if speaking directly to them.
 
@@ -1659,6 +1960,11 @@ function parseProductHTML(html, url) {
           '.about-product-description'
         ]).substring(0, 1000),
         ingredients: getText([
+          // NEW: Actual Walmart structure (2025)
+          'div.pb2 > p.mid-gray',
+          '.pb2 p',
+          'p.mid-gray',
+          // Existing selectors for backward compatibility
           '[data-testid="ingredients"]',
           '.prod-ProductIngredients',
           '.nutrition-facts .ingredients'
@@ -1693,7 +1999,6 @@ class SidePanelUI {
     this.aiCapabilities = null;
     this.settings = {};
     this.currentProductData = null;
-    this.timeoutWarningTimer = null;
     this.isAnalyzing = false;
     this.messageReceivedTimer = null;
 
@@ -1718,7 +2023,6 @@ class SidePanelUI {
       analysis: document.querySelector('.shop-well-analysis'),
       error: document.querySelector('.shop-well-error'),
       welcome: document.querySelector('.shop-well-welcome'),
-      timeoutWarning: document.querySelector('.loading-timeout-warning'),
       // Chat elements
       chatMessages: document.getElementById('chatMessages'),
       chatInput: document.getElementById('chatInput'),
@@ -2067,10 +2371,6 @@ class SidePanelUI {
 
   hideAllStates() {
     // Clear timeout warning timer if active
-    if (this.timeoutWarningTimer) {
-      clearTimeout(this.timeoutWarningTimer);
-      this.timeoutWarningTimer = null;
-    }
 
     // Only hide main state containers, not child elements like chat input
     const stateContainers = [
@@ -2099,18 +2399,8 @@ class SidePanelUI {
     if (loadingText) loadingText.textContent = 'Analyzing product...';
     if (loadingSubtext) loadingSubtext.textContent = 'This may take a few seconds';
 
-    // Hide timeout warning initially
-    if (this.elements.timeoutWarning) {
-      this.elements.timeoutWarning.classList.add('hidden');
-    }
-
-    // Show timeout warning after 30 seconds (first AI call can take 60-90s)
-    this.timeoutWarningTimer = setTimeout(() => {
-      if (this.currentState === 'loading' && this.elements.timeoutWarning) {
-        this.elements.timeoutWarning.classList.remove('hidden');
-        console.log('Shop Well: Showing timeout warning');
-      }
-    }, 30000);
+    // Note: No timeout warning - let analysis complete naturally
+    // Analysis can take time, especially on first run when AI models are loading
 
     this.currentState = 'loading';
     console.log('Shop Well: Showing loading state');

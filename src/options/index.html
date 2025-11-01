@@ -6,40 +6,20 @@
   <link rel="stylesheet" href="options.css">
 </head>
 <body>
-  <div class="container">
-    <h1>=� Shop Well Settings</h1>
-
-    <div class="info-box">
-      <h3>About Shop Well</h3>
-      <p>Shop Well analyzes products on Amazon and Walmart to provide wellness-friendly shopping suggestions for chronic conditions. All analysis happens locally on your device - no data is sent to external servers.</p>
+  <!-- Header -->
+  <header class="options-header">
+    <div class="options-logo">
+      <span class="options-title">⚙️ Profile Settings</span>
     </div>
+  </header>
 
-    <div class="form-group">
-      <label for="first-name">What is your name? (Optional)</label>
+  <div class="container">
+    <p class="greeting" id="greeting">Hello!</p>
+
+    <div class="form-group" id="name-field-group">
+      <label for="first-name">What is your name?</label>
       <input type="text" id="first-name" class="custom-input"
              placeholder="Your first name" maxlength="30" autocomplete="given-name">
-      <p style="font-size: 13px; color: #666; margin-top: 8px;">
-        We'll personalize your wellness insights. Leave blank for generic recommendations.
-      </p>
-    </div>
-
-    <div class="form-group">
-      <label>Email & Privacy Settings</label>
-      <div class="email-opt-in-section">
-        <div class="checkbox-group">
-          <input type="checkbox" id="email-opt-in">
-          <label for="email-opt-in">
-            📬 Share my email with Shop Well to receive product safety alerts, feature updates, and wellness tips
-          </label>
-        </div>
-        <p style="font-size: 13px; color: #666; margin-top: 12px;">
-          🔒 <strong>Privacy First:</strong> Your data is stored locally on your device. Email sharing is optional and helps us provide personalized updates.
-          <a href="../PRIVACY.md" target="_blank" style="color: #3b82f6; text-decoration: underline;">View Privacy Policy</a>
-        </p>
-        <p style="font-size: 12px; color: #999; margin-top: 8px; font-style: italic;">
-          Note: Your email address is saved locally. To update it, please revisit the welcome page.
-        </p>
-      </div>
     </div>
 
     <div class="form-group">
@@ -57,131 +37,32 @@
       </p>
     </div>
 
-    <div class="ai-status-section">
-      <h3>🤖 Chrome AI Status</h3>
-      <div id="ai-status-content">
-        <div id="ai-status-loading" class="status-loading">
-          <div class="status-spinner"></div>
-          <p>Checking Chrome AI availability...</p>
-        </div>
-
-        <div id="ai-status-available" class="status-card status-success hidden">
-          <div class="status-icon">✅</div>
-          <div class="status-info">
-            <h4>Chrome AI Ready!</h4>
-            <p>Enhanced analysis is available. Your extension will provide detailed wellness insights.</p>
-            <div class="ai-features">
-              <span class="feature-badge" id="summarizer-status">Summarizer: Checking...</span>
-              <span class="feature-badge" id="prompt-status">Prompt API: Checking...</span>
-            </div>
-          </div>
-        </div>
-
-        <div id="ai-status-setup" class="status-card status-warning hidden">
-          <div class="status-icon">⚙️</div>
-          <div class="status-info">
-            <h4>Chrome AI Setup Required</h4>
-            <p>Enable Chrome's Built-in AI for enhanced analysis:</p>
-            <div class="setup-steps">
-              <ol>
-                <li>Open <button class="copy-button" data-text="chrome://flags">chrome://flags</button></li>
-                <li>Enable these flags (click to copy):
-                  <ul>
-                    <li><button class="copy-button flag-button" data-text="optimization-guide-on-device-model">optimization-guide-on-device-model</button></li>
-                    <li><button class="copy-button flag-button" data-text="prompt-api-for-gemini-nano">prompt-api-for-gemini-nano</button></li>
-                    <li><button class="copy-button flag-button" data-text="summarization-api-for-gemini-nano">summarization-api-for-gemini-nano</button></li>
-                  </ul>
-                </li>
-                <li>Restart Chrome and refresh this page</li>
-              </ol>
-            </div>
-            <button id="recheck-ai" class="ai-check-button">Recheck AI Status</button>
-          </div>
-        </div>
-
-        <div id="ai-status-unavailable" class="status-card status-error hidden">
-          <div class="status-icon">❌</div>
-          <div class="status-info">
-            <h4>Chrome AI Not Available</h4>
-            <p id="ai-error-message">Chrome Built-in AI requires Chrome 128+ with sufficient device memory.</p>
-            <div class="fallback-info">
-              <p><strong>Don't worry!</strong> Shop Well will still work with basic pattern matching for allergen detection.</p>
-            </div>
-            <button id="recheck-ai-error" class="ai-check-button">Recheck AI Status</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <div class="form-group">
-      <label>Chronic Conditions (Select all that apply):</label>
+      <label>Chronic Conditions:</label>
       <div class="condition-grid">
-        <!-- Column 1 -->
-        <div class="condition-card">
+        <div class="condition-item">
           <input type="checkbox" id="condition-pots" name="condition" value="POTS">
-          <label for="condition-pots">
-            <span class="condition-icon">🩺</span>
-            <div class="condition-text">
-              <span class="condition-name">POTS</span>
-              <span class="condition-desc">Postural Orthostatic Tachycardia Syndrome</span>
-            </div>
-          </label>
+          <label for="condition-pots">POTS</label>
         </div>
-
-        <div class="condition-card">
+        <div class="condition-item">
           <input type="checkbox" id="condition-mecfs" name="condition" value="ME/CFS">
-          <label for="condition-mecfs">
-            <span class="condition-icon">🪫</span>
-            <div class="condition-text">
-              <span class="condition-name">ME/CFS</span>
-              <span class="condition-desc">Myalgic Encephalomyelitis / Chronic Fatigue Syndrome</span>
-            </div>
-          </label>
+          <label for="condition-mecfs">ME/CFS</label>
         </div>
-
-        <div class="condition-card">
+        <div class="condition-item">
           <input type="checkbox" id="condition-celiac" name="condition" value="Celiac Disease">
-          <label for="condition-celiac">
-            <span class="condition-icon">🌾</span>
-            <div class="condition-text">
-              <span class="condition-name">Celiac Disease</span>
-              <span class="condition-desc">Gluten sensitivity & autoimmune response</span>
-            </div>
-          </label>
+          <label for="condition-celiac">Celiac Disease</label>
         </div>
-
-        <!-- Column 2 -->
-        <div class="condition-card">
+        <div class="condition-item">
           <input type="checkbox" id="condition-copd" name="condition" value="COPD">
-          <label for="condition-copd">
-            <span class="condition-icon">🫁</span>
-            <div class="condition-text">
-              <span class="condition-name">COPD</span>
-              <span class="condition-desc">Chronic Obstructive Pulmonary Disease</span>
-            </div>
-          </label>
+          <label for="condition-copd">COPD</label>
         </div>
-
-        <div class="condition-card">
+        <div class="condition-item">
           <input type="checkbox" id="condition-arthritis" name="condition" value="Arthritis">
-          <label for="condition-arthritis">
-            <span class="condition-icon">🦴</span>
-            <div class="condition-text">
-              <span class="condition-name">Arthritis</span>
-              <span class="condition-desc">Joint inflammation & pain management</span>
-            </div>
-          </label>
+          <label for="condition-arthritis">Arthritis</label>
         </div>
-
-        <div class="condition-card">
+        <div class="condition-item">
           <input type="checkbox" id="condition-hypertension" name="condition" value="Hypertension">
-          <label for="condition-hypertension">
-            <span class="condition-icon">❤️</span>
-            <div class="condition-text">
-              <span class="condition-name">Hypertension</span>
-              <span class="condition-desc">High blood pressure management</span>
-            </div>
-          </label>
+          <label for="condition-hypertension">Hypertension</label>
         </div>
       </div>
 
@@ -201,10 +82,7 @@
     </div>
 
     <div class="form-group">
-      <label>Allergies/Sensitivities (Select all that apply):</label>
-      <div class="allergen-warning">
-        ⚠️ <strong>Important:</strong> Shop Well will flag products containing these allergens, but always verify ingredients yourself before consuming any product.
-      </div>
+      <label>Allergies/Sensitivities:</label>
       <div class="allergen-grid">
         <div class="allergen-item">
           <input type="checkbox" id="allergy-peanuts" value="peanuts">
@@ -266,19 +144,39 @@
         </div>
 
         <div id="custom-allergen-list" class="custom-allergen-list"></div>
+
+        <div class="allergen-warning">
+          ⚠️ <strong>Important:</strong> Shop Well will flag products containing these allergens, but always verify ingredients yourself before consuming any product.
+        </div>
       </div>
     </div>
 
     <div class="form-group">
-      <div class="checkbox-group">
-        <input type="checkbox" id="autoshow">
-        <label for="autoshow">Auto-show analysis panel on product pages</label>
+      <label>Email & Privacy Settings</label>
+      <div class="email-opt-in-section">
+        <!-- Email input field (shown only if user hasn't provided email) -->
+        <div class="email-input-group" id="email-input-group">
+          <label for="email-input">Email Address:</label>
+          <input type="email" id="email-input" class="custom-input"
+                 placeholder="your.email@example.com" maxlength="100" autocomplete="email">
+        </div>
+
+        <div class="checkbox-group">
+          <input type="checkbox" id="email-opt-in">
+          <label for="email-opt-in">
+            📬 Share my email and health data with Shop Well to receive product safety alerts, feature updates, and wellness tips
+          </label>
+        </div>
+        <p style="font-size: 13px; color: #666; margin-top: 12px;">
+          🔒 <strong>Privacy First:</strong> Your data is stored locally on your device. Email and data sharing is optional and helps us provide personalized updates. We do not share or market your data to any third parties.
+          <a href="https://shopwell-extension.com/privacy-policy" target="_blank" style="color: #3b82f6; text-decoration: underline;">View Privacy Policy</a>
+        </p>
       </div>
     </div>
 
     <div class="form-group">
       <button id="save">Save Settings</button>
-      <button id="clear" class="secondary">Clear All Data</button>
+      <button id="close" class="secondary">Close</button>
     </div>
 
     <!-- Profile Building Status -->
@@ -291,16 +189,6 @@
     </div>
 
     <div id="status" class="status"></div>
-
-    <div class="info-box">
-      <h3>How to Use</h3>
-      <ul>
-        <li>Browse Amazon or Walmart product pages</li>
-        <li>Press <strong>Ctrl+Shift+S</strong> (or <strong>Cmd+Shift+S</strong> on Mac) to toggle the analysis panel</li>
-        <li>View wellness-friendly suggestions based on your condition</li>
-      </ul>
-      <p><strong>Disclaimer:</strong> This tool provides informational content only and is not medical advice. Always consult healthcare professionals for medical decisions.</p>
-    </div>
   </div>
 
   <script src="options.js"></script>

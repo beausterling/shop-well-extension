@@ -65,8 +65,8 @@ class ProductExtractor {
     // Reset all badge states from previous page to default "Analyze" state
     const allBadges = document.querySelectorAll('.shop-well-badge');
     allBadges.forEach(badge => {
-      badge.classList.remove('analyzing', 'completed');
-      badge.textContent = '🌿 Analyze';
+      badge.classList.remove('analyzing', 'completed', 'error', 'refresh');
+      badge.textContent = 'Analyze';
     });
     if (allBadges.length > 0) {
       console.log(`Shop Well: Reset ${allBadges.length} badge states to default`);
@@ -209,19 +209,24 @@ class ProductExtractor {
     for (const expander of walmartExpanders) {
       try {
         const text = expander.textContent?.toLowerCase() || '';
-        if (text.includes('show') || text.includes('more') || text.includes('ingredient')) {
+        const ariaLabel = expander.getAttribute('aria-label')?.toLowerCase() || '';
+
+        // Check both button text AND aria-label for ingredient-related terms
+        if (text.includes('show') || text.includes('more') ||
+            text.includes('ingredient') || ariaLabel.includes('ingredient') ||
+            ariaLabel.includes('nutrition') || ariaLabel.includes('specification')) {
           expander.click();
-          console.log('Shop Well: Clicked Walmart expander');
+          console.log('Shop Well: Clicked Walmart expander:', ariaLabel || text);
         }
       } catch (error) {
         console.warn('Shop Well: Failed to click Walmart expander:', error);
       }
     }
 
-    // Wait for content to render after clicking expanders
+    // Wait for content to render after clicking expanders (increased for React rendering)
     if (amazonExpanders.length > 0 || walmartExpanders.length > 0) {
-      console.log('Shop Well: Waiting 500ms for expanded content to render...');
-      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log('Shop Well: Waiting 1000ms for expanded content to render...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
 
@@ -558,6 +563,28 @@ class ProductExtractor {
       .shop-well-badge.completed::before {
         content: '👉';
       }
+
+      .shop-well-badge.error {
+        background: linear-gradient(135deg, #E74C3C, #C0392B);
+        color: white;
+        border-color: #E74C3C;
+        cursor: help;
+      }
+
+      .shop-well-badge.error::before {
+        content: '❌';
+      }
+
+      .shop-well-badge.refresh {
+        background: linear-gradient(135deg, #3498DB, #2980B9);
+        color: white;
+        border-color: #3498DB;
+        cursor: help;
+      }
+
+      .shop-well-badge.refresh::before {
+        content: '🔄';
+      }
     `;
     document.head.appendChild(style);
   }
@@ -594,20 +621,8 @@ class ProductExtractor {
       badge.classList.add('analyzing');
       badge.textContent = 'Analyzing...';
 
-      // Add safety timeout (15 seconds) - reset badge if analysis doesn't complete
-      const badgeResetTimeout = setTimeout(() => {
-        console.warn('Shop Well: Badge timeout - analysis took too long (15s), resetting badge');
-        if (badge && badge.classList.contains('analyzing')) {
-          badge.classList.remove('analyzing');
-          badge.textContent = 'Retry';
-          badge.style.background = '#F2A94C'; // Orange = needs retry
-          badge.title = 'Analysis timed out. Click to retry.';
-        }
-        this.isAnalyzing = false;
-      }, 15000);
-
-      // Store timeout ID on badge element for cleanup later
-      badge.dataset.timeoutId = badgeResetTimeout;
+      // Note: No timeout - let analysis complete naturally
+      // Analysis can take time, especially on first run when AI models are loading
     }
 
     // Check if extension context is still valid (handles extension reload scenario)
@@ -615,7 +630,8 @@ class ProductExtractor {
       console.warn('Shop Well: Extension context invalidated. Please refresh the page.');
       if (badge) {
         badge.classList.remove('analyzing');
-        badge.innerHTML = '🔄 Refresh Page';
+        badge.classList.add('refresh');
+        badge.textContent = 'Refresh Page';
         badge.title = 'Extension was reloaded. Please refresh this page to analyze products.';
         badge.style.cursor = 'help';
       }
@@ -637,14 +653,15 @@ class ProductExtractor {
           this.isAnalyzing = false; // Reset on error
           if (badge) {
             badge.classList.remove('analyzing');
-            badge.innerHTML = '❌ Error';
+            badge.classList.add('error');
+            badge.textContent = 'Error';
           }
         } else if (response && !response.success) {
           console.warn('Shop Well: Analysis request rejected:', response.error);
           this.isAnalyzing = false; // Reset when rejected
           if (badge) {
             badge.classList.remove('analyzing');
-            badge.innerHTML = '🌿 Analyze';
+            badge.textContent = 'Analyze';
           }
         } else {
           console.log('Shop Well: Listing product analysis request sent to background');
@@ -657,7 +674,8 @@ class ProductExtractor {
       this.isAnalyzing = false; // Reset on error
       if (badge) {
         badge.classList.remove('analyzing');
-        badge.innerHTML = '🔄 Refresh Page';
+        badge.classList.add('refresh');
+        badge.textContent = 'Refresh Page';
         badge.title = 'Extension was reloaded. Please refresh this page.';
         badge.style.cursor = 'help';
       }

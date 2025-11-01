@@ -136,7 +136,7 @@ Opt out of email communications at any time by:
 ### 5. **Right to Data Portability**
 Request your opt-in data in a machine-readable format (JSON or CSV).
 
-To exercise any of these rights, email us at: **privacy@shopwell.extension** (replace with actual email once set up)
+To exercise any of these rights, email us at: **info@vibecheckit.com**
 
 ---
 
@@ -209,7 +209,7 @@ If you are a California resident, you have the right to:
 4. Access your personal information
 5. Request deletion of your personal information
 
-California users can exercise these rights by emailing: **privacy@shopwell.extension**
+California users can exercise these rights by emailing: **info@vibecheckit.com**
 
 ---
 
@@ -217,7 +217,7 @@ California users can exercise these rights by emailing: **privacy@shopwell.exten
 
 For questions, concerns, or requests regarding your privacy:
 
-**Email:** privacy@shopwell.extension (set up dedicated email)
+**Email:** info@vibecheckit.com
 
 **Response Time:** We aim to respond to all privacy inquiries within 7 business days.
 
@@ -229,7 +229,7 @@ For questions, concerns, or requests regarding your privacy:
 
 Shop Well is committed to transparency. Our code is open source and available for review:
 
-**GitHub Repository:** [github.com/shop-well/extension](https://github.com) (replace with actual URL)
+**GitHub Repository:** [github.com/beausterling/shop-well-extension](https://github.com/beausterling/shop-well-extension)
 
 You can inspect the code to verify our privacy claims, including:
 - Local-only data storage implementation (`src/welcome/welcome.js`, `src/options/options.js`)

@@ -145,7 +145,13 @@ export class WalmartParser {
    */
   static extractIngredients() {
     // Walmart-specific ingredient selectors (valid CSS only)
+    // Updated to match current Walmart DOM structure (as of 2025)
     const ingredientSelectors = [
+      // NEW: Actual Walmart structure (2025)
+      'div.pb2 > p.mid-gray',  // Primary selector for ingredient paragraphs
+      '.pb2 p',                 // Paragraphs in .pb2 containers
+      'p.mid-gray',            // Gray text paragraphs (may need filtering)
+
       // Nutrition facts sections
       '[data-testid="nutrition-facts"] .ingredients',
       '.nutrition-facts .ingredients',
@@ -165,21 +171,33 @@ export class WalmartParser {
       '[data-testid="specifications"]'
     ];
 
-    // First try the generic extractor (has fallback logic)
+    // Try Walmart-specific selectors with content validation
+    for (const selector of ingredientSelectors) {
+      try {
+        const elements = document.querySelectorAll(selector);
+        for (const element of elements) {
+          const text = element.textContent?.trim();
+          // Filter for actual ingredient content (must be substantial and contain ingredient indicators)
+          if (text && text.length > 50 &&
+              (text.includes('INGREDIENTS:') || text.includes('CONTAINS') ||
+               text.toUpperCase().startsWith('INGREDIENTS'))) {
+            console.log('Shop Well: Walmart ingredients found via selector:', selector);
+            return text;
+          }
+        }
+      } catch (error) {
+        console.warn('Shop Well: Invalid Walmart ingredient selector:', selector, error);
+      }
+    }
+
+    // Fallback to generic extractor
     let ingredients = extractIngredients();
     if (ingredients) {
       console.log('Shop Well: Walmart ingredients found via generic extractor');
       return ingredients;
     }
 
-    // Try Walmart-specific selectors
-    ingredients = getText(ingredientSelectors);
-    if (ingredients) {
-      console.log('Shop Well: Walmart ingredients found via specific selectors');
-      return ingredients;
-    }
-
-    // Fallback: Search for table/list structures containing "Ingredients" label
+    // Final fallback: Search for table/list structures containing "Ingredients" label
     ingredients = this.extractIngredientsFromTable();
     if (ingredients) {
       console.log('Shop Well: Walmart ingredients found in table/list');

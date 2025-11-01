@@ -26,7 +26,7 @@ async function checkAIAvailability() {
     if (typeof LanguageModel !== 'undefined') {
       try {
         const availability = await Promise.race([
-          LanguageModel.availability({ language: 'en' }),
+          LanguageModel.availability(),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
         ]);
         result.prompt = availability === 'readily' || availability === 'available';
@@ -45,7 +45,7 @@ async function checkAIAvailability() {
     if (typeof Summarizer !== 'undefined') {
       try {
         const availability = await Promise.race([
-          Summarizer.availability({ language: 'en' }),
+          Summarizer.availability(),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
         ]);
         result.summarizer = availability === 'readily' || availability === 'available';

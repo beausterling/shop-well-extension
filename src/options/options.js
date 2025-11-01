@@ -1,193 +1,36 @@
 // Shop Well Options Page JavaScript
 
-// AI Detection and Setup Helper
-async function checkAIAvailability() {
-  const result = {
-    available: false,
-    summarizer: false,
-    prompt: false,
-    error: null,
-    details: {}
-  };
-
-  try {
-    // Check for Prompt API (Language Model) - Official Chrome API
-    if (typeof LanguageModel !== 'undefined') {
-      try {
-        const availability = await Promise.race([
-          LanguageModel.availability(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-        ]);
-        // availability() returns a string: 'readily', 'available', 'after-download', 'no'
-        // Accept both 'readily' and 'available' as ready states
-        result.prompt = availability === 'readily' || availability === 'available';
-        result.details.prompt = { available: availability };
-        result.available = true;
-        console.log('Shop Well Options: LanguageModel found, availability:', availability);
-      } catch (error) {
-        console.warn('Shop Well Options: LanguageModel availability check failed:', error);
-        result.details.promptError = error.message;
-        if (error.message === 'Timeout') {
-          result.details.promptError = 'Chrome AI is still downloading models. Please wait a few minutes and try again.';
-        }
-      }
-    }
-
-    // Check for Summarizer API - Official Chrome API
-    if (typeof Summarizer !== 'undefined') {
-      try {
-        const availability = await Promise.race([
-          Summarizer.availability(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-        ]);
-        // availability() returns a string: 'readily', 'available', 'after-download', 'no'
-        // Accept both 'readily' and 'available' as ready states
-        result.summarizer = availability === 'readily' || availability === 'available';
-        result.details.summarizer = { available: availability };
-        result.available = true;
-        console.log('Shop Well Options: Summarizer found, availability:', availability);
-      } catch (error) {
-        console.warn('Shop Well Options: Summarizer availability check failed:', error);
-        result.details.summarizerError = error.message;
-        if (error.message === 'Timeout') {
-          result.details.summarizerError = 'Chrome AI is still downloading models. Please wait a few minutes and try again.';
-        }
-      }
-    }
-
-    // If no APIs are available at all
-    if (!result.available) {
-      result.error = 'Chrome Built-in AI not available. Requires Chrome 128+ with AI flags enabled. Check chrome://on-device-internals for model download status.';
-      return result;
-    }
-
-    // Overall assessment
-    if (!result.summarizer && !result.prompt) {
-      result.error = 'Chrome AI APIs are not ready. Please check Chrome flags and try again. Models may still be downloading.';
-    } else if (!result.summarizer) {
-      result.error = 'Summarizer API not available. Product analysis will be limited. Models may still be downloading.';
-    } else if (!result.prompt) {
-      result.error = 'Prompt API not available. Wellness recommendations will be limited. Models may still be downloading.';
-    }
-
-  } catch (error) {
-    result.error = `AI detection failed: ${error.message}`;
-    console.error('Shop Well Options: AI detection error:', error);
-  }
-
-  return result;
-}
-
-async function updateAIStatus() {
-  console.log('Shop Well Options: updateAIStatus() called');
-  console.log('Shop Well Options: Checking AI status...');
-
-  // Show loading state
-  hideAllAIStatus();
-  const loadingElement = document.getElementById('ai-status-loading');
-  if (loadingElement) {
-    loadingElement.classList.remove('hidden');
-    console.log('Shop Well Options: Showing loading state');
-  } else {
-    console.error('Shop Well Options: Could not find ai-status-loading element');
-  }
-
-  try {
-    const aiStatus = await checkAIAvailability();
-    console.log('Shop Well Options: AI Status Result:', aiStatus);
-
-    // Hide loading
-    document.getElementById('ai-status-loading').classList.add('hidden');
-
-    if (!aiStatus.available) {
-      // Chrome AI not available at all
-      document.getElementById('ai-status-unavailable').classList.remove('hidden');
-      document.getElementById('ai-error-message').textContent = aiStatus.error;
-    } else if (aiStatus.summarizer && aiStatus.prompt) {
-      // All AI features available
-      document.getElementById('ai-status-available').classList.remove('hidden');
-      updateFeatureBadges(aiStatus);
-    } else {
-      // Partial AI availability - show setup
-      document.getElementById('ai-status-setup').classList.remove('hidden');
-    }
-  } catch (error) {
-    console.error('Shop Well Options: AI status check failed:', error);
-    document.getElementById('ai-status-loading').classList.add('hidden');
-    document.getElementById('ai-status-unavailable').classList.remove('hidden');
-    document.getElementById('ai-error-message').textContent = 'Failed to check AI status. Please try again.';
-  }
-}
-
-function updateFeatureBadges(aiStatus) {
-  const summarizerBadge = document.getElementById('summarizer-status');
-  const promptBadge = document.getElementById('prompt-status');
-
-  if (aiStatus.summarizer) {
-    summarizerBadge.textContent = 'Summarizer: Ready ✓';
-    summarizerBadge.className = 'feature-badge ready';
-  } else {
-    summarizerBadge.textContent = 'Summarizer: Not Ready';
-    summarizerBadge.className = 'feature-badge not-ready';
-  }
-
-  if (aiStatus.prompt) {
-    promptBadge.textContent = 'Prompt API: Ready ✓';
-    promptBadge.className = 'feature-badge ready';
-  } else {
-    promptBadge.textContent = 'Prompt API: Not Ready';
-    promptBadge.className = 'feature-badge not-ready';
-  }
-}
-
-function hideAllAIStatus() {
-  const statusElements = [
-    'ai-status-loading',
-    'ai-status-available',
-    'ai-status-setup',
-    'ai-status-unavailable'
-  ];
-
-  statusElements.forEach(id => {
-    document.getElementById(id).classList.add('hidden');
-  });
-}
-
-function setupCopyButtons() {
-  document.querySelectorAll('.copy-button').forEach(button => {
-    button.addEventListener('click', async (e) => {
-      const textToCopy = e.target.dataset.text;
-
-      try {
-        await navigator.clipboard.writeText(textToCopy);
-
-        // Visual feedback
-        const originalText = e.target.textContent;
-        e.target.textContent = '✓ Copied!';
-        e.target.classList.add('copied');
-
-        setTimeout(() => {
-          e.target.textContent = originalText;
-          e.target.classList.remove('copied');
-        }, 2000);
-
-      } catch (error) {
-        console.error('Failed to copy text:', error);
-        showStatus('Failed to copy text', 'error');
-      }
-    });
-  });
-}
-
 async function loadSettings() {
   try {
     const settings = await chrome.storage.local.get([
-      'firstName', 'email', 'emailOptIn', 'condition', 'conditions', 'customConditions', 'autoshow', 'allergies', 'customAllergies', 'languagePreference'
+      'firstName', 'email', 'emailOptIn', 'condition', 'conditions', 'customConditions', 'allergies', 'customAllergies', 'languagePreference'
     ]);
 
     // Load first name
     const firstName = settings.firstName || '';
     document.getElementById('first-name').value = firstName;
+
+    // Display personalized greeting
+    const greetingEl = document.getElementById('greeting');
+    if (greetingEl) {
+      greetingEl.textContent = firstName ? `Hello, ${firstName}!` : 'Hello!';
+    }
+
+    // Hide name field if user already has a name
+    const nameFieldGroup = document.getElementById('name-field-group');
+    if (nameFieldGroup && firstName) {
+      nameFieldGroup.style.display = 'none';
+    }
+
+    // Load email
+    const email = settings.email || '';
+    document.getElementById('email-input').value = email;
+
+    // Hide email input field if user already provided email
+    const emailInputGroup = document.getElementById('email-input-group');
+    if (emailInputGroup && email) {
+      emailInputGroup.style.display = 'none';
+    }
 
     // Load email opt-in preference
     const emailOptIn = settings.emailOptIn || false;
@@ -208,7 +51,7 @@ async function loadSettings() {
     }
 
     // Check appropriate condition checkboxes
-    const conditionCheckboxes = document.querySelectorAll('.condition-card input[type="checkbox"]');
+    const conditionCheckboxes = document.querySelectorAll('.condition-item input[type="checkbox"]');
     conditionCheckboxes.forEach(checkbox => {
       checkbox.checked = conditions.includes(checkbox.value);
     });
@@ -216,9 +59,6 @@ async function loadSettings() {
     // Load custom conditions
     const customConditions = settings.customConditions || [];
     displayCustomConditions(customConditions);
-
-    // Load autoshow setting
-    document.getElementById('autoshow').checked = settings.autoshow !== false;
 
     // Load common allergen selections
     const allergies = settings.allergies || [];
@@ -252,9 +92,21 @@ async function loadSettings() {
 async function saveSettings() {
   try {
     const firstName = document.getElementById('first-name').value.trim();
+    const email = document.getElementById('email-input').value.trim();
     const emailOptIn = document.getElementById('email-opt-in').checked;
-    const autoshow = document.getElementById('autoshow').checked;
     const languagePreference = document.getElementById('language-preference').value;
+
+    // Validate email if opt-in is checked
+    if (emailOptIn && !email) {
+      showStatus('Please enter your email address to opt in', 'error');
+      return;
+    }
+
+    // Basic email validation
+    if (email && !isValidEmail(email)) {
+      showStatus('Please enter a valid email address', 'error');
+      return;
+    }
 
     // Collect selected conditions from checkboxes
     const conditionCheckboxes = document.querySelectorAll('.condition-card input[type="checkbox"]:checked');
@@ -274,14 +126,35 @@ async function saveSettings() {
 
     await chrome.storage.local.set({
       firstName,
+      email,
       emailOptIn,
       conditions,
       customConditions,
-      autoshow,
       allergies,
       customAllergies,
       languagePreference
     });
+
+    // Send to backend if user opted in
+    if (emailOptIn && email) {
+      console.log('Options: User opted in, sending data to backend...');
+      try {
+        await sendToBackend({
+          firstName,
+          email,
+          conditions,
+          customConditions,
+          allergies,
+          customAllergies,
+          languagePreference,
+          timestamp: new Date().toISOString()
+        });
+        console.log('Options: Successfully sent data to backend');
+      } catch (backendError) {
+        console.warn('Options: Backend submission failed (non-critical):', backendError);
+        // Don't block saving settings if backend fails
+      }
+    }
 
     // Regenerate health profile when conditions or allergies change
     try {
@@ -555,7 +428,7 @@ function addCustomCondition() {
   const existingConditions = Array.from(document.querySelectorAll('.custom-chip span'))
     .map(span => span.textContent.toLowerCase());
 
-  const standardConditions = Array.from(document.querySelectorAll('.condition-card input:checked'))
+  const standardConditions = Array.from(document.querySelectorAll('.condition-item input:checked'))
     .map(input => input.value.toLowerCase());
 
   if (existingConditions.includes(condition.toLowerCase()) || standardConditions.includes(condition.toLowerCase())) {
@@ -654,36 +527,15 @@ function displayCustomAllergies(customAllergies) {
 document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
 
-  // Initialize AI status check
-  updateAIStatus();
-
-  // Setup copy buttons for Chrome flags
-  setupCopyButtons();
-
   document.getElementById('save').addEventListener('click', saveSettings);
-  document.getElementById('clear').addEventListener('click', clearData);
-
-  // AI status recheck buttons with error handling
-  const recheckBtn = document.getElementById('recheck-ai');
-  const recheckErrorBtn = document.getElementById('recheck-ai-error');
-
-  if (recheckBtn) {
-    recheckBtn.addEventListener('click', () => {
-      console.log('Shop Well Options: Recheck AI button clicked');
-      updateAIStatus();
+  document.getElementById('close').addEventListener('click', () => {
+    // Close the current tab
+    chrome.tabs.getCurrent((tab) => {
+      if (tab) {
+        chrome.tabs.remove(tab.id);
+      }
     });
-  } else {
-    console.warn('Shop Well Options: recheck-ai button not found');
-  }
-
-  if (recheckErrorBtn) {
-    recheckErrorBtn.addEventListener('click', () => {
-      console.log('Shop Well Options: Recheck AI error button clicked');
-      updateAIStatus();
-    });
-  } else {
-    console.warn('Shop Well Options: recheck-ai-error button not found');
-  }
+  });
 
   // Condition checkbox change handlers
   const conditionCheckboxes = document.querySelectorAll('.condition-card input[type="checkbox"]');
@@ -727,9 +579,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Auto-save when language preference changes
   document.getElementById('language-preference').addEventListener('change', saveSettings);
 
-  // Auto-save when autoshow changes
-  document.getElementById('autoshow').addEventListener('change', saveSettings);
-
   // Auto-save when allergen checkboxes change
   const allergenCheckboxes = document.querySelectorAll('.allergen-item input[type="checkbox"]');
   allergenCheckboxes.forEach(checkbox => {
@@ -753,3 +602,50 @@ document.addEventListener('keydown', (event) => {
     event.target.click();
   }
 });
+
+// ===================================
+// EMAIL VALIDATION & BACKEND SUBMISSION
+// ===================================
+
+/**
+ * Validates email address format
+ * @param {string} email - Email address to validate
+ * @returns {boolean} - True if valid email format
+ */
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+/**
+ * Sends user data to backend endpoint (Google Sheets API).
+ * This function is only called if user explicitly opts in.
+ *
+ * @param {Object} data - User data to send
+ * @returns {Promise<void>}
+ */
+async function sendToBackend(data) {
+  // Backend endpoint URL from deployed Google Cloud Function
+  const BACKEND_URL = 'https://submituserdata-syhjp3kd4a-uc.a.run.app';
+
+  try {
+    const response = await fetch(BACKEND_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Backend returned ${response.status}: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    console.log('Options: Backend response:', result);
+    return result;
+  } catch (error) {
+    console.error('Options: Backend submission failed:', error);
+    throw error;
+  }
+}

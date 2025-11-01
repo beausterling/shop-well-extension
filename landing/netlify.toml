@@ -19,6 +19,16 @@
   to = "/index.html"
   status = 200
 
+[[redirects]]
+  from = "/privacy"
+  to = "/privacy.html"
+  status = 200
+
+[[redirects]]
+  from = "/privacy-policy"
+  to = "/privacy.html"
+  status = 200
+
 # Custom headers for security
 [[headers]]
   for = "/*"

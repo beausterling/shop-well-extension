@@ -215,7 +215,10 @@ export function extractIngredients(root = document) {
     '#important-information',
     '#importantInformation',
 
-    // Walmart selectors (valid CSS)
+    // Walmart selectors (valid CSS) - Updated for 2025 structure
+    'div.pb2 > p.mid-gray',  // NEW: Primary Walmart ingredient paragraphs
+    '.pb2 p',                 // NEW: Paragraphs in .pb2 containers
+    'p.mid-gray',            // NEW: Gray text paragraphs
     '[data-testid="nutrition-facts"] .ingredients',
     '.nutrition-facts .ingredients',
     '.product-ingredients',
@@ -226,14 +229,27 @@ export function extractIngredients(root = document) {
     '.ingredients-section'
   ];
 
-  // Try standard selectors first
-  let result = getText(ingredientSelectors, root);
-  if (result) {
-    return result;
+  // Try standard selectors with content validation
+  for (const selector of ingredientSelectors) {
+    try {
+      const elements = root.querySelectorAll(selector);
+      for (const element of elements) {
+        const text = cleanText(element.textContent);
+        // Filter to ensure we got actual ingredients, not random text
+        // Must be substantial (>50 chars) and contain ingredient indicators
+        if (text.length > 50 &&
+            (text.includes('INGREDIENTS:') || text.includes('CONTAINS') ||
+             text.toLowerCase().includes('ingredients'))) {
+          return text;
+        }
+      }
+    } catch (error) {
+      console.warn('Shop Well: Invalid ingredient selector:', selector, error);
+    }
   }
 
   // Fallback: Search for "Ingredients" labels and extract adjacent content
-  result = findTextByLabel('Ingredients', root);
+  const result = findTextByLabel('Ingredients', root);
   if (result) {
     return result;
   }
