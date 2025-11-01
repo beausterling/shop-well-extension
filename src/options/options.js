@@ -15,10 +15,12 @@ async function checkAIAvailability() {
     if (typeof LanguageModel !== 'undefined') {
       try {
         const availability = await Promise.race([
-          LanguageModel.availability({ language: 'en' }),
+          LanguageModel.availability(),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
         ]);
-        result.prompt = availability === 'readily';
+        // availability() returns a string: 'readily', 'available', 'after-download', 'no'
+        // Accept both 'readily' and 'available' as ready states
+        result.prompt = availability === 'readily' || availability === 'available';
         result.details.prompt = { available: availability };
         result.available = true;
         console.log('Shop Well Options: LanguageModel found, availability:', availability);
@@ -35,10 +37,12 @@ async function checkAIAvailability() {
     if (typeof Summarizer !== 'undefined') {
       try {
         const availability = await Promise.race([
-          Summarizer.availability({ language: 'en' }),
+          Summarizer.availability(),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
         ]);
-        result.summarizer = availability === 'readily';
+        // availability() returns a string: 'readily', 'available', 'after-download', 'no'
+        // Accept both 'readily' and 'available' as ready states
+        result.summarizer = availability === 'readily' || availability === 'available';
         result.details.summarizer = { available: availability };
         result.available = true;
         console.log('Shop Well Options: Summarizer found, availability:', availability);
@@ -178,22 +182,40 @@ function setupCopyButtons() {
 async function loadSettings() {
   try {
     const settings = await chrome.storage.local.get([
-      'condition', 'customCondition', 'autoshow', 'allergies', 'customAllergies', 'languagePreference'
+      'firstName', 'email', 'emailOptIn', 'condition', 'conditions', 'customConditions', 'autoshow', 'allergies', 'customAllergies', 'languagePreference'
     ]);
+
+    // Load first name
+    const firstName = settings.firstName || '';
+    document.getElementById('first-name').value = firstName;
+
+    // Load email opt-in preference
+    const emailOptIn = settings.emailOptIn || false;
+    document.getElementById('email-opt-in').checked = emailOptIn;
 
     // Load language preference
     const languagePreference = settings.languagePreference || 'auto';
     document.getElementById('language-preference').value = languagePreference;
 
-    // Load condition settings
-    const condition = settings.condition || 'POTS';
-    document.getElementById('condition').value = condition;
+    // Load condition settings (with migration from old format)
+    let conditions = settings.conditions || [];
 
-    // Handle custom condition
-    if (condition === 'custom') {
-      showCustomConditionInput();
-      document.getElementById('custom-condition').value = settings.customCondition || '';
+    // Migration: Convert old single condition format to array
+    if (!settings.conditions && settings.condition) {
+      conditions = settings.condition === 'custom' ? [] : [settings.condition];
+      // Migrate to new format
+      await chrome.storage.local.set({ conditions });
     }
+
+    // Check appropriate condition checkboxes
+    const conditionCheckboxes = document.querySelectorAll('.condition-card input[type="checkbox"]');
+    conditionCheckboxes.forEach(checkbox => {
+      checkbox.checked = conditions.includes(checkbox.value);
+    });
+
+    // Load custom conditions
+    const customConditions = settings.customConditions || [];
+    displayCustomConditions(customConditions);
 
     // Load autoshow setting
     document.getElementById('autoshow').checked = settings.autoshow !== false;
@@ -209,6 +231,18 @@ async function loadSettings() {
     const customAllergies = settings.customAllergies || [];
     displayCustomAllergies(customAllergies);
 
+    // Migration: Initialize profileStatus for existing users
+    const profileData = await chrome.storage.local.get(['profileStatus', 'healthProfile']);
+    if (!profileData.profileStatus && profileData.healthProfile && profileData.healthProfile.profile) {
+      console.log('Options: Migrating existing healthProfile to profileStatus');
+      await chrome.storage.local.set({
+        profileStatus: {
+          status: 'complete',
+          completedAt: profileData.healthProfile.generatedAt || new Date().toISOString()
+        }
+      });
+    }
+
   } catch (error) {
     console.error('Error loading settings:', error);
     showStatus('Error loading settings', 'error');
@@ -217,14 +251,18 @@ async function loadSettings() {
 
 async function saveSettings() {
   try {
-    const condition = document.getElementById('condition').value;
+    const firstName = document.getElementById('first-name').value.trim();
+    const emailOptIn = document.getElementById('email-opt-in').checked;
     const autoshow = document.getElementById('autoshow').checked;
     const languagePreference = document.getElementById('language-preference').value;
 
-    // Get custom condition if applicable
-    const customCondition = condition === 'custom'
-      ? document.getElementById('custom-condition').value.trim()
-      : '';
+    // Collect selected conditions from checkboxes
+    const conditionCheckboxes = document.querySelectorAll('.condition-card input[type="checkbox"]:checked');
+    const conditions = Array.from(conditionCheckboxes).map(checkbox => checkbox.value);
+
+    // Get custom conditions
+    const customConditions = Array.from(document.querySelectorAll('.custom-chip'))
+      .map(chip => chip.querySelector('span').textContent);
 
     // Collect selected common allergies
     const allergenCheckboxes = document.querySelectorAll('.allergen-item input[type="checkbox"]:checked');
@@ -234,27 +272,90 @@ async function saveSettings() {
     const customAllergies = Array.from(document.querySelectorAll('.custom-allergen-item'))
       .map(item => item.querySelector('span').textContent);
 
-    // Validation for custom condition
-    if (condition === 'custom' && !customCondition) {
-      showStatus('Please enter your custom condition', 'error');
-      return;
-    }
-
     await chrome.storage.local.set({
-      condition,
-      customCondition,
+      firstName,
+      emailOptIn,
+      conditions,
+      customConditions,
       autoshow,
       allergies,
       customAllergies,
       languagePreference
     });
 
-    const totalAllergens = allergies.length + customAllergies.length;
-    const conditionDisplay = condition === 'custom' ? customCondition : condition;
+    // Regenerate health profile when conditions or allergies change
+    try {
+      console.log('Options: Regenerating health profile...');
 
-    let statusMessage = `Settings saved for ${conditionDisplay}!`;
+      // Show profile building spinner
+      showProfileBuilding(true);
+
+      // Set profile status to 'building'
+      await chrome.storage.local.set({
+        profileStatus: {
+          status: 'building',
+          startedAt: new Date().toISOString()
+        }
+      });
+
+      // Track start time to ensure minimum display duration
+      const MIN_DISPLAY_TIME = 2000; // 2 seconds
+      const startTime = Date.now();
+
+      const healthProfile = await generateHealthProfile(conditions, customConditions, allergies, customAllergies);
+
+      if (healthProfile) {
+        await chrome.storage.local.set({
+          healthProfile: {
+            conditions,
+            customConditions,
+            allergies,
+            customAllergies,
+            profile: healthProfile,
+            generatedAt: new Date().toISOString()
+          },
+          profileStatus: {
+            status: 'complete',
+            startedAt: new Date().toISOString(),
+            completedAt: new Date().toISOString()
+          }
+        });
+        console.log('Options: Health profile regenerated successfully');
+      }
+
+      // Ensure spinner shows for minimum time (so user can see it)
+      const elapsed = Date.now() - startTime;
+      if (elapsed < MIN_DISPLAY_TIME) {
+        await new Promise(resolve => setTimeout(resolve, MIN_DISPLAY_TIME - elapsed));
+      }
+
+      // Hide profile building spinner
+      showProfileBuilding(false);
+    } catch (profileError) {
+      // Profile regeneration failure - set error status
+      console.warn('Options: Health profile regeneration failed:', profileError);
+
+      await chrome.storage.local.set({
+        profileStatus: {
+          status: 'error',
+          startedAt: new Date().toISOString(),
+          error: profileError.message || 'Profile generation failed'
+        }
+      });
+
+      // Hide profile building spinner
+      showProfileBuilding(false);
+    }
+
+    const totalConditions = conditions.length + customConditions.length;
+    const totalAllergens = allergies.length + customAllergies.length;
+
+    let statusMessage = 'Settings saved!';
+    if (totalConditions > 0) {
+      statusMessage += ` Monitoring ${totalConditions} condition${totalConditions > 1 ? 's' : ''}.`;
+    }
     if (totalAllergens > 0) {
-      statusMessage += ` Monitoring ${totalAllergens} allergen${totalAllergens > 1 ? 's' : ''}.`;
+      statusMessage += ` ${totalAllergens} allergen${totalAllergens > 1 ? 's' : ''} tracked.`;
     }
 
     showStatus(statusMessage, 'success');
@@ -262,6 +363,109 @@ async function saveSettings() {
     console.error('Error saving settings:', error);
     showStatus('Error saving settings', 'error');
   }
+}
+
+/**
+ * Generates a personalized health profile using AI.
+ * This profile is stored locally and used for product analysis.
+ *
+ * @param {Array} conditions - Standard conditions
+ * @param {Array} customConditions - Custom conditions
+ * @param {Array} allergies - Standard allergies
+ * @param {Array} customAllergies - Custom allergies
+ * @returns {Promise<string>} - Generated health profile
+ */
+async function generateHealthProfile(conditions = [], customConditions = [], allergies = [], customAllergies = []) {
+  console.log('Options: Starting health profile generation...');
+
+  try {
+    const allConditions = [...conditions, ...customConditions];
+    const allAllergies = [...allergies, ...customAllergies];
+
+    // Handle empty profile
+    if (allConditions.length === 0 && allAllergies.length === 0) {
+      return 'General wellness focus. User has no specific health conditions or allergies specified.';
+    }
+
+    // Check if LanguageModel is available
+    if (typeof LanguageModel === 'undefined') {
+      console.warn('Options: LanguageModel not available, using fallback profile');
+      return generateFallbackProfile(allConditions, allAllergies);
+    }
+
+    // Create AI session
+    const session = await LanguageModel.create({
+      temperature: 0.7,
+      topK: 3
+    });
+
+    const profilePrompt = `You are a health profile analyst. Create a comprehensive, personalized health profile for someone with the following conditions and allergies.
+
+**Conditions:** ${allConditions.length > 0 ? allConditions.join(', ') : 'None'}
+**Allergies/Sensitivities:** ${allAllergies.length > 0 ? allAllergies.join(', ') : 'None'}
+
+Generate a detailed health profile that includes:
+
+1. **Key Health Considerations:**
+   - For each condition, explain the primary symptoms and challenges
+   - Note any interactions or compounding effects between multiple conditions
+   - Explain how these conditions affect daily product choices
+
+2. **Ingredients & Features to AVOID:**
+   - List specific ingredients that could worsen symptoms or trigger reactions
+   - Explain WHY each ingredient is problematic for this specific health profile
+   - Include both obvious allergens and hidden triggers
+
+3. **Ingredients & Features to SEEK:**
+   - List beneficial ingredients, nutrients, or product features
+   - Explain HOW each helps manage symptoms or support health
+   - Prioritize evidence-based recommendations
+
+4. **Product Category Guidance:**
+   - Foods: Key nutritional needs and dietary restrictions
+   - Household items: Sensitivities to fragrances, chemicals, textures
+   - Wellness products: Ergonomics, ease-of-use, physical demands
+   - General: Any product considerations unique to this health profile
+
+5. **Special Considerations:**
+   - Note any unique aspects of this particular combination of conditions
+   - Highlight potential conflicts (e.g., "POTS needs high sodium but hypertension needs low sodium")
+   - Provide nuanced guidance for complex situations
+
+Write 300-400 words in a clear, factual tone. Focus on actionable insights that will help analyze products for this specific health profile. This profile will be used by an AI assistant to evaluate products, so be thorough and specific.`;
+
+    const response = await session.prompt(profilePrompt);
+    session.destroy();
+
+    console.log('Options: Health profile generated successfully');
+    return response.trim();
+
+  } catch (error) {
+    console.error('Options: Health profile generation failed:', error);
+    return generateFallbackProfile(
+      [...conditions, ...customConditions],
+      [...allergies, ...customAllergies]
+    );
+  }
+}
+
+/**
+ * Generates a basic fallback profile when AI is unavailable
+ */
+function generateFallbackProfile(allConditions, allAllergies) {
+  let profile = 'Health Profile:\n\n';
+
+  if (allConditions.length > 0) {
+    profile += `Conditions: ${allConditions.join(', ')}\n`;
+    profile += 'Focus on products that support symptom management and daily comfort.\n\n';
+  }
+
+  if (allAllergies.length > 0) {
+    profile += `Allergies/Sensitivities: ${allAllergies.join(', ')}\n`;
+    profile += 'Avoid products containing these allergens. Check ingredient lists carefully.\n';
+  }
+
+  return profile;
 }
 
 async function clearData() {
@@ -289,20 +493,103 @@ function showStatus(message, type = 'success') {
   }, 3000);
 }
 
-// Custom condition management
-function showCustomConditionInput() {
-  document.getElementById('custom-condition-group').classList.remove('hidden');
+/**
+ * Shows or hides the profile building status indicator
+ * @param {boolean} show - Whether to show or hide the indicator
+ */
+function showProfileBuilding(show) {
+  const profileBuildingElement = document.getElementById('profile-building-status');
+  if (profileBuildingElement) {
+    if (show) {
+      profileBuildingElement.classList.remove('hidden');
+    } else {
+      profileBuildingElement.classList.add('hidden');
+    }
+  }
 }
 
-function hideCustomConditionInput() {
+// Helper function to capitalize first letter of each word
+function capitalizeWords(text) {
+  return text
+    .split(' ')
+    .map(word => {
+      if (!word) return word; // Handle empty strings
+      // Only capitalize first letter, preserve rest of the characters
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
+}
+
+// Custom condition management
+function displayCustomConditions(customConditions) {
+  const container = document.getElementById('custom-conditions-list');
+  container.innerHTML = '';
+
+  customConditions.forEach(condition => {
+    const chip = document.createElement('div');
+    chip.className = 'custom-chip';
+    chip.innerHTML = `
+      <span>${condition}</span>
+      <button type="button" aria-label="Remove ${condition}">×</button>
+    `;
+
+    chip.querySelector('button').addEventListener('click', () => {
+      chip.remove();
+      saveSettings();
+    });
+
+    container.appendChild(chip);
+  });
+}
+
+function addCustomCondition() {
+  const input = document.getElementById('custom-condition');
+  const condition = capitalizeWords(input.value.trim());
+
+  if (!condition) {
+    showStatus('Please enter a condition name', 'error');
+    return;
+  }
+
+  // Check for duplicates
+  const existingConditions = Array.from(document.querySelectorAll('.custom-chip span'))
+    .map(span => span.textContent.toLowerCase());
+
+  const standardConditions = Array.from(document.querySelectorAll('.condition-card input:checked'))
+    .map(input => input.value.toLowerCase());
+
+  if (existingConditions.includes(condition.toLowerCase()) || standardConditions.includes(condition.toLowerCase())) {
+    showStatus('This condition is already added', 'error');
+    return;
+  }
+
+  // Create chip
+  const chip = document.createElement('div');
+  chip.className = 'custom-chip';
+  chip.innerHTML = `
+    <span>${condition}</span>
+    <button type="button" aria-label="Remove ${condition}">×</button>
+  `;
+
+  chip.querySelector('button').addEventListener('click', () => {
+    chip.remove();
+    saveSettings();
+  });
+
+  document.getElementById('custom-conditions-list').appendChild(chip);
+  input.value = '';
+
+  // Hide input group
   document.getElementById('custom-condition-group').classList.add('hidden');
-  document.getElementById('custom-condition').value = '';
+
+  // Auto-save
+  saveSettings();
 }
 
 // Custom allergen management
 function addCustomAllergen() {
   const input = document.getElementById('custom-allergen-input');
-  const allergen = input.value.trim().toLowerCase();
+  const allergen = capitalizeWords(input.value.trim());
 
   if (!allergen) {
     showStatus('Please enter an allergen name', 'error');
@@ -398,18 +685,44 @@ document.addEventListener('DOMContentLoaded', () => {
     console.warn('Shop Well Options: recheck-ai-error button not found');
   }
 
-  // Condition dropdown change handler
-  document.getElementById('condition').addEventListener('change', (e) => {
-    if (e.target.value === 'custom') {
-      showCustomConditionInput();
-    } else {
-      hideCustomConditionInput();
-    }
-    saveSettings();
+  // Condition checkbox change handlers
+  const conditionCheckboxes = document.querySelectorAll('.condition-card input[type="checkbox"]');
+  conditionCheckboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', saveSettings);
   });
 
-  // Custom condition input handler
-  document.getElementById('custom-condition').addEventListener('input', saveSettings);
+  // Custom condition button handler
+  const addConditionBtn = document.getElementById('add-condition-btn');
+  if (addConditionBtn) {
+    addConditionBtn.addEventListener('click', () => {
+      document.getElementById('custom-condition-group').classList.toggle('hidden');
+      if (!document.getElementById('custom-condition-group').classList.contains('hidden')) {
+        document.getElementById('custom-condition').focus();
+      }
+    });
+  }
+
+  // Custom condition submit handler
+  const addConditionSubmit = document.getElementById('add-condition-submit');
+  if (addConditionSubmit) {
+    addConditionSubmit.addEventListener('click', addCustomCondition);
+  }
+
+  // Allow Enter key to add custom condition
+  const customConditionInput = document.getElementById('custom-condition');
+  if (customConditionInput) {
+    customConditionInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        addCustomCondition();
+      }
+    });
+  }
+
+  // Auto-save when first name changes
+  document.getElementById('first-name').addEventListener('input', saveSettings);
+
+  // Auto-save when email opt-in changes
+  document.getElementById('email-opt-in').addEventListener('change', saveSettings);
 
   // Auto-save when language preference changes
   document.getElementById('language-preference').addEventListener('change', saveSettings);

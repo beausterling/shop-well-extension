@@ -203,8 +203,12 @@ export class ShopWellPanel {
 
     // Update condition info
     const conditionInfo = analysisSection.querySelector('.condition-info');
-    const condition = analysisData.condition || 'your condition';
-    conditionInfo.textContent = `For ${condition}`;
+    const firstName = analysisData.firstName;
+    if (firstName && firstName.trim()) {
+      conditionInfo.textContent = `For ${firstName}`;
+    } else {
+      conditionInfo.textContent = `For You`;
+    }
 
     // Update insights
     const insightsList = analysisSection.querySelector('.insights-list');

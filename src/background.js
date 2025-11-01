@@ -1,7 +1,40 @@
 // Shop Well Background Service Worker
 // Handles keyboard shortcuts, side panel management, and message routing
 
+import { automateProductExtraction } from './background-automation.js';
+
 console.log('Shop Well background service worker initialized');
+
+/* =============================================================================
+   MESSAGE QUEUE FOR SIDE PANEL
+   ============================================================================= */
+
+// Store pending analysis requests until side panel is ready
+let pendingAnalysisRequest = null;
+
+/**
+ * Force open side panel with retry logic
+ * @param {number} windowId - Window ID to open panel in
+ * @param {number} retries - Number of retry attempts (default: 2)
+ * @returns {Promise<boolean>} - True if successful, false otherwise
+ */
+async function forceOpenSidePanel(windowId, retries = 2) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      await chrome.sidePanel.open({ windowId });
+      console.log(`Shop Well: Successfully forced panel open (attempt ${i + 1})`);
+      return true;
+    } catch (error) {
+      console.warn(`Shop Well: Panel open attempt ${i + 1} failed:`, error.message);
+      if (i < retries) {
+        // Wait 500ms before retrying
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+  }
+  console.error('Shop Well: Failed to open panel after all retry attempts');
+  return false;
+}
 
 /* =============================================================================
    KEYBOARD SHORTCUT HANDLER
@@ -76,35 +109,6 @@ chrome.commands.onCommand.addListener(async (command) => {
       console.error('Shop Well: Error handling keyboard shortcut:', error);
     }
   }
-
-  // Handle test UI panel shortcut (Command+Shift+S on Mac, Ctrl+Shift+S on Windows/Linux)
-  if (command === 'test-ui-panel') {
-    console.log('🧪 Shop Well: Test UI panel shortcut triggered (Command+Shift+S on Mac, Ctrl+Shift+S on Windows/Linux)');
-
-    try {
-      // Get the current active tab
-      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-      if (!activeTab) {
-        console.warn('Shop Well: No active tab found');
-        return;
-      }
-
-      // Set the side panel to use the test panel
-      await chrome.sidePanel.setOptions({
-        tabId: activeTab.id,
-        path: 'test-panel/index.html',
-        enabled: true
-      });
-
-      // Open the side panel with the test UI
-      console.log('🧪 Shop Well: Opening test UI panel');
-      await chrome.sidePanel.open({ windowId: activeTab.windowId });
-
-    } catch (error) {
-      console.error('Shop Well: Error opening test UI panel:', error);
-    }
-  }
 });
 
 /* =============================================================================
@@ -146,6 +150,98 @@ chrome.action.onClicked.addListener(async (tab) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Shop Well: Message received:', message.type || message.command);
 
+  // Handle automated product extraction (browser automation with click expansion)
+  if (message.type === 'FETCH_PRODUCT_HTML_AUTOMATED') {
+    console.log('Shop Well: Starting automated extraction for:', message.url);
+
+    automateProductExtraction(message.url)
+      .then(result => {
+        if (result.success) {
+          console.log('Shop Well: Automated extraction successful, duration:', result.duration, 'ms');
+          sendResponse({
+            ok: true,
+            html: result.html,
+            extractedData: result.extractedData,
+            method: 'automated',
+            duration: result.duration
+          });
+        } else {
+          console.warn('Shop Well: Automated extraction failed:', result.error);
+          console.log('Shop Well: Falling back to simple fetch...');
+
+          // Fall back to simple fetch
+          fetch(message.url, { credentials: 'omit' })
+            .then(response => {
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+              }
+              return response.text();
+            })
+            .then(html => {
+              console.log('Shop Well: Fallback fetch successful, length:', html.length);
+              sendResponse({ ok: true, html, method: 'fallback-fetch' });
+            })
+            .catch(fetchError => {
+              console.error('Shop Well: Fallback fetch also failed:', fetchError);
+              sendResponse({ ok: false, error: String(fetchError), method: 'all-failed' });
+            });
+        }
+      })
+      .catch(error => {
+        console.error('Shop Well: Automated extraction error:', error);
+        sendResponse({ ok: false, error: String(error), method: 'automation-error' });
+      });
+
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle cross-origin product HTML fetch for listing analysis (fallback method)
+  if (message.type === 'FETCH_PRODUCT_HTML') {
+    console.log('Shop Well: Fetching product HTML from:', message.url);
+
+    fetch(message.url, { credentials: 'omit' })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.text();
+      })
+      .then(html => {
+        console.log('Shop Well: Product HTML fetched successfully, length:', html.length);
+        sendResponse({ ok: true, html });
+      })
+      .catch(error => {
+        console.error('Shop Well: Product HTML fetch failed:', error);
+        sendResponse({ ok: false, error: String(error) });
+      });
+
+    return true; // Keep message channel open for async response
+  }
+
+  // Handle side panel ready signal
+  if (message.type === 'sidepanel-ready') {
+    console.log('Shop Well: Side panel is ready');
+
+    // If there's a pending analysis request, deliver it now
+    if (pendingAnalysisRequest) {
+      console.log('Shop Well: Delivering queued analysis request:', pendingAnalysisRequest.type);
+
+      chrome.runtime.sendMessage(pendingAnalysisRequest, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn('Shop Well: Failed to deliver queued message:', chrome.runtime.lastError.message);
+        } else {
+          console.log('Shop Well: Queued message delivered successfully');
+        }
+      });
+
+      // Clear the queue
+      pendingAnalysisRequest = null;
+    }
+
+    sendResponse({ success: true });
+    return true;
+  }
+
   // Handle different message types
   if (message.type === 'analyze-product' && message.productData) {
     // This message is going to the side panel
@@ -160,32 +256,52 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Listing product badge was clicked
     console.log('Shop Well: Listing product analysis requested:', message.productData.id);
 
-    // Open side panel first
+    // Get current tab
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
       const activeTab = tabs[0];
-      if (activeTab) {
-        try {
-          await chrome.sidePanel.open({ windowId: activeTab.windowId });
-          console.log('Shop Well: Side panel opened for listing product');
-
-          // Send to side panel for analysis
-          chrome.runtime.sendMessage({
-            type: 'analyze-listing-product',
-            productData: message.productData
-          }, (response) => {
-            if (chrome.runtime.lastError) {
-              console.warn('Shop Well: Side panel not ready:', chrome.runtime.lastError.message);
-            } else {
-              console.log('Shop Well: Listing product sent to side panel');
-            }
-          });
-
-          sendResponse({ success: true });
-        } catch (error) {
-          console.error('Shop Well: Failed to open side panel:', error);
-          sendResponse({ success: false, error: error.message });
-        }
+      if (!activeTab) {
+        sendResponse({ success: false, error: 'No active tab found' });
+        return;
       }
+
+      // ALWAYS force panel open (idempotent if already open)
+      console.log('Shop Well: Forcing side panel open with retry logic...');
+      const panelOpened = await forceOpenSidePanel(activeTab.windowId);
+
+      if (!panelOpened) {
+        // Failed to open panel after retries - notify content script
+        console.error('Shop Well: Could not open side panel');
+        chrome.tabs.sendMessage(activeTab.id, {
+          type: 'analysis-error',
+          error: 'Failed to open side panel'
+        });
+        sendResponse({ success: false, error: 'Failed to open side panel' });
+        return;
+      }
+
+      // Send force-reset message to ensure panel is in clean state
+      console.log('Shop Well: Sending force-reset to side panel');
+      chrome.runtime.sendMessage({
+        type: 'force-reset-state',
+        reason: 'new-analysis-requested'
+      });
+
+      // Small delay to allow reset to process, then send analysis request
+      setTimeout(() => {
+        console.log('Shop Well: Sending analysis request to side panel');
+        chrome.runtime.sendMessage({
+          type: 'analyze-listing-product',
+          productData: message.productData
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.warn('Shop Well: Failed to send analysis message:', chrome.runtime.lastError.message);
+            sendResponse({ success: false, error: chrome.runtime.lastError.message });
+          } else {
+            console.log('Shop Well: Analysis request sent successfully');
+            sendResponse({ success: true });
+          }
+        });
+      }, 150); // 150ms delay for reset to process
     });
 
     return true; // Will send response asynchronously
@@ -279,6 +395,40 @@ chrome.runtime.onInstalled.addListener(async (details) => {
       });
     }
   }
+});
+
+/* =============================================================================
+   SIDE PANEL CLOSE DETECTION
+   ============================================================================= */
+
+// Track which tabs have the side panel open
+const sidePanelOpenTabs = new Set();
+
+// Monitor when windows are removed (includes side panel closes)
+chrome.windows.onRemoved.addListener(async (windowId) => {
+  console.log('Shop Well: Window closed:', windowId);
+
+  // Notify all tabs that side panel was closed
+  const tabs = await chrome.tabs.query({});
+  tabs.forEach(tab => {
+    if (sidePanelOpenTabs.has(tab.id)) {
+      chrome.tabs.sendMessage(tab.id, {
+        type: 'side-panel-closed'
+      }).catch(() => {
+        // Ignore errors if content script not present
+      });
+      sidePanelOpenTabs.delete(tab.id);
+    }
+  });
+});
+
+// When side panel opens, track it
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'sidepanel-opened' && message.tabId) {
+    sidePanelOpenTabs.add(message.tabId);
+    console.log('Shop Well: Side panel opened for tab:', message.tabId);
+  }
+  return false;
 });
 
 /* =============================================================================

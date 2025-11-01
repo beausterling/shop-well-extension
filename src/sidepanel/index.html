@@ -12,7 +12,7 @@
     <!-- Header -->
     <header class="shop-well-header">
       <div class="shop-well-logo">
-        <span class="shop-well-icon">🌿</span>
+        <img src="../assets/navicon2border.png" alt="Shop Well" class="shop-well-icon">
         <span class="shop-well-title">Shop Well</span>
       </div>
     </header>
@@ -23,8 +23,36 @@
       <!-- Loading State -->
       <div class="shop-well-loading hidden">
         <div class="loading-spinner"></div>
-        <p>Analyzing product with Chrome AI...</p>
+        <p>Analyzing product...</p>
         <small>This may take a few seconds</small>
+
+        <!-- Timeout warning (shown after 10 seconds) -->
+        <div class="loading-timeout-warning hidden">
+          <p>⏱️ Taking longer than expected...</p>
+          <small>AI models may still be downloading. Check <a href="chrome://on-device-internals" target="_blank">model status</a></small>
+        </div>
+
+        <!-- Cancel button -->
+        <button class="cancel-analysis-button" id="cancelAnalysis">
+          Cancel Analysis
+        </button>
+      </div>
+
+      <!-- Profile Building State -->
+      <div class="shop-well-profile-building hidden">
+        <div class="profile-building-icon">⚙️</div>
+        <h2>Building Your Health Profile</h2>
+        <p class="profile-building-message">Please wait while we create your personalized health profile...</p>
+        <small class="profile-building-time">This usually takes 10-20 seconds</small>
+
+        <div class="profile-building-progress">
+          <div class="loading-spinner"></div>
+        </div>
+
+        <div class="profile-building-note">
+          <p><strong>What's happening?</strong></p>
+          <p>We're analyzing your conditions and allergies to create personalized product recommendations. Your profile is being generated using Chrome's on-device AI.</p>
+        </div>
       </div>
 
       <!-- Setup Instructions State -->
@@ -79,11 +107,6 @@
 
       <!-- AI Analysis Results State -->
       <div class="shop-well-analysis hidden">
-        <div class="analysis-header">
-          <div class="verdict-badge"></div>
-          <div class="condition-info"></div>
-        </div>
-
         <div class="product-info">
           <h3 class="product-title"></h3>
           <div class="product-meta">
@@ -92,17 +115,27 @@
           </div>
         </div>
 
+        <div class="analysis-header">
+          <div class="condition-info"></div>
+        </div>
+
         <div class="analysis-content">
-          <!-- Key Insights -->
-          <section class="key-insights">
-            <h4>💡 Key Insights</h4>
-            <ul class="insights-list"></ul>
+          <!-- Conditions Verdicts -->
+          <section class="health-verdicts conditions-section">
+            <h4>⚖️ Your Conditions</h4>
+            <div class="verdict-list conditions-list"></div>
           </section>
 
-          <!-- Allergen Alerts -->
-          <section class="allergen-alerts hidden">
-            <h4>🚨 Allergen Alert</h4>
-            <div class="alert-content"></div>
+          <!-- Allergies Verdicts -->
+          <section class="health-verdicts allergies-section">
+            <h4>🚫 Allergies & Sensitivities</h4>
+            <div class="verdict-list allergies-list"></div>
+          </section>
+
+          <!-- Key Insights -->
+          <section class="key-insights">
+            <h4>🔍 Key Insights</h4>
+            <div class="insights-content"></div>
           </section>
 
           <!-- Important Caveat -->
@@ -112,14 +145,34 @@
           </section>
         </div>
 
-        <div class="analysis-footer">
-          <div class="confidence-indicator">
-            <span class="confidence-label">Analysis Confidence:</span>
-            <span class="confidence-value"></span>
+        <!-- Chat Interface -->
+        <div class="chat-section">
+          <div class="chat-header">
+            <h4>💬 Ask Questions</h4>
+            <p class="chat-subtitle">Ask anything about this product for your condition</p>
           </div>
-          <button class="refresh-button" id="refreshAnalysis" title="Re-analyze product">
-            <span>🔄</span> Refresh Analysis
-          </button>
+
+          <div class="chat-messages" id="chatMessages"></div>
+
+          <div class="chat-input-container">
+            <input
+              type="text"
+              id="chatInput"
+              class="chat-input"
+              placeholder="e.g., 'How much sodium is too much?' or 'Can I eat this daily?'"
+              maxlength="200"
+            />
+            <button id="chatSendButton" class="chat-send-button" title="Send message">
+              <span>➤</span>
+            </button>
+          </div>
+
+          <div class="chat-loading hidden" id="chatLoading">
+            <div class="chat-loading-dots">
+              <span></span><span></span><span></span>
+            </div>
+            <small>AI is thinking...</small>
+          </div>
         </div>
       </div>
 
