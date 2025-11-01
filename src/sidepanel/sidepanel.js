@@ -1773,39 +1773,12 @@ class SidePanelUI {
 
     // Detect side panel close and perform comprehensive cleanup
     window.addEventListener('beforeunload', () => {
-      console.log('Shop Well: Side panel closing, performing comprehensive cleanup...');
+      console.log('Shop Well: Side panel closing...');
 
-      // 1. Reset analyzing state (allows new analyses after reopen)
-      this.isAnalyzing = false;
-      console.log('Shop Well: Reset isAnalyzing flag');
+      // Perform comprehensive cleanup
+      this.cleanup();
 
-      // 2. Clear current product data
-      this.currentProductData = null;
-      this.currentFacts = null;
-      console.log('Shop Well: Cleared current product data and facts');
-
-      // 3. Destroy cached AI sessions to free memory
-      if (this.cachedSummarizer) {
-        try {
-          this.cachedSummarizer.destroy();
-          console.log('Shop Well: Destroyed cached Summarizer session');
-        } catch (err) {
-          console.warn('Shop Well: Failed to destroy summarizer:', err);
-        }
-        this.cachedSummarizer = null;
-      }
-
-      if (this.cachedLanguageModel) {
-        try {
-          this.cachedLanguageModel.destroy();
-          console.log('Shop Well: Destroyed cached LanguageModel session');
-        } catch (err) {
-          console.warn('Shop Well: Failed to destroy language model:', err);
-        }
-        this.cachedLanguageModel = null;
-      }
-
-      // 4. Notify content script to reset ALL badge states (including "Analyzing...")
+      // Notify content script to reset ALL badge states
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0]) {
           chrome.tabs.sendMessage(tabs[0].id, {
@@ -1814,8 +1787,6 @@ class SidePanelUI {
           console.log('Shop Well: Sent side-panel-closed message to content script');
         }
       });
-
-      console.log('Shop Well: Cleanup complete');
     });
 
     // Update settings link with extension ID
@@ -1859,6 +1830,81 @@ class SidePanelUI {
         console.log('Shop Well: If you clicked a badge, try clicking it again');
       }
     }, 2000);
+  }
+
+  /**
+   * Comprehensive cleanup method called when analysis is cancelled or panel closes.
+   * Clears all cached data, timers, AI sessions, and resets UI state.
+   */
+  cleanup() {
+    console.log('Shop Well: Performing comprehensive cleanup...');
+
+    // 1. Reset analyzing state (allows new analyses after reopen)
+    this.isAnalyzing = false;
+    console.log('Shop Well: Reset isAnalyzing flag');
+
+    // 2. Clear all product data
+    this.currentProductData = null;
+    this.currentFacts = null;
+    this.pendingProductData = null;
+    console.log('Shop Well: Cleared product data');
+
+    // 3. Clear all timers to prevent memory leaks
+    if (this.timeoutWarningTimer) {
+      clearTimeout(this.timeoutWarningTimer);
+      this.timeoutWarningTimer = null;
+      console.log('Shop Well: Cleared timeout warning timer');
+    }
+    if (this.messageReceivedTimer) {
+      clearTimeout(this.messageReceivedTimer);
+      this.messageReceivedTimer = null;
+      console.log('Shop Well: Cleared message received timer');
+    }
+    if (this.profilePollingInterval) {
+      clearInterval(this.profilePollingInterval);
+      this.profilePollingInterval = null;
+      console.log('Shop Well: Cleared profile polling interval');
+    }
+
+    // 4. Clear profile building state
+    this.profilePollingStartTime = null;
+
+    // 5. Destroy cached AI sessions to free memory
+    if (this.cachedSummarizer) {
+      try {
+        this.cachedSummarizer.destroy();
+        console.log('Shop Well: Destroyed cached Summarizer session');
+      } catch (err) {
+        console.warn('Shop Well: Failed to destroy summarizer:', err);
+      }
+      this.cachedSummarizer = null;
+    }
+    if (this.cachedLanguageModel) {
+      try {
+        this.cachedLanguageModel.destroy();
+        console.log('Shop Well: Destroyed cached LanguageModel session');
+      } catch (err) {
+        console.warn('Shop Well: Failed to destroy language model:', err);
+      }
+      this.cachedLanguageModel = null;
+    }
+    this.hasSuccessfulAICall = false;
+    console.log('Shop Well: Reset AI state');
+
+    // 6. Clear chat history and UI
+    this.chatHistory = [];
+    if (this.elements.chatMessages) {
+      this.elements.chatMessages.innerHTML = '';
+    }
+    if (this.elements.chatInput) {
+      this.elements.chatInput.value = '';
+    }
+    console.log('Shop Well: Cleared chat state');
+
+    // 7. Reset UI state to welcome (ready for next use)
+    this.currentState = 'welcome';
+
+    console.log('Shop Well: Cleanup complete');
   }
 
   setupEventListeners() {
@@ -2675,13 +2721,6 @@ Write 300-400 words in a clear, factual tone. Focus on actionable insights that 
 
   cancelAnalysis() {
     console.log('Shop Well: Analysis cancelled by user');
-    this.isAnalyzing = false;
-
-    // Clear timeout warning timer
-    if (this.timeoutWarningTimer) {
-      clearTimeout(this.timeoutWarningTimer);
-      this.timeoutWarningTimer = null;
-    }
 
     // Notify content script to revert badge to normal state
     if (this.currentProductData && this.currentProductData.id) {
@@ -2694,6 +2733,9 @@ Write 300-400 words in a clear, factual tone. Focus on actionable insights that 
         }
       });
     }
+
+    // Perform comprehensive cleanup (clears all cache, timers, AI sessions)
+    this.cleanup();
 
     // Close the side panel
     window.close();
