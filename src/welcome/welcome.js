@@ -376,46 +376,41 @@ async function generateHealthProfile(conditions = [], customConditions = [], all
       return generateFallbackProfile(allConditions, allAllergies);
     }
 
-    // Create AI session
+    // Create AI session (optimized parameters for faster generation)
     const session = await LanguageModel.create({
-      temperature: 0.7,
-      topK: 3
+      temperature: 0.5,
+      topK: 2
     });
 
-    const profilePrompt = `You are a health profile analyst. Create a comprehensive, personalized health profile for someone with the following conditions and allergies.
+    const profilePrompt = `Create a personalized health profile for someone with these conditions and allergies:
 
 **Conditions:** ${allConditions.length > 0 ? allConditions.join(', ') : 'None'}
-**Allergies/Sensitivities:** ${allAllergies.length > 0 ? allAllergies.join(', ') : 'None'}
+**Allergies:** ${allAllergies.length > 0 ? allAllergies.join(', ') : 'None'}
 
-Generate a detailed health profile that includes:
+Generate a health profile with these 5 sections:
 
 1. **Key Health Considerations:**
-   - For each condition, explain the primary symptoms and challenges
-   - Note any interactions or compounding effects between multiple conditions
-   - Explain how these conditions affect daily product choices
+   - Primary symptoms and challenges for each condition
+   - How conditions interact and affect product choices
 
-2. **Ingredients & Features to AVOID:**
-   - List specific ingredients that could worsen symptoms or trigger reactions
-   - Explain WHY each ingredient is problematic for this specific health profile
-   - Include both obvious allergens and hidden triggers
+2. **Ingredients to AVOID:**
+   - Specific problematic ingredients and why
+   - Include allergens and hidden triggers
 
-3. **Ingredients & Features to SEEK:**
-   - List beneficial ingredients, nutrients, or product features
-   - Explain HOW each helps manage symptoms or support health
-   - Prioritize evidence-based recommendations
+3. **Ingredients to SEEK:**
+   - Beneficial ingredients and nutrients
+   - How each helps manage symptoms
 
 4. **Product Category Guidance:**
-   - Foods: Key nutritional needs and dietary restrictions
-   - Household items: Sensitivities to fragrances, chemicals, textures
-   - Wellness products: Ergonomics, ease-of-use, physical demands
-   - General: Any product considerations unique to this health profile
+   - Foods: Nutritional needs and restrictions
+   - Household: Sensitivities to fragrances/chemicals
+   - Wellness: Ergonomics and ease-of-use needs
 
 5. **Special Considerations:**
-   - Note any unique aspects of this particular combination of conditions
-   - Highlight potential conflicts (e.g., "POTS needs high sodium but hypertension needs low sodium")
-   - Provide nuanced guidance for complex situations
+   - Unique aspects of this condition combination
+   - Potential conflicts and nuanced guidance
 
-Write 300-400 words in a clear, factual tone. Focus on actionable insights that will help analyze products for this specific health profile. This profile will be used by an AI assistant to evaluate products, so be thorough and specific.`;
+Write 200-250 words total in clear, factual tone. Focus on actionable insights for product evaluation. Be specific and thorough.`;
 
     const response = await session.prompt(profilePrompt);
     session.destroy();

@@ -226,13 +226,41 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (pendingAnalysisRequest) {
       console.log('Shop Well: Delivering queued analysis request:', pendingAnalysisRequest.type);
 
-      chrome.runtime.sendMessage(pendingAnalysisRequest, (response) => {
-        if (chrome.runtime.lastError) {
-          console.warn('Shop Well: Failed to deliver queued message:', chrome.runtime.lastError.message);
-        } else {
-          console.log('Shop Well: Queued message delivered successfully');
-        }
-      });
+      // Check if we need to force-reset first
+      if (pendingAnalysisRequest.forceReset) {
+        console.log('Shop Well: Sending force-reset before analysis');
+        chrome.runtime.sendMessage({
+          type: 'force-reset-state',
+          reason: pendingAnalysisRequest.reason || 'queued-analysis'
+        }, (resetResponse) => {
+          if (chrome.runtime.lastError) {
+            console.warn('Shop Well: Force-reset failed:', chrome.runtime.lastError.message);
+          }
+
+          // Send the actual analysis request after a small delay for reset to process
+          setTimeout(() => {
+            chrome.runtime.sendMessage({
+              type: pendingAnalysisRequest.type,
+              productData: pendingAnalysisRequest.productData
+            }, (response) => {
+              if (chrome.runtime.lastError) {
+                console.warn('Shop Well: Failed to deliver queued message:', chrome.runtime.lastError.message);
+              } else {
+                console.log('Shop Well: Queued message delivered successfully');
+              }
+            });
+          }, 100); // Small delay for reset to process
+        });
+      } else {
+        // No reset needed, send directly
+        chrome.runtime.sendMessage(pendingAnalysisRequest, (response) => {
+          if (chrome.runtime.lastError) {
+            console.warn('Shop Well: Failed to deliver queued message:', chrome.runtime.lastError.message);
+          } else {
+            console.log('Shop Well: Queued message delivered successfully');
+          }
+        });
+      }
 
       // Clear the queue
       pendingAnalysisRequest = null;
@@ -264,13 +292,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return;
       }
 
+      // Queue the analysis request (will be delivered when side panel is ready)
+      pendingAnalysisRequest = {
+        type: 'analyze-listing-product',
+        productData: message.productData,
+        forceReset: true, // Signal that we need to reset before analyzing
+        reason: 'new-analysis-requested'
+      };
+      console.log('Shop Well: Analysis request queued');
+
       // ALWAYS force panel open (idempotent if already open)
       console.log('Shop Well: Forcing side panel open with retry logic...');
       const panelOpened = await forceOpenSidePanel(activeTab.windowId);
 
       if (!panelOpened) {
-        // Failed to open panel after retries - notify content script
+        // Failed to open panel after retries - clear queue and notify content script
         console.error('Shop Well: Could not open side panel');
+        pendingAnalysisRequest = null;
         chrome.tabs.sendMessage(activeTab.id, {
           type: 'analysis-error',
           error: 'Failed to open side panel'
@@ -279,29 +317,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return;
       }
 
-      // Send force-reset message to ensure panel is in clean state
-      console.log('Shop Well: Sending force-reset to side panel');
-      chrome.runtime.sendMessage({
-        type: 'force-reset-state',
-        reason: 'new-analysis-requested'
-      });
-
-      // Small delay to allow reset to process, then send analysis request
-      setTimeout(() => {
-        console.log('Shop Well: Sending analysis request to side panel');
-        chrome.runtime.sendMessage({
-          type: 'analyze-listing-product',
-          productData: message.productData
-        }, (response) => {
-          if (chrome.runtime.lastError) {
-            console.warn('Shop Well: Failed to send analysis message:', chrome.runtime.lastError.message);
-            sendResponse({ success: false, error: chrome.runtime.lastError.message });
-          } else {
-            console.log('Shop Well: Analysis request sent successfully');
-            sendResponse({ success: true });
-          }
-        });
-      }, 150); // 150ms delay for reset to process
+      // Panel is opening - the queued message will be delivered when
+      // side panel sends 'sidepanel-ready' signal
+      console.log('Shop Well: Panel opening, waiting for ready signal...');
+      sendResponse({ success: true });
     });
 
     return true; // Will send response asynchronously
