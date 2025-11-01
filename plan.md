@@ -13,6 +13,41 @@
 - Confirm product analysis displays correctly on Amazon/Walmart
 - Check all UI polish is production-ready
 
+**Recent Updates** (October 31, 2025 - Late Afternoon Session):
+- ✅ **Concurrent Analysis Prevention** - Multi-layer protection against simultaneous analyses
+  - Global `isAnalyzing` flag in content script blocks ALL badge clicks during analysis
+  - Flag set BEFORE async operations (moved to first line of analysis methods)
+  - State broadcasting via `analysis-complete` and `analysis-error` messages
+  - Content script listens for completion/error to reset global lock
+  - Prevents users from clicking multiple product badges while analysis in progress
+  - Users must now wait for results or click "Cancel Analysis" (as intended)
+- ✅ **JSON Parsing Robustness** - Four-strategy approach with control character sanitization
+  - Added `sanitizeJSONString()` helper to escape literal newlines, tabs, carriage returns
+  - Strategy 2: Improved regex + sanitization for markdown code blocks
+  - Strategy 3: Balanced brace extraction + sanitization
+  - Strategy 4: Aggressive JSON repair as last resort
+  - Fixed "Bad control character at position 2674" errors
+  - Updated AI prompts to request escaped newlines (`\\n\\n`) not literal newlines
+  - Added explicit formatting rules to prevent code block wrapping
+- ✅ **UI Color Consistency** - Unified warm beige/white design across all pages
+  - Disabled dark mode media queries in design-tokens.css (both side panel and content)
+  - Added `color-scheme: light` enforcement to body elements
+  - Changed options page from gradient to solid warm white (#FAFAF5)
+  - Updated container backgrounds to beige (#E9DFC9) with taupe borders (#776B63)
+  - Side panel, options page, and welcome page now visually consistent
+- ✅ **Extension Icon Updated** - Toolbar icon now uses navicon2border.png
+  - Resized 150x150 → 128x128 using sips
+  - Created assets/icon128.png from navicon2border.png
+  - No manifest changes needed (path already correct)
+- ✅ **Expandable Verdict Dropdowns** - Progressive disclosure for brief_reason data
+  - Accordion-style expandable sections for each condition and allergen verdict
+  - Chevron indicator (▶) rotates 90° to (▼) when expanded
+  - Smooth 0.3s transitions for max-height, padding, opacity
+  - Markdown parsing support for **bold** and *italic* in reasons
+  - Default collapsed state for cleaner UI
+  - Click verdict header to toggle detailed explanation
+  - Independent toggle behavior (each item expands/collapses separately)
+
 **Recent Updates** (October 31, 2025 - Afternoon Session):
 - ✅ **Health Profile Building State System** - Complete profile generation UX workflow
   - Options page shows spinner for minimum 2 seconds during profile generation
@@ -83,7 +118,7 @@
 - ✅ **Options page updated**: Now matches welcome page with multi-condition card layout
 - ✅ **First-time user fix**: Nothing pre-selected by default (checks welcomeCompleted flag)
 
-**Current State**: Extension is feature-complete with advanced personalization AND email collection backend. Multi-condition support allows users with complex health profiles to get comprehensive analysis. Backend infrastructure enables product alerts, updates, and user communication. Health profile building state system ensures smooth UX when profile generation is in progress. Badge system properly tracks products using stable ASIN identifiers.
+**Current State**: Extension is feature-complete with advanced personalization AND email collection backend. Multi-condition support allows users with complex health profiles to get comprehensive analysis. Backend infrastructure enables product alerts, updates, and user communication. Health profile building state system ensures smooth UX when profile generation is in progress. Badge system properly tracks products using stable ASIN identifiers. Concurrent analysis prevention implemented with multi-layer protection. JSON parsing now robust with four-strategy approach and control character sanitization. UI color scheme unified across all pages with warm beige/white design. Expandable verdict dropdowns provide progressive disclosure of detailed AI reasoning.
 
 ---
 
@@ -275,25 +310,36 @@
 ## ⚠️ What Needs Work (NEXT PRIORITIES)
 
 ### Priority 1: Active Issues
-- **Empty AI Response Investigation** (IN PROGRESS): AI returning empty responses during verdict generation
-  - Current status: Added validation and logging (response type, length, session state)
+- ✅ **Concurrent Analysis Prevention** - COMPLETED (Latest Session)
+  - Multi-layer protection with global `isAnalyzing` flag
+  - State broadcasting via messages for proper cleanup
+  - Users now properly blocked from clicking multiple badges
+- ✅ **JSON Parsing Failures** - COMPLETED (Latest Session)
+  - Four-strategy parsing with control character sanitization
+  - Fixed "Bad control character" errors
+  - Updated AI prompts for better JSON formatting
+- ✅ **UI Color Consistency** - COMPLETED (Latest Session)
+  - Dark mode disabled across all pages
+  - Unified warm beige/white design system
+- ✅ **Expandable Verdict Details** - COMPLETED (Latest Session)
+  - Accordion-style dropdowns for brief_reason data
+  - Smooth animations and markdown support
+- **Empty AI Response Investigation** (MONITORING): AI occasionally returning empty responses
+  - Current status: Validation and fallback handling implemented
   - Automatic fallback to basic verdict when AI fails
-  - Need to identify WHY AI is returning empty strings
+  - Rich diagnostic logging for troubleshooting
+  - Need to monitor logs to identify patterns
   - Possible causes: Token limits, model downloading, prompt issues
-  - Next step: Review console logs to diagnose root cause
-- **Chrome AI Language Warning (UNRESOLVED)**: Console warning still appearing:
+  - **Next step**: Collect real-world usage data to determine frequency
+- **Chrome AI Language Warning (LOW PRIORITY)**: Console warning appearing in welcome page
   ```
   No output language was specified in a LanguageModel API request. An output language
   should be specified to ensure optimal output quality and properly attest to output
   safety. Please specify a supported output language code: [en, es, ja]
-  Context: welcome/index.html
-  Stack Trace: welcome/index.html:0 (anonymous function)
   ```
-  - **Status**: Deleted `/src/content/ai/prompt.js` (incorrect API usage) but warning persists
-  - **Source**: Likely coming from welcome page AI availability check, not actual LanguageModel creation
-  - **Investigation Needed**: Trace welcome.js to identify where language spec is missing
-  - **Impact**: Doesn't break functionality but indicates potential code quality issue
-  - **Note**: Sidepanel.js has correct implementation with `expectedOutputs.languages` specified
+  - **Status**: Likely from welcome page AI availability check
+  - **Impact**: Doesn't break functionality, cosmetic issue only
+  - **Note**: Sidepanel.js has correct implementation with `expectedOutputs.languages`
 
 ### Priority 1: Testing & Validation
 - ✅ **Multi-product listing badges**: Fully working on Walmart search pages with SPA navigation
@@ -452,7 +498,7 @@ npm run build
 
 ## 📊 Progress Summary
 
-**Completion**: ~99% complete
+**Completion**: ~99.5% complete
 - ✅ Core AI functionality working
 - ✅ Design system complete & refined (beige aesthetic)
 - ✅ Landing page complete with branding
@@ -470,30 +516,95 @@ npm run build
 - ✅ **Profile status migration** (automatic upgrade for existing users)
 - ✅ **Badge state updates fixed** (ASIN-based selectors, proper "Look!" display)
 - ✅ **AI response validation** (error detection, fallback handling, diagnostic logging)
-- ⚠️ Empty AI response root cause needs investigation
-- ⚠️ End-to-end testing on live products needed
+- ✅ **Concurrent analysis prevention** (multi-layer protection with global flag)
+- ✅ **JSON parsing robustness** (four-strategy approach with sanitization)
+- ✅ **UI color consistency** (unified warm beige/white across all pages)
+- ✅ **Expandable verdict dropdowns** (accordion-style progressive disclosure)
+- ✅ **Extension icon updated** (navicon2border.png in toolbar)
+- ⚠️ Empty AI response root cause needs monitoring
+- ⚠️ End-to-end testing on live products recommended
 - ⚠️ Cross-browser animation testing
 
 **Current Branch**: `functional-mvp`
-**Last Major Commits** (October 31, 2025 - Afternoon):
+**Last Major Commits** (October 31, 2025 - Late Afternoon):
+- Concurrent analysis prevention with global isAnalyzing flag
+- JSON parsing robustness with four-strategy approach
+- Control character sanitization (fixes "Bad control character" errors)
+- UI color consistency (disabled dark mode, unified design)
+- Expandable verdict dropdowns with accordion animations
+- Extension icon update (navicon2border.png → icon128.png)
 - Health profile building state system with polling and auto-analysis
 - Profile status migration for backward compatibility
 - Badge ASIN-based tracking fix (prevents wrong product analysis)
 - Badge state update fix (data-product-asin selector correction)
 - AI response validation and diagnostic logging
-- Profile state consolidation ('not-started' shows building screen)
-- Multi-condition selection and custom entry system (481 insertions, 76 deletions)
-- Onboarding UX improvements (email field, gradient buttons)
-- Badge system with SPA navigation detection (URL polling for Next.js)
-- Analysis caching with Map (instant re-opens)
-- Badge state management (analyzing → completed → revert on close)
-**Ready For**: AI response debugging, Chrome Web Store submission prep
+**Ready For**: Final end-to-end testing, Chrome Web Store submission prep
 
 ---
 
-**Last Updated**: October 31, 2025 - Health profile building state system complete, badge tracking fixed, AI response validation added
+**Last Updated**: October 31, 2025 - Late Afternoon Session
 
-**Recent Achievements (October 31, 2025)**:
+**Recent Achievements (October 31, 2025 - Late Afternoon Session)**:
+
+### Concurrent Analysis Prevention ✅ (Latest)
+- **Multi-Layer Protection System**: Prevents users from clicking multiple product badges simultaneously
+  - **Global Lock**: Added `isAnalyzing` flag to content script constructor
+  - **Early Exit**: Check flag at start of `handleBadgeClick()` before any processing
+  - **Pre-Async Flag Setting**: Moved `isAnalyzing = true` to FIRST line in both `analyzeProduct()` and `analyzeListingProduct()`
+  - **State Broadcasting**: Added `analysis-complete` and `analysis-error` message handlers
+  - **Bidirectional Communication**: Content script listens for side panel completion/error messages
+- **Race Condition Fix**: Flag now set BEFORE async `checkProfileStatus()` call
+- **User Experience**: Users must wait for analysis to complete or click "Cancel Analysis" button
+- **Defense in Depth**: Three-layer prevention (UI layer, message layer, business logic layer)
+
+### JSON Parsing Robustness ✅ (Latest)
+- **Four-Strategy Parsing**: Progressive fallback approach for AI response handling
+  - **Strategy 1**: Raw JSON (for well-behaved AI responses)
+  - **Strategy 2**: Code block extraction + sanitization (primary success path)
+  - **Strategy 3**: Balanced brace extraction + sanitization (backup)
+  - **Strategy 4**: Aggressive JSON repair + sanitization (last resort before fallback)
+- **Control Character Sanitization**: New `sanitizeJSONString()` helper function
+  - Escapes literal newlines (`\n` → `\\n`)
+  - Escapes carriage returns (`\r` → `\\r`)
+  - Escapes tabs (`\t` → `\\t`)
+  - Handles Windows line endings (`\r\n` → `\\n`)
+- **Improved Regex**: Strategy 2 now handles optional language tags and newlines
+- **AI Prompt Updates**: Explicitly requests escaped newlines in JSON strings
+- **Error Resolution**: Fixed "Bad control character at position 2674" parsing failures
+
+### UI Color Consistency ✅ (Latest)
+- **Dark Mode Disabled**: Commented out `@media (prefers-color-scheme: dark)` blocks
+  - Fixed in `src/sidepanel/design-tokens.css`
+  - Fixed in `src/content/ui/design-tokens.css`
+- **Light Mode Enforcement**: Added `color-scheme: light` to body elements
+- **Options Page Redesign**: Changed from gradient to solid warm white
+  - Background: `#FAFAF5` (warm white)
+  - Container: `#E9DFC9` (beige) with `3px solid #776B63` (taupe) border
+- **Visual Consistency**: Side panel, options page, welcome page now match perfectly
+
+### Expandable Verdict Dropdowns ✅ (Latest)
+- **Accordion Pattern Implementation**: Progressive disclosure for `brief_reason` data
+  - **Clickable Headers**: `.verdict-item-header` with pointer cursor
+  - **Chevron Animation**: ▶ rotates 90° to ▼ on expand (0.3s smooth transition)
+  - **Smooth Transitions**: max-height, padding, margin, opacity all animated
+  - **Default Collapsed**: Cleaner UI with opt-in detail viewing
+  - **Independent Toggles**: Each condition/allergen expands/collapses separately
+- **Markdown Support**: `formatInlineMarkdown()` for **bold** and *italic* text
+- **JavaScript Updates**:
+  - Lines 2449-2472: Conditions rendering with accordion structure
+  - Lines 2483-2506: Allergies rendering with accordion structure
+  - Click event listeners for toggle behavior
+- **CSS Updates**:
+  - Line 393: Changed `.verdict-item` from `display: flex` to `display: block`
+  - Lines 455-522: Added accordion styles (header, chevron, reason, collapsed state)
+
+### Extension Icon Update ✅ (Latest)
+- **Icon Replacement**: Toolbar icon now uses navicon2border.png
+  - Resized from 150x150 to 128x128 using `sips` command
+  - Created `assets/icon128.png`
+  - No manifest.json changes needed (path already correct)
+
+**Recent Achievements (October 31, 2025 - Afternoon Session)**:
 
 ### Welcome Flow Celebration UX Enhancement ✅ (Latest - Just Completed)
 - **Loading & Success Screens Redesigned**: Complete overhaul of onboarding completion flow

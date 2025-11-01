@@ -1097,12 +1097,26 @@ Product facts:
 Return ONLY this JSON structure (evaluate ALL user conditions and allergies listed above):
 
 ⚠️ CRITICAL FORMATTING RULES:
-- Return ONLY the JSON object below with NO additional text
-- DO NOT add explanations, notes, or commentary outside the JSON
-- DO NOT wrap in markdown code blocks or backticks
-- START your response with the opening { character
-- END your response with the closing } character
+- MUST wrap your response in markdown code fences: \`\`\`json ... \`\`\`
+- Return ONLY the JSON object with NO additional text before or after the code block
+- DO NOT add explanations, notes, or commentary outside the code block
+- Inside the code block, output valid JSON starting with { and ending with }
+- Use proper JSON string escaping: \\n for newlines, \\t for tabs, \\" for quotes
+- NEVER use literal newline characters (pressing Enter) inside JSON strings - always use \\n
+- For multi-line text, use \\n\\n to separate paragraphs (e.g., "First paragraph\\n\\nSecond paragraph")
 - Ensure all quotes and commas are valid JSON syntax
+- The JSON object must be complete and parseable
+
+CORRECT formatting example:
+{
+  "insights": "First sentence about the product.\\n\\nSecond sentence with more details."
+}
+
+INCORRECT - DO NOT use literal line breaks like this:
+{
+  "insights": "First sentence
+Second sentence"
+}
 
 {
   "conditions": [
@@ -1111,7 +1125,7 @@ Return ONLY this JSON structure (evaluate ALL user conditions and allergies list
   "allergies": [
     ${allergies.map(a => `{"name": "${a}", "verdict": "good|warning|bad|inconclusive", "brief_reason": "..."}`).join(',\n    ')}
   ],
-  "insights": "General analysis in 2-3 short paragraphs (2 sentences each) with markdown formatting",
+  "insights": "First sentence about product interaction. Second sentence with specific advice.\n\nThird sentence about risks. Fourth sentence with recommendation.",
   "caveat": "Brief important warning (40-50 words max)"
 }
 
@@ -1128,12 +1142,12 @@ For EACH allergen in the allergies array, check if the product contains that all
 - If allergen is detected: "bad"
 - If uncertain: "warning" or "inconclusive"
 
-Write 100-150 words total in the insights field as short paragraphs of EXACTLY 2 sentences each, with a blank line between each paragraph. Directly address the user with "you/your" language. Provide personalized insights based on their ${conditionsList}${allergies && allergies.length > 0 ? ` and allergen sensitivities (${allergies.join(', ')})` : ''}. Use **bold** for important ingredients or concerns, *italic* for emphasis, and regular bullet lists when listing multiple items. Focus on WHY this product matters for their specific health profile. Make it conversational as if speaking directly to them.
+Write 100-150 words total in the insights field as 2-3 short paragraphs of EXACTLY 2 sentences each. Separate paragraphs with blank lines (use natural paragraph breaks). Directly address the user with "you/your" language. Provide personalized insights based on their ${conditionsList}${allergies && allergies.length > 0 ? ` and allergen sensitivities (${allergies.join(', ')})` : ''}. Use **bold** for important ingredients or concerns, *italic* for emphasis. Focus on WHY this product matters for their specific health profile. Make it conversational as if speaking directly to them.
 
 IMPORTANT:
 - Always use "you/your" (e.g., "Given your ${conditionsList}...", "this could help you manage...") - NEVER use third person
 ${conditionsArray.length > 1 ? `- Consider ALL conditions (${conditionsList}) when providing insights\n` : ''}- Keep insights paragraphs to EXACTLY 2 sentences each for readability
-- Separate each 2-sentence paragraph with a blank line
+- Separate each 2-sentence paragraph with blank lines (natural paragraph formatting in JSON strings)
 - brief_reason fields should be 1-2 sentences, concise and specific to that condition/allergen
 
 For the caveat: Write a single concise sentence (40-50 words maximum) highlighting the most critical limitation or warning. Use **bold** for key terms if needed.`;
@@ -1225,62 +1239,98 @@ function generateEnhancedCustomGuidance(condition) {
 - Explain WHY and HOW each factor matters specifically for ${condition}`;
 }
 
-function parseVerdictResponse(response, facts, allergies, conditions = []) {
-  let verdict;
+/**
+ * Intelligently fixes literal control characters in JSON strings.
+ * Uses a state machine to only escape characters inside string values,
+ * preserving structural whitespace outside strings.
+ *
+ * This is needed because the AI sometimes returns literal newlines
+ * instead of escaped \n sequences, which breaks JSON.parse().
+ *
+ * @param {string} jsonStr - Raw JSON string potentially containing literal control chars
+ * @returns {string} - JSON string with control chars properly escaped
+ */
+function fixLiteralControlChars(jsonStr) {
+  let result = '';
+  let inString = false;
+  let prevChar = '';
 
-  // Log raw response for debugging (truncated)
+  for (let i = 0; i < jsonStr.length; i++) {
+    const char = jsonStr[i];
+
+    // Track if we're inside a string value (respect escaped quotes)
+    if (char === '"' && prevChar !== '\\') {
+      inString = !inString;
+      result += char;
+    }
+    // If inside string, escape control characters
+    else if (inString) {
+      if (char === '\n') result += '\\n';
+      else if (char === '\r') result += '\\r';
+      else if (char === '\t') result += '\\t';
+      else result += char;
+    }
+    // Outside string, keep as-is (structural whitespace is OK)
+    else {
+      result += char;
+    }
+
+    prevChar = char;
+  }
+
+  return result;
+}
+
+/**
+ * Parses AI verdict response with robust single-strategy approach.
+ *
+ * Process:
+ * 1. Extract JSON from markdown code fences if present
+ * 2. Pre-process with fixLiteralControlChars() to escape control characters
+ * 3. Parse with JSON.parse()
+ * 4. Validate and return, or fallback if parsing fails
+ *
+ * @param {string} response - Raw AI response
+ * @param {Object} facts - Product facts
+ * @param {Array} allergies - User allergies
+ * @param {Array} conditions - User health conditions
+ * @returns {Object} - Validated verdict object
+ */
+function parseVerdictResponse(response, facts, allergies, conditions = []) {
   console.log('Shop Well: Parsing AI response (length:', response.length, 'chars)');
   console.log('Shop Well: Response preview:', response.substring(0, 200));
 
-  // Strategy 1: Try parsing entire response as JSON (AI might return pure JSON)
+  // Step 1: Extract JSON from markdown code block if present
+  let jsonStr = response.trim();
+  const codeBlockMatch = jsonStr.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+  if (codeBlockMatch) {
+    jsonStr = codeBlockMatch[1].trim();
+    console.log('Shop Well: Extracted from markdown code block (length:', jsonStr.length, ')');
+  } else {
+    console.log('Shop Well: No markdown wrapper found, using raw response');
+  }
+
+  // Step 2: Pre-process to fix literal control characters (defensive safety net)
+  const fixedJSON = fixLiteralControlChars(jsonStr);
+  if (fixedJSON !== jsonStr) {
+    console.log('Shop Well: Pre-processed to escape literal control characters');
+  }
+
+  // Step 3: Parse JSON
   try {
-    verdict = JSON.parse(response.trim());
-    console.log('Shop Well: ✓ Parsed using Strategy 1 (raw JSON)');
+    const verdict = JSON.parse(fixedJSON);
+    console.log('Shop Well: ✓ Successfully parsed AI response');
     return validateVerdict(verdict, facts, allergies, conditions);
   } catch (e) {
-    console.log('Shop Well: Strategy 1 failed:', e.message);
+    // Parsing failed - log detailed error and use fallback
+    console.error('Shop Well: ✗ JSON parsing failed:', e.message);
+    console.error('Error position:', e.message.match(/position (\d+)/)?.[1] || 'unknown');
+    console.error('Problematic JSON (first 500 chars):', fixedJSON.substring(0, 500));
+    console.error('Problematic JSON (last 200 chars):', fixedJSON.substring(fixedJSON.length - 200));
+
+    const verdict = createFallbackVerdict(facts, allergies, conditions);
+    return validateVerdict(verdict, facts, allergies, conditions);
   }
-
-  // Strategy 2: Look for JSON in markdown code block (```json ... ```)
-  const codeBlockMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
-  if (codeBlockMatch) {
-    try {
-      verdict = JSON.parse(codeBlockMatch[1]);
-      console.log('Shop Well: ✓ Parsed using Strategy 2 (code block)');
-      return validateVerdict(verdict, facts, allergies, conditions);
-    } catch (e) {
-      console.log('Shop Well: Strategy 2 failed:', e.message);
-    }
-  }
-
-  // Strategy 3: Find first complete JSON object by counting balanced braces
-  const startIdx = response.indexOf('{');
-  if (startIdx !== -1) {
-    let depth = 0;
-    for (let i = startIdx; i < response.length; i++) {
-      if (response[i] === '{') depth++;
-      if (response[i] === '}') depth--;
-      if (depth === 0) {
-        try {
-          const jsonString = response.substring(startIdx, i + 1);
-          verdict = JSON.parse(jsonString);
-          console.log('Shop Well: ✓ Parsed using Strategy 3 (balanced braces)');
-          return validateVerdict(verdict, facts, allergies, conditions);
-        } catch (e) {
-          console.log('Shop Well: Strategy 3 failed:', e.message);
-        }
-        break;
-      }
-    }
-  }
-
-  // All strategies failed - use fallback
-  console.error('Shop Well: ✗ All JSON parsing strategies failed');
-  console.error('AI response (first 500 chars):', response.substring(0, 500));
-  console.error('AI response (last 200 chars):', response.substring(response.length - 200));
-
-  verdict = createFallbackVerdict(facts, allergies, conditions);
-  return validateVerdict(verdict, facts, allergies, conditions);
 }
 
 function validateVerdict(verdict, facts, allergies, conditions = []) {
@@ -1721,16 +1771,51 @@ class SidePanelUI {
     // Setup event listeners
     this.setupEventListeners();
 
-    // Detect side panel close and clear badge states
+    // Detect side panel close and perform comprehensive cleanup
     window.addEventListener('beforeunload', () => {
-      console.log('Shop Well: Side panel closing, clearing badge states...');
+      console.log('Shop Well: Side panel closing, performing comprehensive cleanup...');
+
+      // 1. Reset analyzing state (allows new analyses after reopen)
+      this.isAnalyzing = false;
+      console.log('Shop Well: Reset isAnalyzing flag');
+
+      // 2. Clear current product data
+      this.currentProductData = null;
+      this.currentFacts = null;
+      console.log('Shop Well: Cleared current product data and facts');
+
+      // 3. Destroy cached AI sessions to free memory
+      if (this.cachedSummarizer) {
+        try {
+          this.cachedSummarizer.destroy();
+          console.log('Shop Well: Destroyed cached Summarizer session');
+        } catch (err) {
+          console.warn('Shop Well: Failed to destroy summarizer:', err);
+        }
+        this.cachedSummarizer = null;
+      }
+
+      if (this.cachedLanguageModel) {
+        try {
+          this.cachedLanguageModel.destroy();
+          console.log('Shop Well: Destroyed cached LanguageModel session');
+        } catch (err) {
+          console.warn('Shop Well: Failed to destroy language model:', err);
+        }
+        this.cachedLanguageModel = null;
+      }
+
+      // 4. Notify content script to reset ALL badge states (including "Analyzing...")
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0]) {
           chrome.tabs.sendMessage(tabs[0].id, {
-            type: 'clear-all-active-badges'
+            type: 'side-panel-closed'
           });
+          console.log('Shop Well: Sent side-panel-closed message to content script');
         }
       });
+
+      console.log('Shop Well: Cleanup complete');
     });
 
     // Update settings link with extension ID
@@ -1839,6 +1924,13 @@ class SidePanelUI {
     // Listen for messages from content script/background
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.type === 'analyze-product') {
+        // Prevent starting new analysis if one is already in progress
+        if (this.isAnalyzing) {
+          console.warn('Shop Well: Analysis already in progress, ignoring analyze-product request');
+          sendResponse({ success: false, error: 'Analysis in progress' });
+          return true;
+        }
+
         // Clear the message received timer
         if (this.messageReceivedTimer) {
           clearTimeout(this.messageReceivedTimer);
@@ -1847,6 +1939,13 @@ class SidePanelUI {
         this.analyzeProduct(message.productData);
         sendResponse({ success: true });
       } else if (message.type === 'analyze-listing-product') {
+        // Prevent starting new analysis if one is already in progress
+        if (this.isAnalyzing) {
+          console.warn('Shop Well: Analysis already in progress, ignoring analyze-listing-product request');
+          sendResponse({ success: false, error: 'Analysis in progress' });
+          return true;
+        }
+
         // Clear the message received timer
         if (this.messageReceivedTimer) {
           clearTimeout(this.messageReceivedTimer);
@@ -2300,6 +2399,15 @@ Write 300-400 words in a clear, factual tone. Focus on actionable insights that 
     }
     this.currentState = 'error';
     console.log('Shop Well: Showing error state:', errorMessage);
+
+    // Notify content script that analysis ended with error (reset analyzing state)
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]) {
+        chrome.tabs.sendMessage(tabs[0].id, {
+          type: 'analysis-error'
+        });
+      }
+    });
   }
 
   showPreviewWithProgress(productData, progressMessage = '🔍 Analyzing product details...') {
@@ -2390,10 +2498,29 @@ Write 300-400 words in a clear, factual tone. Focus on actionable insights that 
     if (conditionsList && verdict.conditions && verdict.conditions.length > 0) {
       conditionsList.innerHTML = verdict.conditions.map(c => `
         <div class="verdict-item verdict-${c.verdict}">
-          <span class="verdict-name">${c.name}</span>
-          <span class="verdict-badge-inline">${getVerdictEmoji(c.verdict)} ${getVerdictLabel(c.verdict)}</span>
+          <div class="verdict-item-header">
+            <div class="verdict-header-left">
+              <span class="verdict-chevron">▶</span>
+              <span class="verdict-name">${c.name}</span>
+            </div>
+            <span class="verdict-badge-inline">${getVerdictEmoji(c.verdict)} ${getVerdictLabel(c.verdict)}</span>
+          </div>
+          ${c.brief_reason ? `<div class="verdict-reason collapsed">${formatInlineMarkdown(c.brief_reason)}</div>` : ''}
         </div>
       `).join('');
+
+      // Add click handlers for accordion toggle
+      conditionsList.querySelectorAll('.verdict-item-header').forEach(header => {
+        header.addEventListener('click', () => {
+          const item = header.closest('.verdict-item');
+          const reason = item.querySelector('.verdict-reason');
+          if (reason) {
+            item.classList.toggle('expanded');
+            reason.classList.toggle('collapsed');
+          }
+        });
+      });
+
       if (conditionsSection) conditionsSection.classList.remove('hidden');
     } else {
       if (conditionsSection) conditionsSection.classList.add('hidden');
@@ -2405,10 +2532,29 @@ Write 300-400 words in a clear, factual tone. Focus on actionable insights that 
     if (allergiesList && verdict.allergies && verdict.allergies.length > 0) {
       allergiesList.innerHTML = verdict.allergies.map(a => `
         <div class="verdict-item verdict-${a.verdict}">
-          <span class="verdict-name">${a.name.charAt(0).toUpperCase() + a.name.slice(1)}</span>
-          <span class="verdict-badge-inline">${getVerdictEmoji(a.verdict)} ${getVerdictLabel(a.verdict)}</span>
+          <div class="verdict-item-header">
+            <div class="verdict-header-left">
+              <span class="verdict-chevron">▶</span>
+              <span class="verdict-name">${a.name.charAt(0).toUpperCase() + a.name.slice(1)}</span>
+            </div>
+            <span class="verdict-badge-inline">${getVerdictEmoji(a.verdict)} ${getVerdictLabel(a.verdict)}</span>
+          </div>
+          ${a.brief_reason ? `<div class="verdict-reason collapsed">${formatInlineMarkdown(a.brief_reason)}</div>` : ''}
         </div>
       `).join('');
+
+      // Add click handlers for accordion toggle
+      allergiesList.querySelectorAll('.verdict-item-header').forEach(header => {
+        header.addEventListener('click', () => {
+          const item = header.closest('.verdict-item');
+          const reason = item.querySelector('.verdict-reason');
+          if (reason) {
+            item.classList.toggle('expanded');
+            reason.classList.toggle('collapsed');
+          }
+        });
+      });
+
       if (allergiesSection) allergiesSection.classList.remove('hidden');
     } else {
       if (allergiesSection) allergiesSection.classList.add('hidden');
@@ -2500,6 +2646,15 @@ Write 300-400 words in a clear, factual tone. Focus on actionable insights that 
     this.currentState = 'analysis';
     console.log('Shop Well: Showing analysis state');
 
+    // Notify content script that side panel analysis is complete (reset analyzing state)
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]) {
+        chrome.tabs.sendMessage(tabs[0].id, {
+          type: 'analysis-complete'
+        });
+      }
+    });
+
     // Notify content script that analysis is complete (update badge to "Look!" and cache results)
     if (this.currentProductData && this.currentProductData.position !== undefined) {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -2547,6 +2702,10 @@ Write 300-400 words in a clear, factual tone. Focus on actionable insights that 
   async analyzeProduct(productData) {
     console.log('Shop Well: Starting product analysis...', productData);
 
+    // Set analyzing state IMMEDIATELY (before any async operations)
+    this.isAnalyzing = true;
+    this.currentProductData = productData;
+
     // Check profile status before starting analysis
     const profileCheck = await this.checkProfileStatus();
 
@@ -2554,16 +2713,16 @@ Write 300-400 words in a clear, factual tone. Focus on actionable insights that 
       console.log('Shop Well: Health profile is still building or not started, waiting...');
       this.pendingProductData = productData;
       this.showProfileBuilding();
+      // Keep isAnalyzing = true during profile building
       return;
     } else if (profileCheck.status === 'error') {
       console.log('Shop Well: Health profile generation failed');
+      this.isAnalyzing = false; // Reset flag on error
       this.showError('Health profile generation failed. Please visit the Settings page to regenerate your profile.');
       return;
     }
 
     // Profile is complete, proceed with analysis
-    this.currentProductData = productData;
-    this.isAnalyzing = true;
     this.showLoading();
 
     console.log('Shop Well: Profile ready, continuing with analysis...');
@@ -2680,6 +2839,10 @@ Write 300-400 words in a clear, factual tone. Focus on actionable insights that 
   async analyzeListingProduct(productData) {
     console.log('Shop Well: Analyzing listing product with progressive loading...', productData);
 
+    // Set analyzing state IMMEDIATELY (before any async operations)
+    this.isAnalyzing = true;
+    this.currentProductData = productData;
+
     // Check profile status before starting analysis
     const profileCheck = await this.checkProfileStatus();
 
@@ -2687,15 +2850,16 @@ Write 300-400 words in a clear, factual tone. Focus on actionable insights that 
       console.log('Shop Well: Health profile is still building or not started, waiting...');
       this.pendingProductData = productData;
       this.showProfileBuilding();
+      // Keep isAnalyzing = true during profile building
       return;
     } else if (profileCheck.status === 'error') {
       console.log('Shop Well: Health profile generation failed');
+      this.isAnalyzing = false; // Reset flag on error
       this.showError('Health profile generation failed. Please visit the Settings page to regenerate your profile.');
       return;
     }
 
     // Profile is complete, proceed with analysis
-    this.currentProductData = productData;
     console.log('Shop Well: Profile ready, continuing with analysis...');
 
     // Clear all other "Look!" badges before analyzing new product
@@ -2771,6 +2935,12 @@ Write 300-400 words in a clear, factual tone. Focus on actionable insights that 
         console.warn('Shop Well: Failed to fetch product data:', error);
         // Fall back to title-only analysis
         fetchResult = null;
+      }
+
+      // Abort check: Stop if panel was closed during product fetch
+      if (!this.isAnalyzing) {
+        console.log('Shop Well: Analysis aborted after product fetch (panel closed)');
+        return;
       }
 
       // ===================================================================
@@ -2851,6 +3021,12 @@ Write 300-400 words in a clear, factual tone. Focus on actionable insights that 
           }
         }
 
+        // Abort check: Stop if panel was closed during fact extraction
+        if (!this.isAnalyzing) {
+          console.log('Shop Well: Analysis aborted after fact extraction (panel closed)');
+          return;
+        }
+
         // Create facts if summarizer didn't work
         if (!facts) {
           facts = createFallbackFacts(fullProductData);
@@ -2870,6 +3046,12 @@ Write 300-400 words in a clear, factual tone. Focus on actionable insights that 
           if (verdictResult.languageModel) {
             this.cachedLanguageModel = verdictResult.languageModel;
           }
+        }
+
+        // Abort check: Stop if panel was closed during verdict generation
+        if (!this.isAnalyzing) {
+          console.log('Shop Well: Analysis aborted after verdict generation (panel closed)');
+          return;
         }
 
         if (!verdict) {
@@ -2922,6 +3104,7 @@ Write 300-400 words in a clear, factual tone. Focus on actionable insights that 
       // ===================================================================
       // PHASE 5: Display final results
       // ===================================================================
+      this.isAnalyzing = false;
       this.showAnalysis(fullProductData, facts, verdict);
 
     } catch (error) {

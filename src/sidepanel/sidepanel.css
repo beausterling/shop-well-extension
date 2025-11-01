@@ -20,6 +20,7 @@ body {
   line-height: 1.6;
   color: #3D3D3D; /* Charcoal text */
   background: #FAFAF5; /* Warm White background */
+  color-scheme: light; /* Force light mode */
   overflow-x: hidden;
 }
 
@@ -389,9 +390,7 @@ body {
 }
 
 .verdict-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: block; /* Changed from flex to allow stacking header + content */
   padding: 12px 14px;
   background: white;
   border-radius: var(--radius-md);
@@ -451,6 +450,75 @@ body {
 .verdict-inconclusive .verdict-badge-inline {
   background: #E9DFC9;
   color: #9A8C82;
+}
+
+/* Accordion-style verdict items */
+.verdict-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  width: 100%;
+  user-select: none; /* Prevent text selection on double-click */
+}
+
+.verdict-item-header:hover {
+  opacity: 0.85;
+}
+
+.verdict-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.verdict-chevron {
+  font-size: 10px;
+  transition: transform 0.3s ease;
+  color: #776B63; /* Taupe */
+  display: inline-block;
+  min-width: 12px;
+  text-align: center;
+}
+
+.verdict-item.expanded .verdict-chevron {
+  transform: rotate(90deg); /* ▶ → ▼ */
+}
+
+.verdict-reason {
+  max-height: 500px;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease, margin 0.3s ease, opacity 0.3s ease;
+  padding-top: 12px;
+  margin-top: 8px;
+  border-top: 1px solid #E5DFD9; /* Light taupe */
+  opacity: 1;
+}
+
+.verdict-reason.collapsed {
+  max-height: 0;
+  padding-top: 0;
+  margin-top: 0;
+  border-top: none;
+  opacity: 0;
+}
+
+.verdict-reason p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #3D3D3D; /* Charcoal */
+  margin: 0;
+}
+
+/* Support markdown in reason */
+.verdict-reason strong {
+  font-weight: 600;
+  color: #5A9D68; /* Darker green for emphasis */
+}
+
+.verdict-reason em {
+  font-style: italic;
+  color: #776B63; /* Taupe for subtle emphasis */
 }
 
 .condition-info {

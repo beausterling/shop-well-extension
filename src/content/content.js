@@ -27,6 +27,7 @@ class ProductExtractor {
     this.mutationObserver = null; // Observer for dynamic content
     this.urlPoller = null; // Interval ID for URL polling
     this.lastUrl = window.location.href; // Track last known URL
+    this.isAnalyzing = false; // Global flag to prevent concurrent analyses
   }
 
   init() {
@@ -520,6 +521,12 @@ class ProductExtractor {
   handleBadgeClick(productId) {
     console.log('Shop Well: Badge clicked for product ASIN:', productId);
 
+    // Prevent ANY badge clicks while analysis is in progress (global lock)
+    if (this.isAnalyzing) {
+      console.log('Shop Well: Analysis already in progress, ignoring badge click');
+      return;
+    }
+
     // Look up the current product data by ASIN from the listingProducts array
     // This ensures we always use the most up-to-date product data
     const product = this.listingProducts.find(p => p.id === productId);
@@ -530,6 +537,12 @@ class ProductExtractor {
     }
 
     const badge = document.querySelector(`.shop-well-badge[data-product-asin="${productId}"]`);
+
+    // Prevent clicking on badges that are already analyzing
+    if (badge && badge.classList.contains('analyzing')) {
+      console.log('Shop Well: Badge already analyzing, ignoring click');
+      return;
+    }
 
     // Always run fresh analysis (no caching)
     console.log('Shop Well: Starting fresh analysis');
@@ -550,6 +563,9 @@ class ProductExtractor {
       return;
     }
 
+    // Set global analyzing flag BEFORE sending message
+    this.isAnalyzing = true;
+
     // Send message to background to open side panel and analyze
     // Wrap in try-catch to catch any synchronous chrome API errors
     try {
@@ -559,17 +575,27 @@ class ProductExtractor {
       }, (response) => {
         if (chrome.runtime.lastError) {
           console.error('Shop Well: Failed to send listing product message:', chrome.runtime.lastError);
+          this.isAnalyzing = false; // Reset on error
           if (badge) {
             badge.classList.remove('analyzing');
             badge.innerHTML = '❌ Error';
           }
+        } else if (response && !response.success) {
+          console.warn('Shop Well: Analysis request rejected:', response.error);
+          this.isAnalyzing = false; // Reset when rejected
+          if (badge) {
+            badge.classList.remove('analyzing');
+            badge.innerHTML = '🌿 Analyze';
+          }
         } else {
           console.log('Shop Well: Listing product analysis request sent to background');
           // Badge stays in "analyzing" state - check side panel for results
+          // isAnalyzing will be reset by 'analysis-complete' or 'analysis-error' message
         }
       });
     } catch (error) {
       console.error('Shop Well: Extension context error:', error);
+      this.isAnalyzing = false; // Reset on error
       if (badge) {
         badge.classList.remove('analyzing');
         badge.innerHTML = '🔄 Refresh Page';
@@ -618,13 +644,20 @@ class ProductExtractor {
       }
 
       if (message.type === 'side-panel-closed') {
-        // Revert all completed badges to normal state when side panel closes
-        console.log('Shop Well: Side panel closed, reverting all completed badges');
-        const completedBadges = document.querySelectorAll('.shop-well-badge.completed');
-        completedBadges.forEach(badge => {
-          badge.classList.remove('completed');
+        // Reset ALL badges (both "analyzing" and "completed") and global analyzing flag
+        console.log('Shop Well: Side panel closed, resetting all badge states and analyzing flag');
+
+        // Reset ALL badges to default state (not just completed ones)
+        const allBadges = document.querySelectorAll('.shop-well-badge');
+        allBadges.forEach(badge => {
+          badge.classList.remove('analyzing', 'completed');
           badge.textContent = 'Analyze';
         });
+
+        // Reset global analyzing flag to allow new analyses
+        this.isAnalyzing = false;
+
+        console.log(`Shop Well: Reset ${allBadges.length} badges and cleared analyzing state`);
         return false;
       }
 
@@ -636,6 +669,20 @@ class ProductExtractor {
           badge.classList.remove('completed');
           badge.textContent = 'Analyze';
         });
+        return false;
+      }
+
+      if (message.type === 'analysis-complete') {
+        // Side panel analysis completed - reset global analyzing flag
+        console.log('Shop Well: Analysis complete, resetting analyzing state');
+        this.isAnalyzing = false;
+        return false;
+      }
+
+      if (message.type === 'analysis-error') {
+        // Side panel analysis errored - reset global analyzing flag
+        console.log('Shop Well: Analysis error, resetting analyzing state');
+        this.isAnalyzing = false;
         return false;
       }
 

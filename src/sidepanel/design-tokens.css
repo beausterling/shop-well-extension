@@ -122,7 +122,9 @@
   --z-max: 999999; /* For extension overlays */
 }
 
-/* 🌓 Dark Mode Overrides (if needed) */
+/* 🌓 Dark Mode Overrides - DISABLED to maintain consistent light theme */
+/* Shop Well uses a warm, light design across all pages for brand consistency */
+/*
 @media (prefers-color-scheme: dark) {
   :root {
     --sw-white: #2D2D2D;
@@ -132,6 +134,7 @@
     --border-color: #4A4A4A;
   }
 }
+*/
 
 /* ♿ Reduced Motion Support */
 @media (prefers-reduced-motion: reduce) {
